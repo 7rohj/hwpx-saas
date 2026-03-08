@@ -1,0 +1,110 @@
+{
+  "templateId": "",
+  "output_filename": "출력문서.hwpx",
+
+  "elements": [
+    {
+      "placeholder": "title",
+      "type": "text",
+      "content": "교통사고 발생 현황",
+      "style": {
+        "font_family": "맑은 고딕",
+        "font_size": 24,
+        "bold": true,
+        "align": "center",
+        "color": "#000000"
+      }
+    },
+
+    {
+      "placeholder": "subtitle",
+      "type": "text",
+      "content": "2021년 ~ 2023년 통계",
+      "style": {
+        "font_family": "맑은 고딕",
+        "font_size": 14,
+        "italic": true,
+        "underline": true,
+        "align": "center",
+        "color": "#666666"
+      }
+    },
+
+    {
+      "placeholder": "desc",
+      "type": "text",
+      "content": "본 문서는 최근 3년간 교통사고 발생 현황을 정리한 자료입니다.\n 각 항목은 경찰청 통계를 기반으로 작성되었습니다.",
+      "style": {
+        "font_family": "맑은 고딕",
+        "font_size": 11,
+        "align": "center",
+        "multiline": "auto",
+        "line_spacing": 110,
+        "color": "#000000"
+      }
+    },
+
+    {
+      "placeholder": "acs",
+      "type": "text",
+      "content": "문단 위아래 간격 테스트입니다.",
+      "style": {
+        "font_family": "맑은 고딕",
+        "font_size": 11,
+        "align": "center",
+
+        "space_before": 10,
+        "space_after": 12
+      }
+    },
+
+    {
+      "placeholder": "sibal",
+      "type": "table",
+      "data": [
+        ["구분", "발생건수(건)", "사망자수(명)", "중상자수(명)", "경상자수(명)"],
+        ["2021년", "2", "–", "2", "–"],
+        ["2022년", "1", "–", "–", "2"],
+        ["2023년", "5", "–", "1", "8"]
+      ],
+
+      "style": {
+        "headerRow": 0,
+        "repeatHeader": true,
+        "columnWidths": [110,110,110,110,110],
+        "border": {
+          "outer": { "style": "hidden" },
+          "inner": { "style": "solid", "width": 0.12, "color": "#808080" },
+          
+          "header": {
+            "bottom": { "style": "solid", "width": 0.3, "color": "#808080" },
+            "verticalInner": { "style": "solid", "width": 0.3, "color": "#000ee" }
+          },
+
+          "lastRow": {
+            "bottom": { "style": "solid", "width": 0.3, "color": "#808080" }
+          }
+        },
+        
+        "borderVariation": [{ "row": "last", "bottom": { "style": "solid", "width": 0.3, "color": "#ff0000" } }],
+
+        "headerCell": {
+          "backgroundColor": "#CCCCCC",
+          "padding": { "left": 1.8, "right": 1.8, "top": 0.5, "bottom": 0.5 },
+          "textAlign": { "horizontal": "center", "vertical": "middle" }
+        },
+
+        "bodyCell": {
+          "backgroundColor": "#ffffff",
+          "padding": { "left": 1.8, "right": 1.8, "top": 0.5, "bottom": 0.5 },
+          "textAlign": { "horizontal": "center", "vertical": "middle" }
+        }
+      }
+    }
+  ],
+
+  "global_variables": {
+    "author": "홍길동",
+    "date": "2026-01-28"
+  }
+}
