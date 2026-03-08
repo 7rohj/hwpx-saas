@@ -110,7 +110,7 @@ public class GenerateController {
       detail.put("missingPlaceholders", missing);
       detail.put("availablePlaceholdersCount", vars.size());
       //detail.put("availavlePlaceholders", vars);
-      throw new ApiException(ErrorCode.BAD_REQUEST, "unknown placeholder(s) requested", detail);
+      throw new ApiException(ErrorCode.INVALID_REQUEST, "unknown placeholder(s) requested", detail);
     }
 
     // output file name
