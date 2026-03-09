@@ -17,17 +17,21 @@ public class GenerateRequestValidator {
     List<ValidationErrorDetail> errors = new ArrayList<>();
 
     if (req == null) {
-      errors.add(err("request", "request body is required"));
+      errors.add(err("request", "요청 본문이 필요합니다."));
       throwInvalidRequest(errors);
     }
 
+    if (req.templateId == null || req.templateId.isBlank()) {
+      errors.add(err("templateId", "templateId 값이 필요합니다."));
+    }
+
     if (req.elements == null) {
-      errors.add(err("elements", "elements is required"));
+      errors.add(err("elements", "elements 값이 필요합니다."));
       throwInvalidRequest(errors);
     }
 
     if (req.elements.isEmpty()) {
-      errors.add(err("elements", "elements must not be empty"));
+      errors.add(err("elements", "elements는 비어 있을 수 없습니다."));
       throwInvalidRequest(errors);
     }
 
@@ -38,7 +42,7 @@ public class GenerateRequestValidator {
       String base = "elements[" + i + "]";
 
       if (el == null) {
-        errors.add(err(base, "element must not be null"));
+        errors.add(err(base, "element는 null일 수 없습니다."));
         continue;
       }
 
@@ -46,20 +50,20 @@ public class GenerateRequestValidator {
       String type = str(el.get("type"));
 
       if (placeholder.isBlank()) {
-        errors.add(err(base + ".placeholder", "placeholder is required"));
+        errors.add(err(base + ".placeholder", "placeholder 값이 필요합니다."));
       } else {
         if (!placeholders.add(placeholder)) {
-          errors.add(err(base + ".placeholder", "placeholder must be unique: " + placeholder));
+          errors.add(err(base + ".placeholder", "placeholder 값은 중복될 수 없습니다: " + placeholder));
         }
       }
 
       if (type.isBlank()) {
-        errors.add(err(base + ".type", "type is required"));
+        errors.add(err(base + ".type", "type 값이 필요합니다."));
         continue;
       }
 
       if (!"text".equalsIgnoreCase(type) && !"table".equalsIgnoreCase(type)) {
-        errors.add(err(base + ".type", "type must be either 'text' or 'table'"));
+        errors.add(err(base + ".type", "type 값은 text 또는 table 이어야 합니다."));
         continue;
       }
 
@@ -83,12 +87,12 @@ public class GenerateRequestValidator {
       List<ValidationErrorDetail> errors
   ) {
     if (!el.containsKey("content")) {
-      errors.add(err(base + ".content", "content is required for text type"));
+      errors.add(err(base + ".content", "text 타입 요소에는 content 값이 필요합니다."));
     }
 
     Object styleObj = el.get("style");
     if (styleObj != null && !(styleObj instanceof Map<?, ?>)) {
-      errors.add(err(base + ".style", "style must be an object"));
+      errors.add(err(base + ".style", "style은 객체 형태여야 합니다."));
       return;
     }
 
@@ -135,12 +139,12 @@ public class GenerateRequestValidator {
   ) {
     Object dataObj = el.get("data");
     if (!(dataObj instanceof List<?> rows)) {
-      errors.add(err(base + ".data", "data is required for table type and must be a 2D array"));
+      errors.add(err(base + ".data", "table 타입 요소에는 2차원 배열 형태의 data 값이 필요합니다."));
       return;
     }
 
     if (rows.isEmpty()) {
-      errors.add(err(base + ".data", "data must not be empty"));
+      errors.add(err(base + ".data", "data는 비어 있을 수 없습니다."));
       return;
     }
 
@@ -149,26 +153,26 @@ public class GenerateRequestValidator {
     for (int r = 0; r < rows.size(); r++) {
       Object rowObj = rows.get(r);
       if (!(rowObj instanceof List<?> row)) {
-        errors.add(err(base + ".data[" + r + "]", "each row must be an array"));
+        errors.add(err(base + ".data[" + r + "]", "각 행(row)은 배열 형태여야 합니다."));
         continue;
       }
 
       if (expectedCols == -1) {
         expectedCols = row.size();
         if (expectedCols == 0) {
-          errors.add(err(base + ".data[0]", "row must not be empty"));
+          errors.add(err(base + ".data[0]", "행(row)은 비어 있을 수 없습니다."));
         }
       } else if (row.size() != expectedCols) {
         errors.add(err(
             base + ".data[" + r + "]",
-            "all rows must have the same number of columns; expected " + expectedCols + " but got " + row.size()
+            "모든 행의 열 개수가 동일해야 합니다. 기대값은 " + expectedCols + "개인데, 실제 값은 " + row.size() + "개입니다."
         ));
       }
     }
 
     Object styleObj = el.get("style");
     if (styleObj != null && !(styleObj instanceof Map<?, ?>)) {
-      errors.add(err(base + ".style", "style must be an object"));
+      errors.add(err(base + ".style", "style은 객체 형태여야 합니다."));
       return;
     }
 
@@ -185,7 +189,7 @@ public class GenerateRequestValidator {
         if (headerRow < -1 || headerRow >= rows.size()) {
           errors.add(err(
               base + ".style.headerRow",
-              "headerRow is out of range; must be between -1 and " + (rows.size() - 1)
+              "headerRow 값이 범위를 벗어났습니다. -1 이상 " + (rows.size() - 1) + " 이하이어야 합니다."
           ));
         }
       }
@@ -193,12 +197,12 @@ public class GenerateRequestValidator {
       Object cwObj = style.get("columnWidths");
       if (cwObj != null) {
         if (!(cwObj instanceof List<?> widths)) {
-          errors.add(err(base + ".style.columnWidths", "columnWidths must be an array"));
+          errors.add(err(base + ".style.columnWidths", "columnWidths는 배열 형태여야 합니다."));
         } else {
           if (expectedCols > -1 && widths.size() != expectedCols) {
             errors.add(err(
                 base + ".style.columnWidths",
-                "columnWidths size must match the number of columns; expected " + expectedCols + " but got " + widths.size()
+                "columnWidths 배열의 길이는 테이블의 열 개수와 동일해야 합니다. 기대값은 " + expectedCols + "개인데, 실제 값은 " + widths.size() + "개입니다."
             ));
           }
 
@@ -206,7 +210,7 @@ public class GenerateRequestValidator {
             if (!isNumericOrUnitString(widths.get(i))) {
               errors.add(err(
                   base + ".style.columnWidths[" + i + "]",
-                  "each column width must be a number or a unit string like '20mm'"
+                  "각 열 너비는 숫자 또는 '20mm'와 같은 단위 문자열이어야 합니다."
               ));
             }
           }
@@ -234,7 +238,7 @@ public class GenerateRequestValidator {
     if (borderObj == null) return;
 
     if (!(borderObj instanceof Map<?, ?> raw)) {
-      errors.add(err(base, "border must be an object"));
+      errors.add(err(base, "border는 객체 형태여야 합니다."));
       return;
     }
 
@@ -247,7 +251,7 @@ public class GenerateRequestValidator {
     Object headerObj = border.get("header");
     if (headerObj != null) {
       if (!(headerObj instanceof Map<?, ?> hRaw)) {
-        errors.add(err(base + ".header", "header must be an object"));
+        errors.add(err(base + ".header", "header는 객체 형태여야 합니다."));
       } else {
         @SuppressWarnings("unchecked")
         Map<String, Object> header = (Map<String, Object>) hRaw;
@@ -263,7 +267,7 @@ public class GenerateRequestValidator {
     Object lastRowObj = border.get("lastRow");
     if (lastRowObj != null) {
       if (!(lastRowObj instanceof Map<?, ?> lRaw)) {
-        errors.add(err(base + ".lastRow", "lastRow must be an object"));
+        errors.add(err(base + ".lastRow", "lastRow는 객체 형태여야 합니다."));
       } else {
         @SuppressWarnings("unchecked")
         Map<String, Object> lastRow = (Map<String, Object>) lRaw;
@@ -283,7 +287,7 @@ public class GenerateRequestValidator {
     if (obj == null) return;
 
     if (!(obj instanceof List<?> items)) {
-      errors.add(err(base, "borderVariation must be an array"));
+      errors.add(err(base, "borderVariation은 배열 형태여야 합니다."));
       return;
     }
 
@@ -292,7 +296,7 @@ public class GenerateRequestValidator {
       String itemBase = base + "[" + i + "]";
 
       if (!(item instanceof Map<?, ?> raw)) {
-        errors.add(err(itemBase, "each borderVariation rule must be an object"));
+        errors.add(err(itemBase, "각 borderVariation 규칙은 객체 형태여야 합니다."));
         continue;
       }
 
@@ -300,7 +304,7 @@ public class GenerateRequestValidator {
       Map<String, Object> rule = (Map<String, Object>) raw;
 
       if (!rule.containsKey("row") && !rule.containsKey("col")) {
-        errors.add(err(itemBase, "borderVariation rule must contain 'row' or 'col'"));
+        errors.add(err(itemBase, "borderVariation 규칙에는 row 또는 col 조건이 필요합니다."));
       }
 
       validateBorderSpec(rule.get("top"), itemBase + ".top", errors);
@@ -320,7 +324,7 @@ public class GenerateRequestValidator {
     if (obj == null) return;
 
     if (!(obj instanceof Map<?, ?> raw)) {
-      errors.add(err(base, "cell style must be an object"));
+      errors.add(err(base, "셀 스타일은 객체 형태여야 합니다."));
       return;
     }
 
@@ -340,7 +344,7 @@ public class GenerateRequestValidator {
     Object paddingObj = m.get("padding");
     if (paddingObj != null) {
       if (!(paddingObj instanceof Map<?, ?> pRaw)) {
-        errors.add(err(base + ".padding", "padding must be an object"));
+        errors.add(err(base + ".padding", "padding은 객체 형태여야 합니다."));
       } else {
         @SuppressWarnings("unchecked")
         Map<String, Object> p = (Map<String, Object>) pRaw;
@@ -354,7 +358,7 @@ public class GenerateRequestValidator {
     Object textAlignObj = m.get("textAlign");
     if (textAlignObj != null) {
       if (!(textAlignObj instanceof Map<?, ?> tRaw)) {
-        errors.add(err(base + ".textAlign", "textAlign must be an object"));
+        errors.add(err(base + ".textAlign", "textAlign은 객체 형태여야 합니다."));
       } else {
         @SuppressWarnings("unchecked")
         Map<String, Object> t = (Map<String, Object>) tRaw;
@@ -382,7 +386,7 @@ public class GenerateRequestValidator {
       List<ValidationErrorDetail> errors
   ) {
     if (!(obj instanceof List<?> items)) {
-      errors.add(err(base, "merge_cells must be an array"));
+      errors.add(err(base, "merge_cells는 배열 형태여야 합니다."));
       return;
     }
 
@@ -391,7 +395,7 @@ public class GenerateRequestValidator {
       String itemBase = base + "[" + i + "]";
 
       if (!(item instanceof Map<?, ?> raw)) {
-        errors.add(err(itemBase, "each merge_cells rule must be an object"));
+        errors.add(err(itemBase, "각 merge_cells 규칙은 객체 형태여야 합니다."));
         continue;
       }
 
@@ -402,22 +406,22 @@ public class GenerateRequestValidator {
       int[] end = readIndexPair(rule.get("end"));
 
       if (start == null) {
-        errors.add(err(itemBase + ".start", "start must be [row, col]"));
+        errors.add(err(itemBase + ".start", "start는 [row, col] 형식이어야 합니다."));
         continue;
       }
       if (end == null) {
-        errors.add(err(itemBase + ".end", "end must be [row, col]"));
+        errors.add(err(itemBase + ".end", "end는 [row, col] 형식이어야 합니다."));
         continue;
       }
 
       if (start[0] < 0 || start[0] >= rowCount || start[1] < 0 || start[1] >= colCount) {
-        errors.add(err(itemBase + ".start", "start is out of table range"));
+        errors.add(err(itemBase + ".start", "merge_cells 범위가 테이블 범위를 벗어났습니다."));
       }
       if (end[0] < 0 || end[0] >= rowCount || end[1] < 0 || end[1] >= colCount) {
-        errors.add(err(itemBase + ".end", "end is out of table range"));
+        errors.add(err(itemBase + ".end", "merge_cells 범위가 테이블 범위를 벗어났습니다."));
       }
       if (start[0] > end[0] || start[1] > end[1]) {
-        errors.add(err(itemBase, "start must be before or equal to end"));
+        errors.add(err(itemBase, "start는 end보다 앞서거나 같아야 합니다."));
       }
     }
   }
@@ -430,7 +434,7 @@ public class GenerateRequestValidator {
     if (obj == null) return;
 
     if (!(obj instanceof Map<?, ?> raw)) {
-      errors.add(err(base, "border spec must be an object"));
+      errors.add(err(base, "border 설정은 객체 형태여야 합니다."));
       return;
     }
 
@@ -439,7 +443,7 @@ public class GenerateRequestValidator {
 
     Object style = m.get("style");
     if (style != null && str(style).isBlank()) {
-      errors.add(err(base + ".style", "style must not be blank"));
+      errors.add(err(base + ".style", "style 값은 비어 있을 수 없습니다."));
     }
 
     validateNumericOrUnitString(m.get("width"), base + ".width", errors);
@@ -460,7 +464,7 @@ public class GenerateRequestValidator {
 
     boolean ok = s.matches("^[0-9a-fA-F]{6}$") || s.matches("^[0-9a-fA-F]{3}$");
     if (!ok) {
-      errors.add(err(field, "color must be a hex string like '#RRGGBB' or '#RGB'"));
+      errors.add(err(field, "색상 값은 '#000000' 또는 '#000' 형식의 HEX 값이어야 합니다."));
     }
   }
 
@@ -475,7 +479,7 @@ public class GenerateRequestValidator {
     try {
       Integer.parseInt(str(value));
     } catch (Exception e) {
-      errors.add(err(field, "must be an integer"));
+      errors.add(err(field, "정수 값이어야 합니다."));
     }
   }
 
@@ -489,7 +493,7 @@ public class GenerateRequestValidator {
 
     String s = str(value).toLowerCase();
     if (!s.equals("true") && !s.equals("false")) {
-      errors.add(err(field, "must be a boolean"));
+      errors.add(err(field, "boolean 값이어야 합니다."));
     }
   }
 
@@ -508,7 +512,7 @@ public class GenerateRequestValidator {
       if (a.equalsIgnoreCase(s)) return;
     }
 
-    errors.add(err(field, "invalid value: " + value));
+    errors.add(err(field, "허용되지 않는 값입니다: " + value));
   }
 
   private static void validateNumericOrUnitString(
@@ -519,7 +523,7 @@ public class GenerateRequestValidator {
     if (value == null) return;
 
     if (!isNumericOrUnitString(value)) {
-      errors.add(err(field, "must be a number or a unit string like '20mm'"));
+      errors.add(err(field, "숫자 또는 '20mm'와 같은 단위 문자열이어야 합니다."));
     }
   }
 
@@ -552,7 +556,7 @@ public class GenerateRequestValidator {
   private static void throwInvalidRequest(List<ValidationErrorDetail> errors) {
     throw new ApiException(
         ErrorCode.INVALID_REQUEST,
-        "generate request validation failed",
+        "generate 요청 검증에 실패하였습니다.",
         errors
     );
   }

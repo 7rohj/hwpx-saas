@@ -68,7 +68,7 @@ public class GenerateController {
                 "status": 400,
                 "code": "BAD_REQUEST",
                 "message": "validation failed",
-                "detail": { "fields": { "templateId": "templateId is required" } },
+                "detail": { "fields": { "templateId": "templateId 값이 필요합니다. 템플릿 ID가 요청에 포함되어야 합니다." } },
                 "path": "/api/v1/generate"
               }
               """))
