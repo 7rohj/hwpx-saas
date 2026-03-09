@@ -385,8 +385,10 @@ public class TemplateController {
     res.put("deletedTemplateId", templateId);
     return ResponseEntity.ok(res);
   }
-
+  
   // (선택) 디버그용으로 남겨도 됨: 업로드 안 하고 vars만 확인하고 싶을 때
+  @io.swagger.v3.oas.annotations.Hidden                     //  ui 숨기기
+  @org.springframework.context.annotation.Profile("dev")    // 개발환경에서만 열기
   @PostMapping(
       value = "/vars",
       consumes = MediaType.MULTIPART_FORM_DATA_VALUE,

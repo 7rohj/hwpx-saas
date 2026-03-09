@@ -13,7 +13,6 @@ public class GenerateRequest {
 
   public List<Map<String, Object>> elements;
   public Map<String, Object> global_variables;
-  public String output_filename;
 
   @Schema(description = "템플릿 ID (Template 업로드 시 발급)", example = "20260305_ab12cd34ef")
   @NotBlank(message = "templateId 값이 필요합니다.")
