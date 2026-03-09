@@ -52,33 +52,63 @@ public class GenerateController {
       description = "templateId + JSON 데이터를 이용해 HWPX 문서를 생성하고, fileId 및 다운로드 URL을 반환합니다."
   )
   @ApiResponses({
-      @ApiResponse(
-          responseCode = "200",
-          description = "생성 성공",
-          content = @Content(schema = @Schema(implementation = GenerateResponse.class))
-      ),
-      @ApiResponse(
-          responseCode = "400",
-          description = "요청 값 오류/검증 실패",
-          content = @Content(schema = @Schema(implementation = ApiErrorResponse.class),
-              examples = @ExampleObject(value = """
-              {
-                "ok": false,
-                "timestamp": "2026-03-05T14:46:39.787140300+09:00",
-                "status": 400,
-                "code": "BAD_REQUEST",
-                "message": "validation failed",
-                "detail": { "fields": { "templateId": "templateId 값이 필요합니다. 템플릿 ID가 요청에 포함되어야 합니다." } },
-                "path": "/api/v1/generate"
-              }
-              """))
-      ),
-      @ApiResponse(
-          responseCode = "404",
-          description = "템플릿/파일 없음",
-          content = @Content(schema = @Schema(implementation = ApiErrorResponse.class))
-      )
-  })
+    @ApiResponse(
+        responseCode = "200",
+        description = "생성 성공",
+        content = @Content(schema = @Schema(implementation = GenerateResponse.class))
+    ),
+    @ApiResponse(
+        responseCode = "400",
+        description = "요청 값 오류/검증 실패",
+        content = @Content(
+            schema = @Schema(implementation = ApiErrorResponse.class),
+            examples = {
+                @ExampleObject(
+                    name = "검증 실패 예시",
+                    value = """
+                    {
+                      "ok": false,
+                      "timestamp": "2026-03-09T15:00:00+09:00",
+                      "status": 400,
+                      "code": "INVALID_REQUEST",
+                      "message": "요청 검증에 실패했습니다.",
+                      "detail": [
+                        {
+                          "field": "templateId",
+                          "message": "templateId 값이 필요합니다."
+                        }
+                      ],
+                      "path": "/api/v1/generate"
+                    }
+                    """
+                )
+            }
+        )
+    ),
+    @ApiResponse(
+        responseCode = "404",
+        description = "템플릿/파일 없음",
+        content = @Content(
+            schema = @Schema(implementation = ApiErrorResponse.class),
+            examples = {
+                @ExampleObject(
+                    name = "템플릿 없음 예시",
+                    value = """
+                    {
+                      "ok": false,
+                      "timestamp": "2026-03-09T15:00:00+09:00",
+                      "status": 404,
+                      "code": "TEMPLATE_NOT_FOUND",
+                      "message": "템플릿을 찾을 수 없습니다.",
+                      "detail": "template not found: 20260305_ab12cd34ef",
+                      "path": "/api/v1/generate"
+                    }
+                    """
+                )
+            }
+        )
+    )
+})
   @PostMapping(
       value = "/generate",
       consumes = MediaType.APPLICATION_JSON_VALUE,
@@ -91,7 +121,11 @@ public class GenerateController {
     final String templateId = req.templateId.trim();
 
     TemplateEntity template = templateRepo.findByTemplateId(templateId)
-        .orElseThrow(() -> new ApiException(ErrorCode.TEMPLATE_NOT_FOUND, "template not found: " + templateId));
+        .orElseThrow(() -> new ApiException(
+        ErrorCode.TEMPLATE_NOT_FOUND,
+        "템플릿을 찾을 수 없습니다.",
+        "template not found: " + templateId
+    ));
 
     Path templatePath = storage.resolveTemplatePath(template.getStoragePath());
     storage.ensureExists(templatePath, ErrorCode.TEMPLATE_NOT_FOUND, "template file missing in storage: " + templateId);
@@ -110,7 +144,7 @@ public class GenerateController {
       detail.put("missingPlaceholders", missing);
       detail.put("availablePlaceholdersCount", vars.size());
       //detail.put("availavlePlaceholders", vars);
-      throw new ApiException(ErrorCode.INVALID_REQUEST, "unknown placeholder(s) requested", detail);
+      throw new ApiException(ErrorCode.INVALID_REQUEST, "템플릿에 없는 placeholder가 요청되었습니다.", detail);
     }
 
     // output file name
