@@ -16,7 +16,7 @@ public class GenerateRequest {
   public String output_filename;
 
   @Schema(description = "템플릿 ID (Template 업로드 시 발급)", example = "20260305_ab12cd34ef")
-  @NotBlank(message = "templateId is required")
+  @NotBlank(message = "templateId 값이 필요합니다.")
   public String templateId;
 
   @Schema(description = "출력 파일명(.hwpx 자동 보정)", example = "출력문서.hwpx")

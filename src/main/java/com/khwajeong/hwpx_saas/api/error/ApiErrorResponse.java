@@ -20,13 +20,13 @@ public class ApiErrorResponse {
   @Schema(description = "HTTP 상태 코드", example = "400")
   public int status;
 
-  @Schema(description = "에러 코드", example = "BAD_REQUEST")
+  @Schema(description = "에러 코드", example = "INVALID_REQUEST")
   public String code;
 
-  @Schema(description = "에러 메시지", example = "templateId is required")
+  @Schema(description = "에러 메시지", example = "요청 검증에 실패했습니다.")
   public String message;
 
-  @Schema(description = "추가 상세 정보", example = "template not found")
+  @Schema(description = "추가 상세 정보")
   public Object detail;
 
   @Schema(description = "요청 경로", example = "/api/v1/generate")
