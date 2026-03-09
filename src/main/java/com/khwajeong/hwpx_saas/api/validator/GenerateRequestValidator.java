@@ -556,7 +556,7 @@ public class GenerateRequestValidator {
   private static void throwInvalidRequest(List<ValidationErrorDetail> errors) {
     throw new ApiException(
         ErrorCode.INVALID_REQUEST,
-        "generate 요청 검증에 실패하였습니다.",
+        "요청 검증에 실패했습니다.",
         errors
     );
   }

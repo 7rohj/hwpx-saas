@@ -64,7 +64,6 @@ public class GenerateController {
             schema = @Schema(implementation = ApiErrorResponse.class),
             examples = {
                 @ExampleObject(
-                    name = "검증 실패 예시",
                     value = """
                     {
                       "ok": false,
@@ -86,21 +85,19 @@ public class GenerateController {
         )
     ),
     @ApiResponse(
-        responseCode = "404",
-        description = "템플릿/파일 없음",
+        responseCode = "500",
+        description = "기타 에러 (body 문법 파괴/철자 오타)",
         content = @Content(
             schema = @Schema(implementation = ApiErrorResponse.class),
             examples = {
                 @ExampleObject(
-                    name = "템플릿 없음 예시",
                     value = """
                     {
                       "ok": false,
                       "timestamp": "2026-03-09T15:00:00+09:00",
-                      "status": 404,
-                      "code": "TEMPLATE_NOT_FOUND",
-                      "message": "템플릿을 찾을 수 없습니다.",
-                      "detail": "template not found: 20260305_ab12cd34ef",
+                      "status": 500,
+                      "code": "INTERNAL_ERROR",
+                      "message": "internal error",
                       "path": "/api/v1/generate"
                     }
                     """
@@ -114,6 +111,77 @@ public class GenerateController {
       consumes = MediaType.APPLICATION_JSON_VALUE,
       produces = MediaType.APPLICATION_JSON_VALUE
   )
+  @io.swagger.v3.oas.annotations.parameters.RequestBody(
+    required = true,
+    description = "문서 생성 요청 본문",
+    content = @Content(
+        schema = @Schema(implementation = GenerateRequest.class),
+        examples = {
+            @ExampleObject(
+                name = "문서 생성 요청 예시",
+                value = """
+                {
+                  "templateId": "20260305_ab12cd34ef",
+                  "outputFilename": "출력문서.hwpx",
+                  "elements": [
+                    {
+                      "placeholder": "title",
+                      "type": "text",
+                      "content": "문서 제목입니다",
+                      "style": {
+                        "font_family": "맑은 고딕",
+                        "font_size": 24,
+                        "bold": true,
+                        "align": "center",
+                        "color": "#000000"
+                      }
+                    },
+                    {
+                      "placeholder": "table3",
+                      "type": "table",
+                      "data": [
+                        ["구분", "항목A", "항목B"],
+                        ["예시1", "값1", "값2"],
+                        ["예시2", "값3", "값4"]
+                      ],
+                      "style": {
+                        "headerRow": 0,
+                        "repeatHeader": true,
+                        "columnWidths": [110, 110, 110],
+                        "border": {
+                          "outer": { "style": "hidden" },
+                          "inner": { "style": "solid", "width": 0.12, "color": "#808080" },
+                          "header": {
+                            "bottom": { "style": "solid", "width": 0.3, "color": "#808080" },
+                            "verticalInner": { "style": "solid", "width": 0.3, "color": "#FFFFFF" }
+                          },
+                          "lastRow": {
+                            "bottom": { "style": "solid", "width": 0.3, "color": "#808080" }
+                          }
+                        },
+                        "headerCell": {
+                          "backgroundColor": "#CCCCCC",
+                          "padding": { "left": 1.8, "right": 1.8, "top": 0.5, "bottom": 0.5 },
+                          "textAlign": { "horizontal": "center", "vertical": "middle" }
+                        },
+                        "bodyCell": {
+                          "backgroundColor": "#FFFFFF",
+                          "padding": { "left": 1.8, "right": 1.8, "top": 0.5, "bottom": 0.5 },
+                          "textAlign": { "horizontal": "center", "vertical": "middle" }
+                        }
+                      }
+                    }
+                  ],
+                  "global_variables": {
+                    "author": "작성자 예시",
+                    "date": "2026-01-01"
+                  }
+                }
+                """
+            )
+        }
+    )
+)
   public ResponseEntity<GenerateResponse> generate(@Valid @RequestBody GenerateRequest req) throws Exception {
 
     GenerateRequestValidator.validate(req);
@@ -123,8 +191,8 @@ public class GenerateController {
     TemplateEntity template = templateRepo.findByTemplateId(templateId)
         .orElseThrow(() -> new ApiException(
         ErrorCode.TEMPLATE_NOT_FOUND,
-        "템플릿을 찾을 수 없습니다.",
-        "template not found: " + templateId
+        "templateId 가 일치하지 않습니다. ",
+        "templateId 가 일치하지 않습니다. : " + templateId
     ));
 
     Path templatePath = storage.resolveTemplatePath(template.getStoragePath());

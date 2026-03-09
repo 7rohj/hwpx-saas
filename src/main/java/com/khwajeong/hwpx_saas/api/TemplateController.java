@@ -8,6 +8,7 @@ import io.swagger.v3.oas.annotations.responses.ApiResponses;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import io.swagger.v3.oas.annotations.media.Content;
 import io.swagger.v3.oas.annotations.media.Schema;
+import io.swagger.v3.oas.annotations.media.ExampleObject;
 import com.khwajeong.hwpx_saas.api.error.ApiErrorResponse;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
@@ -52,10 +53,57 @@ public class TemplateController {
       description = "HWPX 템플릿 파일을 업로드하고 templateId를 발급합니다."
   )
   @ApiResponses({
-      @ApiResponse(responseCode = "200", description = "업로드 성공"),
-      @ApiResponse(responseCode = "400", description = "잘못된 요청"),
-      @ApiResponse(responseCode = "500", description = "서버 오류")
-  })
+    @ApiResponse(
+        responseCode = "200",
+        description = "업로드 성공",
+        content = @Content(
+            schema = @Schema(implementation = Map.class),
+            examples = {
+                @ExampleObject(
+                    name = "업로드 성공 예시",
+                    value = """
+                    {
+                      "ok": true,
+                      "templateId": "20260309_ab12cd34ef",
+                      "originalName": "example_template.hwpx",
+                      "size": 24576,
+                      "uploadedAt": "2026-03-09T18:10:00+09:00",
+                      "varsCount": 4,
+                      "vars": [
+                        "title",
+                        "table_example",
+                        "author",
+                        "date"
+                      ]
+                    }
+                    """
+                )
+            }
+        )
+    ),
+    @ApiResponse(
+        responseCode = "500",
+        description = "서버 오류 / 확장자 오류 등",
+        content = @Content(
+            schema = @Schema(implementation = ApiErrorResponse.class),
+            examples = {
+                @ExampleObject(
+                    name = "서버 오류 예시",
+                    value = """
+                    {
+                      "ok": false,
+                      "timestamp": "2026-03-09T18:14:00+09:00",
+                      "status": 500,
+                      "code": "INTERNAL_SERVER_ERROR",
+                      "message": "Internal server error",
+                      "path": "/api/v1/template/upload"
+                    }
+                    """
+                )
+            }
+        )
+    )
+})
   @PostMapping(
       value = "/upload",
       consumes = MediaType.MULTIPART_FORM_DATA_VALUE,
@@ -124,15 +172,50 @@ public class TemplateController {
       summary = "템플릿 목록 조회",
       description = "업로드된 템플릿 목록을 조회합니다."
   )
-  //@ApiResponse(responseCode = "200", description = "조회 성공")
   @ApiResponses({
-      @ApiResponse(responseCode = "200", description = "조회 성공"),
-      @ApiResponse(
-          responseCode = "404",
-          description = "템플릿 없음",
-          content = @Content(schema = @Schema(implementation = ApiErrorResponse.class))
-      )
-  })
+    @ApiResponse(
+        responseCode = "200",
+        description = "조회 성공",
+        content = @Content(
+            schema = @Schema(implementation = Map.class),
+            examples = {
+                @ExampleObject(
+                    name = "조회 성공 예시",
+                    value = """
+                    {
+                      "ok": true,
+                      "count": 2,
+                      "items": [
+                        {
+                          "templateId": "20260309_ab12cd34ef",
+                          "originalName": "example_template.hwpx",
+                          "size": 24576,
+                          "uploadedAt": "2026-03-09T18:10:00+09:00"
+                        },
+                        {
+                          "templateId": "20260308_fa98bd12ac",
+                          "originalName": "report_template.hwpx",
+                          "size": 18200,
+                          "uploadedAt": "2026-03-08T15:22:10+09:00"
+                        }
+                      ]
+                    }
+                    """
+                ),
+                @ExampleObject(
+                    name = "템플릿 없음 예시",
+                    value = """
+                    {
+                      "ok": true,
+                      "count": 0,
+                      "items": []
+                    }
+                    """
+                )
+            }
+        )
+    )
+})
   @GetMapping(value = "/list", produces = MediaType.APPLICATION_JSON_VALUE)
   public ResponseEntity<Map<String, Object>> list() {
     List<TemplateEntity> all = repo.findAll();
@@ -161,13 +244,57 @@ public class TemplateController {
       description = "업로드된 개별 템플릿을 조회합니다."
   )
   @ApiResponses({
-      @ApiResponse(responseCode = "200", description = "조회 성공"),
-      @ApiResponse(
-          responseCode = "404",
-          description = "템플릿 없음",
-          content = @Content(schema = @Schema(implementation = ApiErrorResponse.class))
-      )
-  })
+    @ApiResponse(
+        responseCode = "200",
+        description = "조회 성공",
+        content = @Content(
+            schema = @Schema(implementation = Map.class),
+            examples = {
+                @ExampleObject(
+                    name = "조회 성공 예시",
+                    value = """
+                    {
+                      "ok": true,
+                      "templateId": "20260309_ab12cd34ef",
+                      "originalName": "example_template.hwpx",
+                      "size": 24576,
+                      "uploadedAt": "2026-03-09T18:10:00+09:00",
+                      "varsCount": 4,
+                      "vars": [
+                        "title",
+                        "table_example",
+                        "author",
+                        "date"
+                      ]
+                    }
+                    """
+                )
+            }
+        )
+    ),
+    @ApiResponse(
+        responseCode = "404",
+        description = "존재하지 않는 templateId",
+        content = @Content(
+            schema = @Schema(implementation = ApiErrorResponse.class),
+            examples = {
+                @ExampleObject(
+                    name = "템플릿 없음 예시",
+                    value = """
+                    {
+                      "ok": false,
+                      "timestamp": "2026-03-09T18:30:00+09:00",
+                      "status": 404,
+                      "code": "TEMPLATE_NOT_FOUND",
+                      "message": "template not found: 20260309_ab12cd34ef",
+                      "path": "/api/v1/template/20260309_ab12cd34ef"
+                    }
+                    """
+                )
+            }
+        )
+    )
+})
   @GetMapping(value = "/{id}", produces = MediaType.APPLICATION_JSON_VALUE)
   public ResponseEntity<Map<String, Object>> detail(@PathVariable("id") String templateId) throws Exception {
     TemplateEntity e = repo.findByTemplateId(templateId)
@@ -199,13 +326,47 @@ public class TemplateController {
     description = "templateId에 해당하는 템플릿을 DB와 storage에서 모두 삭제합니다."
   )
   @ApiResponses({
-      @ApiResponse(responseCode = "200", description = "삭제 성공"),
-      @ApiResponse(
-          responseCode = "404",
-          description = "템플릿 없음",
-          content = @Content(schema = @Schema(implementation = ApiErrorResponse.class))
-      )
-  })
+    @ApiResponse(
+        responseCode = "200",
+        description = "삭제 성공",
+        content = @Content(
+            schema = @Schema(implementation = Map.class),
+            examples = {
+                @ExampleObject(
+                    name = "삭제 성공 예시",
+                    value = """
+                    {
+                      "ok": true,
+                      "deletedTemplateId": "20260309_ab12cd34ef"
+                    }
+                    """
+                )
+            }
+        )
+    ),
+    @ApiResponse(
+        responseCode = "404",
+        description = "존재하지 않는 templateId",
+        content = @Content(
+            schema = @Schema(implementation = ApiErrorResponse.class),
+            examples = {
+                @ExampleObject(
+                    name = "템플릿 없음 예시",
+                    value = """
+                    {
+                      "ok": false,
+                      "timestamp": "2026-03-09T18:40:00+09:00",
+                      "status": 404,
+                      "code": "TEMPLATE_NOT_FOUND",
+                      "message": "template not found: 20260309_ab12cd34ef",
+                      "path": "/api/v1/template/20260309_ab12cd34ef"
+                    }
+                    """
+                )
+            }
+        )
+    )
+})
   @DeleteMapping(value = "/{id}", produces = MediaType.APPLICATION_JSON_VALUE)
   public ResponseEntity<Map<String, Object>> delete(@PathVariable("id") String templateId) throws Exception {
     TemplateEntity e = repo.findByTemplateId(templateId)
@@ -261,14 +422,54 @@ public class TemplateController {
     description = "templateId에 해당하는 템플릿에서 추출된 placeholder(vars) 목록을 조회합니다."
     )
     @ApiResponses({
-        @ApiResponse(responseCode = "200", description = "조회 성공"),
+        @ApiResponse(
+            responseCode = "200",
+            description = "placeholder 목록 조회 성공",
+            content = @Content(
+                schema = @Schema(implementation = Map.class),
+                examples = {
+                    @ExampleObject(
+                        name = "성공 예시",
+                        value = """
+                        {
+                        "templateId": "20260305_ab12cd34ef",
+                        "placeholders": [
+                            "title",
+                            "table_example",
+                            "author",
+                            "date"
+                        ]
+                        }
+                        """
+                    )
+                }
+            )
+        ),
         @ApiResponse(
             responseCode = "404",
-            description = "템플릿 없음",
-            content = @Content(schema = @Schema(implementation = ApiErrorResponse.class))
+            description = "존재하지 않는 templateId",
+            content = @Content(
+                schema = @Schema(implementation = ApiErrorResponse.class),
+                examples = {
+                    @ExampleObject(
+                        name = "templateId 없음 예시",
+                        value = """
+                        {
+                        "ok": false,
+                        "timestamp": "2026-03-09T15:00:00+09:00",
+                        "status": 404,
+                        "code": "TEMPLATE_NOT_FOUND",
+                        "message": "template not found: 20260305_ab12cd34ef",
+                        "path": "/api/v1/template/20260305_ab12cd34ef/vars"
+                        }
+                        """
+                    )
+                }
+            )
         )
     })
-  @GetMapping(value = "/{id}/vars", produces = MediaType.APPLICATION_JSON_VALUE)
+
+@GetMapping(value = "/{id}/vars", produces = MediaType.APPLICATION_JSON_VALUE)
   public ResponseEntity<Map<String, Object>> varsByTemplateId(
       @Parameter(description = "템플릿 ID", required = true)
       @PathVariable("id") String templateId
