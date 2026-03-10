@@ -26,6 +26,9 @@ public class R2StorageService {
     }
 
     public String uploadHwpx(byte[] fileBytes, String objectKey) {
+        System.out.println("[R2] bucketName = [" + safeBucketName + "]");
+        System.out.println("[R2] objectKey = [" + safeObjectKey + "]");
+
         PutObjectRequest request = PutObjectRequest.builder()
                 .bucket(bucketName)
                 .key(objectKey)
@@ -67,6 +70,9 @@ public class R2StorageService {
     }
 
     public void testConnection() {
-        s3Client.listBuckets();
+        System.out.println("[R2] listBuckets start");
+        s3Client.listBuckets().buckets().forEach(b ->
+                System.out.println("[R2] bucket from account = " + b.name())
+        );
     }
 }
