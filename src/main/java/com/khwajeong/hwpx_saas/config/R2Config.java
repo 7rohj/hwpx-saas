@@ -1,6 +1,7 @@
 package com.khwajeong.hwpx_saas.config;
 
 import java.net.URI;
+import java.time.Duration;
 
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Bean;
@@ -8,7 +9,7 @@ import org.springframework.context.annotation.Configuration;
 
 import software.amazon.awssdk.auth.credentials.AwsBasicCredentials;
 import software.amazon.awssdk.auth.credentials.StaticCredentialsProvider;
-import software.amazon.awssdk.http.urlconnection.UrlConnectionHttpClient;
+import software.amazon.awssdk.http.apache.ApacheHttpClient;
 import software.amazon.awssdk.regions.Region;
 import software.amazon.awssdk.services.s3.S3Client;
 import software.amazon.awssdk.services.s3.S3Configuration;
@@ -39,7 +40,11 @@ public class R2Config {
         );
 
         return S3Client.builder()
-                .httpClientBuilder(UrlConnectionHttpClient.builder())
+                .httpClientBuilder(
+                        ApacheHttpClient.builder()
+                                .connectionTimeout(Duration.ofSeconds(10))
+                                .socketTimeout(Duration.ofSeconds(30))
+                )
                 .endpointOverride(URI.create(endpoint))
                 .credentialsProvider(StaticCredentialsProvider.create(credentials))
                 .region(Region.of("auto"))
