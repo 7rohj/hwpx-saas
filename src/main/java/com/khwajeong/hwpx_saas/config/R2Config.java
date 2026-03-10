@@ -26,19 +26,18 @@ public class R2Config {
 
     @Bean
     public S3Client r2S3Client() {
+        AwsBasicCredentials credentials = AwsBasicCredentials.create(accessKeyId, secretAccessKey);
+
+        S3Configuration serviceConfiguration = S3Configuration.builder()
+                .pathStyleAccessEnabled(true)
+                .chunkedEncodingEnabled(false)
+                .build();
+
         return S3Client.builder()
                 .endpointOverride(URI.create("https://" + accountId + ".r2.cloudflarestorage.com"))
-                .credentialsProvider(
-                        StaticCredentialsProvider.create(
-                                AwsBasicCredentials.create(accessKeyId, secretAccessKey)
-                        )
-                )
+                .credentialsProvider(StaticCredentialsProvider.create(credentials))
                 .region(Region.of("auto"))
-                .serviceConfiguration(
-                        S3Configuration.builder()
-                                .pathStyleAccessEnabled(true)
-                                .build()
-                )
+                .serviceConfiguration(serviceConfiguration)
                 .build();
     }
 }
