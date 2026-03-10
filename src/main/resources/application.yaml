@@ -1,7 +1,7 @@
 app:
   api-key: "hwpx_saas_local_key"
 
-  r2:
+r2:
   account-id: ${R2_ACCOUNT_ID}
   bucket-name: ${R2_BUCKET_NAME}
   access-key-id: ${R2_ACCESS_KEY_ID}
