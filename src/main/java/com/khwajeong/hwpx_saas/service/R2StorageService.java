@@ -18,7 +18,7 @@ public class R2StorageService {
 
     private final S3Client s3Client;
 
-    @Value("${r2.bucket-name}")
+    @Value("${app.r2.bucket-name}")
     private String bucketName;
 
     public R2StorageService(S3Client s3Client) {

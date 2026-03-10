@@ -17,13 +17,13 @@ import software.amazon.awssdk.services.s3.S3Configuration;
 @Configuration
 public class R2Config {
 
-    @Value("${r2.account-id}")
+    @Value("${app.r2.account-id}")
     private String accountId;
 
-    @Value("${r2.access-key-id}")
+    @Value("${app.r2.access-key-id}")
     private String accessKeyId;
 
-    @Value("${r2.secret-access-key}")
+    @Value("${app.r2.secret-access-key}")
     private String secretAccessKey;
 
     @Bean
