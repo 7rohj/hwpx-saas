@@ -1,7 +1,9 @@
 rootProject.name = 'hwpx-saas'
 
+/*
 includeBuild('C:/Users/User/hwpxtemplater/hwpxtemplater-core') {
     dependencySubstitution {
         substitute module('io.github.mumberrymountain:hwpxtemplater') using project(':')
     }
 }
+*/
