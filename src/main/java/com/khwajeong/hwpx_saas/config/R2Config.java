@@ -8,6 +8,7 @@ import org.springframework.context.annotation.Configuration;
 
 import software.amazon.awssdk.auth.credentials.AwsBasicCredentials;
 import software.amazon.awssdk.auth.credentials.StaticCredentialsProvider;
+import software.amazon.awssdk.http.urlconnection.UrlConnectionHttpClient;
 import software.amazon.awssdk.regions.Region;
 import software.amazon.awssdk.services.s3.S3Client;
 import software.amazon.awssdk.services.s3.S3Configuration;
@@ -26,21 +27,28 @@ public class R2Config {
 
     @Bean
     public S3Client r2S3Client() {
+        String endpoint = "https://" + accountId.trim() + ".r2.cloudflarestorage.com";
+
+        System.out.println("[R2] endpoint = " + endpoint);
+        System.out.println("[R2] accessKey length = " + accessKeyId.trim().length());
+        System.out.println("[R2] secretKey length = " + secretAccessKey.trim().length());
+
         AwsBasicCredentials credentials = AwsBasicCredentials.create(
-                accountId == null ? "" : accessKeyId.trim(),
-                secretAccessKey == null ? "" : secretAccessKey.trim()
+                accessKeyId.trim(),
+                secretAccessKey.trim()
         );
 
-        S3Configuration serviceConfiguration = S3Configuration.builder()
-                .pathStyleAccessEnabled(true)
-                .chunkedEncodingEnabled(false)
-                .build();
-
         return S3Client.builder()
-                .endpointOverride(URI.create("https://" + accountId + ".r2.cloudflarestorage.com"))
+                .httpClientBuilder(UrlConnectionHttpClient.builder())
+                .endpointOverride(URI.create(endpoint))
                 .credentialsProvider(StaticCredentialsProvider.create(credentials))
                 .region(Region.of("auto"))
-                .serviceConfiguration(serviceConfiguration)
+                .serviceConfiguration(
+                        S3Configuration.builder()
+                                .pathStyleAccessEnabled(true)
+                                .chunkedEncodingEnabled(false)
+                                .build()
+                )
                 .build();
     }
 }
