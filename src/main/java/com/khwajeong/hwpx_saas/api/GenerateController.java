@@ -9,6 +9,7 @@ import com.khwajeong.hwpx_saas.api.error.ErrorCode;
 import com.khwajeong.hwpx_saas.api.validator.GenerateRequestValidator;
 import com.khwajeong.hwpx_saas.core.ExportService;
 import com.khwajeong.hwpx_saas.service.StorageService;
+import com.khwajeong.hwpx_saas.service.R2StorageService;
 import com.khwajeong.hwpx_saas.db.TemplateRepository;
 import com.khwajeong.hwpx_saas.db.TemplateEntity;
 
@@ -39,17 +40,20 @@ public class GenerateController {
     private final TemplateRepository templateRepo;
     private final StorageService storage;
     private final ObjectMapper om;
+    private final R2StorageService r2StorageService;
 
     public GenerateController(
             ExportService exportService,
             TemplateRepository templateRepo,
             StorageService storage,
-            ObjectMapper om
+            ObjectMapper om,
+            R2StorageService r2StorageService
     ) {
         this.exportService = exportService;
         this.templateRepo = templateRepo;
         this.storage = storage;
         this.om = om;
+        this.r2StorageService = r2StorageService;
     }
 
     @Operation(
@@ -127,7 +131,7 @@ public class GenerateController {
                     value = """
                     {
                       "templateId": "20260305_ab12cd34ef",
-                      "outputFilename": "출력문서.hwpx",
+                      "outputFilename": "output.hwpx",
                       "elements": [
                         {
                           "placeholder": "title",
@@ -219,6 +223,14 @@ public class GenerateController {
             throw new ApiException(ErrorCode.INVALID_REQUEST, "템플릿에 없는 placeholder가 요청되었습니다.", detail);
         }
 
+        String outName = (req.outputFilename == null || req.outputFilename.isBlank())
+            ? "output.hwpx"
+            : req.outputFilename.trim();
+
+        if (!outName.toLowerCase().endsWith(".hwpx")) {
+            outName += ".hwpx";
+        }
+
         byte[] templateBytes = Files.readAllBytes(templatePath);
 
         System.out.println("=== generate request body ===");
@@ -226,9 +238,10 @@ public class GenerateController {
 
         byte[] outBytes = exportService.renderHwpx(templateBytes, req.toBodyMap());
 
-        String fileId = buildServerGeneratedFileId();
-        Path outPath = storage.filesDir().resolve(fileId);
-        Files.write(outPath, outBytes);
+        String fileId = timePrefix() + "_" + safeFileName(outName);
+        String objectKey = "outputs/" + fileId;
+
+        r2StorageService.uploadHwpx(outBytes, objectKey);
 
         return ResponseEntity.ok(GenerateResponse.of(fileId, "/api/v1/files/" + fileId));
     }
@@ -276,7 +289,11 @@ public class GenerateController {
             .format(java.time.format.DateTimeFormatter.ofPattern("yyyyMMdd_HHmmss_SSS"));
     }
 
-    private static String buildServerGeneratedFileId() {
-        return "output_" + timePrefix() + ".hwpx";
+    private static String safeFileName(String name) {
+        String n = name.trim();
+        if (n.isBlank()) return "output.hwpx";
+        n = n.replaceAll("[\\\\/:*?\"<>|]", "_");
+        if (!n.toLowerCase().endsWith(".hwpx")) n += ".hwpx";
+        return n;
     }
 }
