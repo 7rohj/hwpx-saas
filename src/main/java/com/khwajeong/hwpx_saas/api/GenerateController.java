@@ -126,7 +126,8 @@ public class GenerateController {
                     name = "문서 생성 요청 예시",
                     value = """
                     {
-                      "templateId": "20260305_ab12cd34ef"
+                      "templateId": "20260305_ab12cd34ef",
+                      "outputFilename": "출력문서.hwpx",
                       "elements": [
                         {
                           "placeholder": "title",
