@@ -26,8 +26,8 @@ public class R2StorageService {
     }
 
     public String uploadHwpx(byte[] fileBytes, String objectKey) {
-        System.out.println("[R2] bucketName = [" + safeBucketName + "]");
-        System.out.println("[R2] objectKey = [" + safeObjectKey + "]");
+        //System.out.println("[R2] bucketName = [" + safeBucketName + "]");
+        //System.out.println("[R2] objectKey = [" + safeObjectKey + "]");
 
         PutObjectRequest request = PutObjectRequest.builder()
                 .bucket(bucketName)
