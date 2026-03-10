@@ -11,10 +11,8 @@ import io.swagger.v3.oas.annotations.media.ExampleObject;
 import com.khwajeong.hwpx_saas.api.error.ApiErrorResponse;
 import com.khwajeong.hwpx_saas.api.error.ApiException;
 import com.khwajeong.hwpx_saas.api.error.ErrorCode;
-import com.khwajeong.hwpx_saas.service.StorageService;
+import com.khwajeong.hwpx_saas.service.R2StorageService;
 
-import org.springframework.core.io.Resource;
-import org.springframework.core.io.UrlResource;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
@@ -22,17 +20,16 @@ import org.springframework.web.bind.annotation.*;
 
 import java.net.URLEncoder;
 import java.nio.charset.StandardCharsets;
-import java.nio.file.Path;
 
 @RestController
 @RequestMapping("/api/v1/files")
 @Tag(name = "Files API", description = "생성된 파일 다운로드 API")
 public class FilesController {
 
-    private final StorageService storage;
+    private final R2StorageService r2StorageService;
 
-    public FilesController(StorageService storage) {
-        this.storage = storage;
+    public FilesController(R2StorageService r2StorageService) {
+        this.r2StorageService = r2StorageService;
     }
 
     @Operation(
@@ -71,26 +68,26 @@ public class FilesController {
         )
     })
     @GetMapping("/{fileId}")
-    public ResponseEntity<Resource> download(@PathVariable String fileId) throws Exception {
-        Path p = storage.resolveFilePath(fileId);
-        storage.ensureExists(p, ErrorCode.FILE_NOT_FOUND, "file not found: " + fileId);
+    public ResponseEntity<byte[]> download(@PathVariable String fileId) throws Exception {
+        String objectKey = "outputs/" + fileId;
 
-        Resource res = new UrlResource(p.toUri());
-        if (!res.exists()) {
+        if (!r2StorageService.exists(objectKey)) {
             throw new ApiException(ErrorCode.FILE_NOT_FOUND, "file not found: " + fileId);
         }
 
-        String actualFileName = p.getFileName().toString();
+        byte[] fileBytes = r2StorageService.downloadFile(objectKey);
+
+        String actualFileName = fileId;
         String encodedFileName = URLEncoder.encode(actualFileName, StandardCharsets.UTF_8)
-            .replaceAll("\\+", "%20");
+                .replaceAll("\\+", "%20");
 
         return ResponseEntity.ok()
-            .contentType(MediaType.APPLICATION_OCTET_STREAM)
-            .contentLength(res.contentLength())
-            .header(
-                HttpHeaders.CONTENT_DISPOSITION,
-                "attachment; filename=\"" + actualFileName + "\"; filename*=UTF-8''" + encodedFileName
-            )
-            .body(res);
+                .contentType(MediaType.APPLICATION_OCTET_STREAM)
+                .contentLength(fileBytes.length)
+                .header(
+                        HttpHeaders.CONTENT_DISPOSITION,
+                        "attachment; filename=\"" + actualFileName + "\"; filename*=UTF-8''" + encodedFileName
+                )
+                .body(fileBytes);
     }
 }
