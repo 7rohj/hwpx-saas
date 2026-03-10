@@ -72,10 +72,36 @@ public class TableRenderer {
 
     private void setPos() {
         renderingTable.createPos();
+
+        HorzAlign horzAlign = HorzAlign.LEFT;
+        Object alignOpt = table.getConfig("tableAlign");
+
+        if (alignOpt != null) {
+            String align = String.valueOf(alignOpt).trim().toLowerCase();
+            switch (align) {
+                case "center":
+                    horzAlign = HorzAlign.CENTER;
+                    break;
+                case "right":
+                    horzAlign = HorzAlign.RIGHT;
+                    break;
+                default:
+                    horzAlign = HorzAlign.LEFT;
+            }
+        }
+
         renderingTable.pos()
-            .treatAsCharAnd(false).affectLSpacingAnd(false).flowWithTextAnd(true).allowOverlapAnd(false).holdAnchorAndSOAnd(false)
-            .vertRelToAnd(VertRelTo.PARA).horzRelToAnd(HorzRelTo.COLUMN).vertAlignAnd(VertAlign.TOP).horzAlignAnd(HorzAlign.LEFT)
-            .vertOffsetAnd(0L).horzOffsetAnd(0L);
+            .treatAsCharAnd(false)
+            .affectLSpacingAnd(false)
+            .flowWithTextAnd(true)
+            .allowOverlapAnd(false)
+            .holdAnchorAndSOAnd(false)
+            .vertRelToAnd(VertRelTo.PARA)
+            .horzRelToAnd(HorzRelTo.COLUMN)
+            .vertAlignAnd(VertAlign.TOP)
+            .horzAlignAnd(horzAlign)
+            .vertOffsetAnd(0L)
+            .horzOffsetAnd(0L);
     }
 
     private void setSz() {
