@@ -65,4 +65,8 @@ public class R2StorageService {
             return false;
         }
     }
+
+    public void testConnection() {
+        s3Client.listBuckets();
+    }
 }

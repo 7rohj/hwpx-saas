@@ -238,6 +238,8 @@ public class GenerateController {
 
         byte[] outBytes = exportService.renderHwpx(templateBytes, req.toBodyMap());
 
+        r2storageService.testConnection();
+
         String fileId = timePrefix() + "_" + safeFileName(outName);
         String objectKey = "outputs/" + fileId;
 

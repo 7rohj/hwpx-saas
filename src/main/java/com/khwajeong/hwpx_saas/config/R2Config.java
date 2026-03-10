@@ -26,7 +26,10 @@ public class R2Config {
 
     @Bean
     public S3Client r2S3Client() {
-        AwsBasicCredentials credentials = AwsBasicCredentials.create(accessKeyId, secretAccessKey);
+        AwsBasicCredentials credentials = AwsBasicCredentials.create(
+                accountId == null ? "" : accessKeyId.trim(),
+                secretAccessKey == null ? "" : secretAccessKey.trim()
+        );
 
         S3Configuration serviceConfiguration = S3Configuration.builder()
                 .pathStyleAccessEnabled(true)
