@@ -1,4 +1,5 @@
 rootProject.name = 'hwpx-saas'
+includeBuild('hwpxtemplater-core')
 
 /*
 includeBuild('C:/Users/User/hwpxtemplater/hwpxtemplater-core') {

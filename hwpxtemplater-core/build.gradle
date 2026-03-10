@@ -1,0 +1,85 @@
+plugins {
+    id 'java'
+    id 'maven-publish'
+    id 'signing'
+}
+
+tasks.withType(JavaCompile) {
+    options.encoding = 'UTF-8'
+}
+
+tasks.withType(Javadoc) {
+    options.encoding = 'UTF-8'
+    options.addStringOption('Xdoclint:none', '-quiet')
+    failOnError = false
+}
+
+tasks.withType(Sign).configureEach {
+    enabled = false
+}
+
+group = 'io.github.mumberrymountain'
+version = '0.1.0-local' //'0.1.0'
+
+java {
+    sourceCompatibility = JavaVersion.VERSION_1_8
+    targetCompatibility = JavaVersion.VERSION_1_8
+
+    withJavadocJar()
+    withSourcesJar()
+}
+
+repositories {
+    mavenCentral()
+}
+
+dependencies {
+    testImplementation platform('org.junit:junit-bom:5.9.1')
+    testImplementation 'org.junit.jupiter:junit-jupiter'
+    implementation("kr.dogfoot:hwpxlib:1.0.6")
+}
+
+test {
+    useJUnitPlatform()
+}
+
+publishing {
+    publications {
+        mavenJava(MavenPublication) {
+            from components.java
+
+            artifactId = 'hwpxtemplater'
+
+            pom {
+                name = 'HwpxTemplater'
+                description = 'Template library to produce HWPX documents'
+                url = 'https://github.com/mumberrymountain/hwpxtemplater'
+
+                licenses {
+                    license {
+                        name = 'MIT License'
+                        url = 'https://opensource.org/licenses/MIT'
+                    }
+                }
+
+                developers {
+                    developer {
+                        id = 'mumberrymountain'
+                        name = 'Jeon Insoo'
+                        email = 'mumberrymountain@gmail.com'
+                    }
+                }
+
+                scm {
+                    connection = 'scm:git:git://github.com/mumberrymountain/hwpxtemplater.git'
+                    developerConnection = 'scm:git:ssh://github.com/mumberrymountain/hwpxtemplater.git'
+                    url = 'https://github.com/mumberrymountain/hwpxtemplater'
+                }
+            }
+        }
+    }
+}
+
+signing {
+    sign publishing.publications.mavenJava
+}
