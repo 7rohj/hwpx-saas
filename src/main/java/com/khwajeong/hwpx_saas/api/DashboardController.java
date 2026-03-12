@@ -12,6 +12,7 @@ import java.time.OffsetDateTime;
 import java.util.LinkedHashMap;
 import java.util.Map;
 
+@Tag(name = "Dashboard Controller", description = "테스트중")
 @RestController
 @RequestMapping("/api/v1/dashboard")
 public class DashboardController {
