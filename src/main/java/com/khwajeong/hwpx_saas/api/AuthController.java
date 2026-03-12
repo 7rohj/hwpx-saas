@@ -16,7 +16,7 @@ import io.swagger.v3.oas.annotations.tags.Tag;
 import java.util.LinkedHashMap;
 import java.util.Map;
 
-@Tag(name = "Auth Controller", description = "테스트중")
+@Tag(name = "99. Auth Controller", description = "테스트중")
 @RestController
 @RequestMapping("/api/v1/auth")
 public class AuthController {
