@@ -74,6 +74,13 @@ type TemplateVarsResponse = {
   vars: string[]
 }
 
+type GenerateResponse = {
+  ok?: boolean
+  message?: string
+  fileId?: string
+  downloadUrl?: string
+}
+
 const API_BASE_URL = import.meta.env.VITE_API_BASE_URL ?? "http://localhost:8080"
 
 function formatDate(value?: string | null) {
@@ -125,6 +132,12 @@ export default function Dashboard() {
 
   const [uploading, setUploading] = useState(false)
   const fileInputRef = useRef<HTMLInputElement | null>(null)
+
+  const [selectedTemplateId, setSelectedTemplateId] = useState("")
+  const [generateVars, setGenerateVars] = useState<string[]>([])
+  const [generateValues, setGenerateValues] = useState<Record<string, string>>({})
+  const [generateVarsLoading, setGenerateVarsLoading] = useState(false)
+  const [generating, setGenerating] = useState(false)
 
   useEffect(() => {
     const savedEmail = localStorage.getItem("userEmail") ?? ""
@@ -199,6 +212,10 @@ export default function Dashboard() {
         setTemplates(templateData.items ?? [])
         setFiles(fileData.items ?? [])
         setLogs(logData.items ?? [])
+
+        if (!selectedTemplateId && templateData.items?.length > 0) {
+          setSelectedTemplateId(templateData.items[0].templateId)
+        }
       } catch (err) {
         if (err instanceof DOMException && err.name === "AbortError") return
         console.error(err)
@@ -213,6 +230,59 @@ export default function Dashboard() {
     return () => controller.abort()
   }, [email, apiKey])
 
+  useEffect(() => {
+    if (!selectedTemplateId || !apiKey) {
+      setGenerateVars([])
+      setGenerateValues({})
+      return
+    }
+
+    const controller = new AbortController()
+
+    async function loadGenerateVars() {
+      try {
+        setGenerateVarsLoading(true)
+
+        const response = await fetch(
+          `${API_BASE_URL}/api/v1/template/${selectedTemplateId}/vars`,
+          {
+            method: "GET",
+            headers: {
+              "X-API-Key": apiKey,
+            },
+            signal: controller.signal,
+          }
+        )
+
+        const data: TemplateVarsResponse = await response.json()
+
+        if (!response.ok || !data.ok) {
+          throw new Error("생성용 vars 조회 실패")
+        }
+
+        setGenerateVars(data.vars ?? [])
+        setGenerateValues((prev) => {
+          const next: Record<string, string> = {}
+          for (const key of data.vars ?? []) {
+            next[key] = prev[key] ?? ""
+          }
+          return next
+        })
+      } catch (err) {
+        if (err instanceof DOMException && err.name === "AbortError") return
+        console.error(err)
+        setGenerateVars([])
+        setGenerateValues({})
+      } finally {
+        setGenerateVarsLoading(false)
+      }
+    }
+
+    loadGenerateVars()
+
+    return () => controller.abort()
+  }, [selectedTemplateId, apiKey])
+
   const thisMonthUsage = useMemo(() => {
     const now = new Date()
     return logs.filter((log) => {
@@ -224,6 +294,28 @@ export default function Dashboard() {
       )
     }).length
   }, [logs])
+
+  async function reloadGeneratedFiles() {
+    if (!apiKey) return
+
+    try {
+      const response = await fetch(`${API_BASE_URL}/api/v1/dashboard/generated-files`, {
+        method: "GET",
+        headers: {
+          "X-API-Key": apiKey,
+        },
+      })
+
+      if (!response.ok) {
+        throw new Error("생성 파일 목록 새로고침 실패")
+      }
+
+      const data: GeneratedFilesResponse = await response.json()
+      setFiles(data.items ?? [])
+    } catch (err) {
+      console.error(err)
+    }
+  }
 
   async function handleRegenerateApiKey() {
     if (!email) {
@@ -298,6 +390,7 @@ export default function Dashboard() {
       }
 
       setTemplates((prev) => [newItem, ...prev])
+      setSelectedTemplateId(data.templateId)
       alert("템플릿 업로드 완료")
     } catch (err) {
       console.error(err)
@@ -307,6 +400,70 @@ export default function Dashboard() {
       if (fileInputRef.current) {
         fileInputRef.current.value = ""
       }
+    }
+  }
+
+  async function handleGenerateDocument() {
+    if (!apiKey) {
+      alert("API Key가 없습니다.")
+      return
+    }
+
+    if (!selectedTemplateId) {
+      alert("먼저 템플릿을 선택해주세요.")
+      return
+    }
+
+    if (generateVars.length === 0) {
+      alert("생성 가능한 변수가 없습니다.")
+      return
+    }
+
+    const hasEmptyRequiredValue = generateVars.some(
+      (key) => !String(generateValues[key] ?? "").trim()
+    )
+
+    if (hasEmptyRequiredValue) {
+      alert("모든 변수 값을 입력해주세요.")
+      return
+    }
+
+    try {
+      setGenerating(true)
+
+      const elements = generateVars.map((key) => ({
+        placeholder: key,
+        type: "text",
+        content: generateValues[key] ?? "",
+      }))
+
+      const response = await fetch(`${API_BASE_URL}/api/v1/generate`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "X-API-Key": apiKey,
+        },
+        body: JSON.stringify({
+          templateId: selectedTemplateId,
+          outputFilename: "output.hwpx",
+          elements,
+        }),
+      })
+
+      const data: GenerateResponse = await response.json()
+      console.log("generate response:", data)
+
+      if (!response.ok || data.ok === false) {
+        throw new Error(data.message ?? "문서 생성 실패")
+      }
+
+      alert("문서 생성 완료")
+      await reloadGeneratedFiles()
+    } catch (err) {
+      console.error(err)
+      alert("문서 생성에 실패했습니다.")
+    } finally {
+      setGenerating(false)
     }
   }
 
@@ -344,9 +501,32 @@ export default function Dashboard() {
     }
   }
 
-  function handleDownloadFile(file: GeneratedFileItem) {
-    const href = `${API_BASE_URL}${file.downloadUrl}`
-    window.open(href, "_blank")
+  async function handleDownloadFile(file: GeneratedFileItem) {
+    try {
+      const response = await fetch(`${API_BASE_URL}${file.downloadUrl}`, {
+        method: "GET",
+        headers: {
+          "X-API-Key": apiKey,
+        },
+      })
+
+      if (!response.ok) {
+        throw new Error("다운로드 실패")
+      }
+
+      const blob = await response.blob()
+      const url = window.URL.createObjectURL(blob)
+      const a = document.createElement("a")
+      a.href = url
+      a.download = file.originalFilename || "download.hwpx"
+      document.body.appendChild(a)
+      a.click()
+      a.remove()
+      window.URL.revokeObjectURL(url)
+    } catch (err) {
+      console.error(err)
+      alert("파일 다운로드에 실패했습니다.")
+    }
   }
 
   if (loading) {
@@ -493,6 +673,7 @@ export default function Dashboard() {
                     <h2 className="text-xl font-semibold">Quick Actions</h2>
                     <p className="text-sm text-slate-500">자주 쓰는 기능을 빠르게 실행</p>
                   </div>
+
                   <div className="space-y-3 p-6">
                     <input
                       ref={fileInputRef}
@@ -516,11 +697,58 @@ export default function Dashboard() {
                       {uploading ? "업로드 중..." : "템플릿 업로드"}
                     </button>
 
-                    <button className="w-full rounded-2xl border px-4 py-3 hover:bg-slate-50">
-                      문서 생성 테스트
+                    <select
+                      value={selectedTemplateId}
+                      onChange={(e) => setSelectedTemplateId(e.target.value)}
+                      className="w-full rounded-2xl border border-slate-200 px-4 py-3 text-sm outline-none"
+                    >
+                      <option value="">템플릿 선택</option>
+                      {templates.map((item) => (
+                        <option key={item.templateId} value={item.templateId}>
+                          {item.originalName}
+                        </option>
+                      ))}
+                    </select>
+
+                    {generateVarsLoading ? (
+                      <div className="rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm text-slate-500">
+                        템플릿 변수 불러오는 중...
+                      </div>
+                    ) : generateVars.length === 0 ? (
+                      <div className="rounded-2xl border border-dashed border-slate-200 px-4 py-3 text-sm text-slate-500">
+                        선택한 템플릿에 입력할 변수가 없습니다.
+                      </div>
+                    ) : (
+                      generateVars.map((key) => (
+                        <input
+                          key={key}
+                          type="text"
+                          value={generateValues[key] ?? ""}
+                          onChange={(e) =>
+                            setGenerateValues((prev) => ({
+                              ...prev,
+                              [key]: e.target.value,
+                            }))
+                          }
+                          placeholder={`${key} 값 입력`}
+                          className="w-full rounded-2xl border border-slate-200 px-4 py-3 text-sm outline-none"
+                        />
+                      ))
+                    )}
+
+                    <button
+                      onClick={handleGenerateDocument}
+                      disabled={generating || generateVarsLoading || generateVars.length === 0}
+                      className="w-full rounded-2xl border px-4 py-3 hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-60"
+                    >
+                      {generating ? "문서 생성 중..." : "문서 생성 테스트"}
                     </button>
-                    <button className="w-full rounded-2xl border px-4 py-3 hover:bg-slate-50">
-                      생성 파일 보기
+
+                    <button
+                      onClick={reloadGeneratedFiles}
+                      className="w-full rounded-2xl border px-4 py-3 hover:bg-slate-50"
+                    >
+                      생성 파일 새로고침
                     </button>
                   </div>
                 </div>
@@ -575,7 +803,10 @@ export default function Dashboard() {
                       <h2 className="text-xl font-semibold">Generated Files</h2>
                       <p className="text-sm text-slate-500">최근 생성된 문서</p>
                     </div>
-                    <button className="rounded-2xl border px-4 py-2 text-sm hover:bg-slate-50">
+                    <button
+                      onClick={reloadGeneratedFiles}
+                      className="rounded-2xl border px-4 py-2 text-sm hover:bg-slate-50"
+                    >
                       전체 보기
                     </button>
                   </div>
@@ -648,10 +879,7 @@ export default function Dashboard() {
                           </tr>
                         ) : (
                           logs.slice(0, 10).map((item) => (
-                            <tr
-                              key={item.id}
-                              className="border-t border-slate-200 bg-white"
-                            >
+                            <tr key={item.id} className="border-t border-slate-200 bg-white">
                               <td className="px-4 py-3 font-medium">{item.actionType}</td>
                               <td className="px-4 py-3 text-slate-600">{item.targetId || "-"}</td>
                               <td className="px-4 py-3">
