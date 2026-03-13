@@ -6,6 +6,8 @@ import java.time.OffsetDateTime;
 
 public interface TemplateRepository extends JpaRepository<TemplateEntity, Long> {
     Optional<TemplateEntity> findByTemplateId(String templateId);
+    Optional<TemplateEntity> findByTemplateAndUserId(String templateId, Long userId);
+    List<TemplateEntity> findByUserIdOrderByUploadedAtDesc(Long userId);
     void deleteByTemplateId(String templateId);
     boolean existsByTemplateId(String templateId);
 }

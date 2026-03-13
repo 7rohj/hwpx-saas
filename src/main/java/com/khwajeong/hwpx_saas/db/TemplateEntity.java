@@ -6,13 +6,18 @@ import java.time.OffsetDateTime;
 
 @Entity
 @Table(name = "templates", indexes = {
-    @Index(name = "idx_templates_template_id", columnList = "templateId", unique = true)
+    @Index(name = "idx_templates_template_id", columnList = "templateId", unique = true),
+    @Index(name = "idx_templates_user_id", columnList = "userId")
 })
+
 public class TemplateEntity {
 
   @Id
   @GeneratedValue(strategy = GenerationType.IDENTITY)
   private Long id;
+
+  @Column(nullable = false)
+  private Long userId;
 
   @Column(nullable = false, unique = true, length = 128)
   private String templateId;
@@ -34,7 +39,8 @@ public class TemplateEntity {
 
   protected TemplateEntity() {}
 
-  public TemplateEntity(String templateId, String originalName, String storagePath, Long sizeBytes, OffsetDateTime uploadedAt, String varsJson) {
+  public TemplateEntity(Long userId, String templateId, String originalName, String storagePath, Long sizeBytes, OffsetDateTime uploadedAt, String varsJson) {
+    this.userId = userId;
     this.templateId = templateId;
     this.originalName = originalName;
     this.storagePath = storagePath;
@@ -44,6 +50,7 @@ public class TemplateEntity {
   }
 
   public Long getId() { return id; }
+  public Long getUserId() { return userId; }
   public String getTemplateId() { return templateId; }
   public String getOriginalName() { return originalName; }
   public String getStoragePath() { return storagePath; }
