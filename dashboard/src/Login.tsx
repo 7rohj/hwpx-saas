@@ -1,0 +1,136 @@
+import { useState } from "react"
+import { KeyRound, Mail, Lock } from "lucide-react"
+
+type LoginProps = {
+  onLoginSuccess: () => void
+  onGoSignup: () => void
+}
+
+const API_BASE_URL = import.meta.env.VITE_API_BASE_URL ?? "http://localhost:8080"
+
+export default function Login({ onLoginSuccess, onGoSignup }: LoginProps) {
+  const [email, setEmail] = useState("")
+  const [password, setPassword] = useState("")
+  const [loading, setLoading] = useState(false)
+  const [error, setError] = useState("")
+
+  async function handleLogin(e: React.FormEvent) {
+    e.preventDefault()
+
+    try {
+      setLoading(true)
+      setError("")
+
+      const response = await fetch(`${API_BASE_URL}/api/v1/auth/login`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          email,
+          password,
+        }),
+      })
+
+      const data = await response.json()
+
+      if (!response.ok || !data.ok) {
+        setError(data.message ?? "로그인에 실패했습니다.")
+        return
+      }
+
+      if (!data.email || !data.apiKey) {
+        setError("로그인은 성공했지만 email 또는 apiKey가 없습니다.")
+        return
+      }
+
+      localStorage.setItem("userEmail", data.email)
+      localStorage.setItem("apiKey", data.apiKey)
+
+      onLoginSuccess()
+    } catch (err) {
+      console.error(err)
+      setError("로그인 중 오류가 발생했습니다.")
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  return (
+    <div className="min-h-screen bg-gradient-to-br from-slate-50 via-white to-slate-100 text-slate-900">
+      <div className="mx-auto flex min-h-screen max-w-7xl items-center justify-center px-4 py-10 sm:px-6 lg:px-8">
+        <div className="w-full max-w-md rounded-[32px] border border-slate-200/70 bg-white p-8 shadow-sm">
+          <div className="mb-6">
+            <div className="mb-3 inline-flex items-center gap-2 rounded-full border border-slate-200 bg-slate-50 px-3 py-1 text-xs font-medium text-slate-600">
+              <span className="h-2 w-2 rounded-full bg-emerald-500" />
+              AutoHWPX SaaS
+            </div>
+            <h1 className="text-3xl font-bold tracking-tight">로그인</h1>
+            <p className="mt-2 text-sm text-slate-500">
+              이메일과 비밀번호를 입력해 주세요.
+            </p>
+          </div>
+
+          <form onSubmit={handleLogin} className="space-y-4">
+            <div>
+              <label className="mb-2 block text-sm font-medium text-slate-700">
+                이메일
+              </label>
+              <div className="flex items-center gap-3 rounded-2xl border border-slate-200 bg-white px-4 py-3">
+                <Mail className="h-4 w-4 text-slate-400" />
+                <input
+                  type="email"
+                  value={email}
+                  onChange={(e) => setEmail(e.target.value)}
+                  placeholder="test1@autohwpx.com"
+                  className="w-full bg-transparent text-sm outline-none placeholder:text-slate-400"
+                  required
+                />
+              </div>
+            </div>
+
+            <div>
+              <label className="mb-2 block text-sm font-medium text-slate-700">
+                비밀번호
+              </label>
+              <div className="flex items-center gap-3 rounded-2xl border border-slate-200 bg-white px-4 py-3">
+                <Lock className="h-4 w-4 text-slate-400" />
+                <input
+                  type="password"
+                  value={password}
+                  onChange={(e) => setPassword(e.target.value)}
+                  placeholder="비밀번호 입력"
+                  className="w-full bg-transparent text-sm outline-none placeholder:text-slate-400"
+                  required
+                />
+              </div>
+            </div>
+
+            {error ? (
+              <div className="rounded-2xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-600">
+                {error}
+              </div>
+            ) : null}
+
+            <button
+              type="submit"
+              disabled={loading}
+              className="flex w-full items-center justify-center gap-2 rounded-2xl bg-slate-900 px-4 py-3 text-sm font-medium text-white transition hover:bg-slate-800 disabled:cursor-not-allowed disabled:opacity-60"
+            >
+              <KeyRound className="h-4 w-4" />
+              {loading ? "로그인 중..." : "로그인"}
+            </button>
+
+            <button
+              type="button"
+              onClick={onGoSignup}
+              className="w-full rounded-2xl border border-slate-200 px-4 py-3 text-sm font-medium text-slate-700 hover:bg-slate-50"
+            >
+              회원가입 하러가기
+            </button>
+          </form>
+        </div>
+      </div>
+    </div>
+  )
+}
