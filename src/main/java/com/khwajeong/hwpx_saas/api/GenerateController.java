@@ -10,8 +10,14 @@ import com.khwajeong.hwpx_saas.api.validator.GenerateRequestValidator;
 import com.khwajeong.hwpx_saas.core.ExportService;
 import com.khwajeong.hwpx_saas.service.StorageService;
 import com.khwajeong.hwpx_saas.service.R2StorageService;
+import com.khwajeong.hwpx_saas.service.ApiKeyService;
 import com.khwajeong.hwpx_saas.db.TemplateRepository;
 import com.khwajeong.hwpx_saas.db.TemplateEntity;
+import com.khwajeong.hwpx_saas.db.GeneratedFileEntity;
+import com.khwajeong.hwpx_saas.db.GeneratedFileRepository;
+import com.khwajeong.hwpx_saas.db.UsageLogEntity;
+import com.khwajeong.hwpx_saas.db.UsageLogRepository;
+import com.khwajeong.hwpx_saas.db.UserEntity;
 
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.media.Content;
@@ -26,6 +32,7 @@ import jakarta.validation.Valid;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
+import org.springframework.http.HttpStatus;
 
 import java.nio.file.Files;
 import java.nio.file.Path;
@@ -41,19 +48,28 @@ public class GenerateController {
     private final StorageService storage;
     private final ObjectMapper om;
     private final R2StorageService r2StorageService;
+    private final GeneratedFileRepository generatedFileRepository;
+    private final UsageLogRepository usageLogRepository;
+    private final ApiKeyService apiKeyService;
 
     public GenerateController(
             ExportService exportService,
             TemplateRepository templateRepo,
             StorageService storage,
             ObjectMapper om,
-            R2StorageService r2StorageService
+            R2StorageService r2StorageService,
+            GeneratedFileRepository generatedFileRepository,
+            UsageLogRepository usageLogRepository,
+            ApiKeyService apiKeyService
     ) {
         this.exportService = exportService;
         this.templateRepo = templateRepo;
         this.storage = storage;
         this.om = om;
         this.r2StorageService = r2StorageService;
+        this.generatedFileRepository = generatedFileRepository;
+        this.usageLogRepository = usageLogRepository;
+        this.apiKeyService = apiKeyService;
     }
 
     @Operation(
@@ -191,9 +207,18 @@ public class GenerateController {
             }
         )
     )
-    public ResponseEntity<GenerateResponse> generate(@Valid @RequestBody GenerateRequest req) throws Exception {
+    public ResponseEntity<GenerateResponse> generate(
+        @RequestHeader(value = "X-API-Key", required = false) String apiKey,
+        @Valid @RequestBody GenerateRequest req
+    ) throws Exception {
 
         GenerateRequestValidator.validate(req);
+
+        UserEntity user = apiKeyService.findUserByApiKey(apiKey);
+        if (user == null) {
+            logUsage(null, "GENERATE", null, false, "invalid or missing api key");
+            return ResponseEntity.status(HttpStatus.UNAUTHORIZED).build();
+        }
 
         final String templateId = req.templateId.trim();
 
@@ -244,6 +269,18 @@ public class GenerateController {
         String objectKey = "outputs/" + fileId;
 
         r2StorageService.uploadHwpx(outBytes, objectKey);
+
+        GeneratedFileEntity generatedFile = new GeneratedFileEntity();
+        generatedFile.setUserId(user.getId());
+        generatedFile.setTemplateId(templateId);
+        generatedFile.setFileId(fileId);
+        generatedFile.setOriginalFilename(outName);
+        generatedFile.setR2ObjectKey(objectKey);
+        generatedFile.setSize((long) outBytes.length);
+        generatedFile.setStatus("SUCCESS");
+        generatedFileRepository.save(generatedFile);
+
+        logUsage(user.getId(), "GENERATE", fileId, true, "generate success");
 
         return ResponseEntity.ok(GenerateResponse.of(fileId, "/api/v1/files/" + fileId));
     }
@@ -297,5 +334,15 @@ public class GenerateController {
         n = n.replaceAll("[\\\\/:*?\"<>|]", "_");
         if (!n.toLowerCase().endsWith(".hwpx")) n += ".hwpx";
         return n;
+    }
+
+    private void logUsage(Long userId, String actionType, String targetId, boolean success, String message) {
+        UsageLogEntity log = new UsageLogEntity();
+        log.setUserId(userId);
+        log.setActionType(actionType);
+        log.setTargetId(targetId);
+        log.setSuccess(success);
+        log.setMessage(message);
+        usageLogRepository.save(log);
     }
 }
