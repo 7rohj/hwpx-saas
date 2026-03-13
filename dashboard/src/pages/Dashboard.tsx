@@ -115,6 +115,15 @@ function formatBytes(bytes?: number | null) {
   return `${(bytes / (1024 * 1024)).toFixed(1)} MB`
 }
 
+function isTableVarName(name: string) {
+  const lower = name.toLowerCase()
+  return (
+    lower.includes("table") ||
+    lower.includes("rows") ||
+    lower.includes("items")
+  )
+}
+
 export default function Dashboard() {
   const [email, setEmail] = useState("")
   const [apiKey, setApiKey] = useState("")
@@ -134,8 +143,10 @@ export default function Dashboard() {
   const fileInputRef = useRef<HTMLInputElement | null>(null)
 
   const [selectedTemplateId, setSelectedTemplateId] = useState("")
-  const [generateVars, setGenerateVars] = useState<string[]>([])
-  const [generateValues, setGenerateValues] = useState<Record<string, string>>({})
+  const [textVarNames, setTextVarNames] = useState<string[]>([])
+  const [tableVarNames, setTableVarNames] = useState<string[]>([])
+  const [textValues, setTextValues] = useState<Record<string, string>>({})
+  const [tableValues, setTableValues] = useState<Record<string, string>>({})
   const [generateVarsLoading, setGenerateVarsLoading] = useState(false)
   const [generating, setGenerating] = useState(false)
 
@@ -232,8 +243,10 @@ export default function Dashboard() {
 
   useEffect(() => {
     if (!selectedTemplateId || !apiKey) {
-      setGenerateVars([])
-      setGenerateValues({})
+      setTextVarNames([])
+      setTableVarNames([])
+      setTextValues({})
+      setTableValues({})
       return
     }
 
@@ -260,19 +273,36 @@ export default function Dashboard() {
           throw new Error("생성용 vars 조회 실패")
         }
 
-        setGenerateVars(data.vars ?? [])
-        setGenerateValues((prev) => {
+        const allVars = data.vars ?? []
+        const detectedTableVars = allVars.filter((key) => isTableVarName(key))
+        const detectedTextVars = allVars.filter((key) => !isTableVarName(key))
+
+        setTextVarNames(detectedTextVars)
+        setTableVarNames(detectedTableVars)
+
+        setTextValues((prev) => {
           const next: Record<string, string> = {}
-          for (const key of data.vars ?? []) {
+          for (const key of detectedTextVars) {
             next[key] = prev[key] ?? ""
+          }
+          return next
+        })
+
+        setTableValues((prev) => {
+          const next: Record<string, string> = {}
+          for (const key of detectedTableVars) {
+            next[key] =
+              prev[key] ?? '[["항목","값"],["예시1","100"],["예시2","200"]]'
           }
           return next
         })
       } catch (err) {
         if (err instanceof DOMException && err.name === "AbortError") return
         console.error(err)
-        setGenerateVars([])
-        setGenerateValues({})
+        setTextVarNames([])
+        setTableVarNames([])
+        setTextValues({})
+        setTableValues({})
       } finally {
         setGenerateVarsLoading(false)
       }
@@ -414,28 +444,59 @@ export default function Dashboard() {
       return
     }
 
-    if (generateVars.length === 0) {
+    if (textVarNames.length === 0 && tableVarNames.length === 0) {
       alert("생성 가능한 변수가 없습니다.")
       return
     }
 
-    const hasEmptyRequiredValue = generateVars.some(
-      (key) => !String(generateValues[key] ?? "").trim()
+    const hasEmptyTextValue = textVarNames.some(
+      (key) => !String(textValues[key] ?? "").trim()
     )
 
-    if (hasEmptyRequiredValue) {
-      alert("모든 변수 값을 입력해주세요.")
+    if (hasEmptyTextValue) {
+      alert("텍스트 변수 값을 모두 입력해주세요.")
+      return
+    }
+
+    const hasEmptyTableValue = tableVarNames.some(
+      (key) => !String(tableValues[key] ?? "").trim()
+    )
+
+    if (hasEmptyTableValue) {
+      alert("표 변수 JSON 값을 입력해주세요.")
       return
     }
 
     try {
       setGenerating(true)
 
-      const elements = generateVars.map((key) => ({
+      const textElements = textVarNames.map((key) => ({
         placeholder: key,
         type: "text",
-        content: generateValues[key] ?? "",
+        content: textValues[key] ?? "",
       }))
+
+      const tableElements = tableVarNames.map((key) => {
+        let parsedData: string[][] = []
+
+        try {
+          parsedData = JSON.parse(tableValues[key] ?? "[]")
+        } catch (e) {
+          throw new Error(`${key} 표 JSON 형식이 올바르지 않습니다.`)
+        }
+
+        if (!Array.isArray(parsedData)) {
+          throw new Error(`${key} 표 데이터는 2차원 배열이어야 합니다.`)
+        }
+
+        return {
+          placeholder: key,
+          type: "table",
+          data: parsedData,
+        }
+      })
+
+      const elements = [...textElements, ...tableElements]
 
       const response = await fetch(`${API_BASE_URL}/api/v1/generate`, {
         method: "POST",
@@ -461,7 +522,11 @@ export default function Dashboard() {
       await reloadGeneratedFiles()
     } catch (err) {
       console.error(err)
-      alert("문서 생성에 실패했습니다.")
+      if (err instanceof Error) {
+        alert(err.message)
+      } else {
+        alert("문서 생성에 실패했습니다.")
+      }
     } finally {
       setGenerating(false)
     }
@@ -714,31 +779,59 @@ export default function Dashboard() {
                       <div className="rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm text-slate-500">
                         템플릿 변수 불러오는 중...
                       </div>
-                    ) : generateVars.length === 0 ? (
-                      <div className="rounded-2xl border border-dashed border-slate-200 px-4 py-3 text-sm text-slate-500">
-                        선택한 템플릿에 입력할 변수가 없습니다.
-                      </div>
                     ) : (
-                      generateVars.map((key) => (
-                        <input
-                          key={key}
-                          type="text"
-                          value={generateValues[key] ?? ""}
-                          onChange={(e) =>
-                            setGenerateValues((prev) => ({
-                              ...prev,
-                              [key]: e.target.value,
-                            }))
-                          }
-                          placeholder={`${key} 값 입력`}
-                          className="w-full rounded-2xl border border-slate-200 px-4 py-3 text-sm outline-none"
-                        />
-                      ))
+                      <>
+                        {textVarNames.length === 0 && tableVarNames.length === 0 ? (
+                          <div className="rounded-2xl border border-dashed border-slate-200 px-4 py-3 text-sm text-slate-500">
+                            선택한 템플릿에 입력할 변수가 없습니다.
+                          </div>
+                        ) : null}
+
+                        {textVarNames.map((key) => (
+                          <input
+                            key={key}
+                            type="text"
+                            value={textValues[key] ?? ""}
+                            onChange={(e) =>
+                              setTextValues((prev) => ({
+                                ...prev,
+                                [key]: e.target.value,
+                              }))
+                            }
+                            placeholder={`${key} 값 입력`}
+                            className="w-full rounded-2xl border border-slate-200 px-4 py-3 text-sm outline-none"
+                          />
+                        ))}
+
+                        {tableVarNames.map((key) => (
+                          <div key={key} className="space-y-2">
+                            <p className="text-sm font-medium text-slate-700">
+                              {key} 표 데이터(JSON)
+                            </p>
+                            <textarea
+                              value={tableValues[key] ?? ""}
+                              onChange={(e) =>
+                                setTableValues((prev) => ({
+                                  ...prev,
+                                  [key]: e.target.value,
+                                }))
+                              }
+                              rows={6}
+                              className="w-full rounded-2xl border border-slate-200 px-4 py-3 text-sm font-mono outline-none"
+                              placeholder='[["품목","수량","금액"],["사과","2","3000"],["배","1","5000"]]'
+                            />
+                          </div>
+                        ))}
+                      </>
                     )}
 
                     <button
                       onClick={handleGenerateDocument}
-                      disabled={generating || generateVarsLoading || generateVars.length === 0}
+                      disabled={
+                        generating ||
+                        generateVarsLoading ||
+                        (textVarNames.length === 0 && tableVarNames.length === 0)
+                      }
                       className="w-full rounded-2xl border px-4 py-3 hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-60"
                     >
                       {generating ? "문서 생성 중..." : "문서 생성 테스트"}
