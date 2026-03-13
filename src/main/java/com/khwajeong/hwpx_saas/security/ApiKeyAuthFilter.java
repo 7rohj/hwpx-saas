@@ -33,11 +33,19 @@ public class ApiKeyAuthFilter extends OncePerRequestFilter {
 
   @Override
   protected boolean shouldNotFilter(HttpServletRequest request) {
-    String path = request.getRequestURI();
-    for (String p : EXCLUDE_PREFIX) {
-      if (path.startsWith(p)) return true;
-    }
-    return false;
+      String path = request.getRequestURI();
+
+      for (String p : EXCLUDE_PREFIX) {
+          if (path.startsWith(p)) return true;
+      }
+
+      // 사용자 API는 필터에서 제외
+      if (path.startsWith("/api/v1/generate")) return true;
+      if (path.startsWith("/api/v1/dashboard")) return true;
+      if (path.startsWith("/api/v1/auth")) return true;
+      if (path.startsWith("/api/v1/files")) return true;
+
+      return false;
   }
 
   @Override
