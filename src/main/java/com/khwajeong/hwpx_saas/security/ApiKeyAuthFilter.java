@@ -31,6 +31,7 @@ public class ApiKeyAuthFilter extends OncePerRequestFilter {
     this.om = om;
   }
 
+  // 인증방식 2단계 -> 개인 키 1개로 수정
   @Override
   protected boolean shouldNotFilter(HttpServletRequest request) {
       String path = request.getRequestURI();
@@ -39,10 +40,11 @@ public class ApiKeyAuthFilter extends OncePerRequestFilter {
           if (path.startsWith(p)) return true;
       }
 
-      // 사용자 API는 필터에서 제외
+      // 사용자 API는 공용키 필터에서 제외
+      if (path.startsWith("/api/v1/auth")) return true;
+      if (path.startsWith("/api/v1/template")) return true;
       if (path.startsWith("/api/v1/generate")) return true;
       if (path.startsWith("/api/v1/dashboard")) return true;
-      if (path.startsWith("/api/v1/auth")) return true;
       if (path.startsWith("/api/v1/files")) return true;
 
       return false;
