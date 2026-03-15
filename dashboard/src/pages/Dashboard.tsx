@@ -481,7 +481,7 @@ export default function Dashboard() {
 
         try {
           parsedData = JSON.parse(tableValues[key] ?? "[]")
-        } catch (e) {
+        } catch {
           throw new Error(`${key} 표 JSON 형식이 올바르지 않습니다.`)
         }
 
@@ -654,7 +654,7 @@ export default function Dashboard() {
           </header>
 
           <div className="grid gap-6 lg:grid-cols-12">
-            <aside className="lg:col-span-3">
+            <aside className="space-y-6 lg:col-span-3">
               <div className="rounded-[28px] border border-slate-200/70 bg-white shadow-sm">
                 <div className="p-4">
                   <div className="mb-4 px-2 pt-1 text-xs font-semibold uppercase tracking-[0.2em] text-slate-400">
@@ -684,6 +684,35 @@ export default function Dashboard() {
                   </nav>
                 </div>
               </div>
+
+              <div className="rounded-[28px] border border-slate-200/70 bg-white shadow-sm">
+                <div className="flex flex-row items-start justify-between gap-4 p-6 pb-0">
+                  <div>
+                    <h2 className="flex items-center gap-2 text-xl font-semibold">
+                      <KeyRound className="h-5 w-5" />
+                      API Key
+                    </h2>
+                    <p className="mt-2 text-sm text-slate-500">
+                      문서 생성, 템플릿 업로드, 대시보드 조회에 사용하는 개인 키
+                    </p>
+                  </div>
+                  <button
+                    onClick={handleRegenerateApiKey}
+                    disabled={refreshingKey}
+                    className="rounded-2xl border px-4 py-2 text-sm hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-50"
+                  >
+                    <span className="inline-flex items-center gap-2">
+                      <RefreshCw className={`h-4 w-4 ${refreshingKey ? "animate-spin" : ""}`} />
+                      재발급
+                    </span>
+                  </button>
+                </div>
+                <div className="p-6">
+                  <div className="overflow-hidden rounded-2xl bg-slate-950 p-4 font-mono text-sm text-emerald-300 shadow-inner break-all">
+                    {apiKey || "API Key 없음"}
+                  </div>
+                </div>
+              </div>
             </aside>
 
             <main className="space-y-6 lg:col-span-9">
@@ -703,38 +732,9 @@ export default function Dashboard() {
                 ))}
               </section>
 
-              <section className="grid gap-6 xl:grid-cols-3">
-                <div className="rounded-[28px] border border-slate-200/70 bg-white shadow-sm xl:col-span-2">
-                  <div className="flex flex-row items-start justify-between gap-4 p-6 pb-0">
-                    <div>
-                      <h2 className="flex items-center gap-2 text-xl font-semibold">
-                        <KeyRound className="h-5 w-5" />
-                        API Key
-                      </h2>
-                      <p className="mt-2 text-sm text-slate-500">
-                        문서 생성, 템플릿 업로드, 대시보드 조회에 사용하는 개인 키
-                      </p>
-                    </div>
-                    <button
-                      onClick={handleRegenerateApiKey}
-                      disabled={refreshingKey}
-                      className="rounded-2xl border px-4 py-2 text-sm hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-50"
-                    >
-                      <span className="inline-flex items-center gap-2">
-                        <RefreshCw className={`h-4 w-4 ${refreshingKey ? "animate-spin" : ""}`} />
-                        재발급
-                      </span>
-                    </button>
-                  </div>
-                  <div className="p-6">
-                    <div className="overflow-hidden rounded-2xl bg-slate-950 p-4 font-mono text-sm text-emerald-300 shadow-inner break-all">
-                      {apiKey || "API Key 없음"}
-                    </div>
-                  </div>
-                </div>
-
+              <section>
                 <div className="rounded-[28px] border border-slate-200/70 bg-white shadow-sm">
-                  <div className="p-6 pb-0">
+                  <div className="p-6 pb-0 text-center">
                     <h2 className="text-xl font-semibold">Quick Actions</h2>
                     <p className="text-sm text-slate-500">자주 쓰는 기능을 빠르게 실행</p>
                   </div>
@@ -804,7 +804,7 @@ export default function Dashboard() {
                         ))}
 
                         {tableVarNames.map((key) => (
-                          <div key={key} className="space-y-2">
+                          <div key={key} className="space-y-2 text-left">
                             <p className="text-sm font-medium text-slate-700">
                               {key} 표 데이터(JSON)
                             </p>
