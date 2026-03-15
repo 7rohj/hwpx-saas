@@ -124,6 +124,21 @@ function isTableVarName(name: string) {
   )
 }
 
+const panelClass =
+  "border border-[#2f4f2f] bg-[#0a0f0a] text-[#b7ffb7] shadow-[0_0_0_1px_rgba(0,0,0,0.35)]"
+
+const panelHeaderClass =
+  "border-b border-[#2f4f2f] bg-[#121812] px-5 py-3"
+
+const inputClass =
+  "w-full border border-[#2f4f2f] bg-black px-3 py-3 font-mono text-sm text-[#d8ffd8] outline-none placeholder:text-[#4d6b4d]"
+
+const buttonClass =
+  "border border-[#2f4f2f] bg-[#111611] px-4 py-3 font-mono text-sm text-[#b7ffb7] transition hover:bg-[#162016] hover:text-[#d8ffd8]"
+
+const activeButtonClass =
+  "border border-[#7ee787] bg-[#16301b] px-4 py-3 font-mono text-sm font-bold tracking-wide text-[#d8ffd8] transition hover:bg-[#1c3a21]"
+
 export default function Dashboard() {
   const [email, setEmail] = useState("")
   const [apiKey, setApiKey] = useState("")
@@ -514,7 +529,6 @@ export default function Dashboard() {
         })
 
         const data: GenerateResponse = await response.json()
-        console.log("generate response:", data)
 
         if (!response.ok || data.ok === false) {
           throw new Error(data.message ?? "문서 생성 실패")
@@ -615,7 +629,6 @@ export default function Dashboard() {
       })
 
       const data: GenerateResponse = await response.json()
-      console.log("generate response:", data)
 
       if (!response.ok || data.ok === false) {
         throw new Error(data.message ?? "문서 생성 실패")
@@ -705,11 +718,15 @@ export default function Dashboard() {
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-gradient-to-br from-slate-50 via-white to-slate-100 text-slate-900">
+      <div className="min-h-screen bg-[#050805] text-[#b7ffb7]">
         <div className="mx-auto max-w-7xl px-4 py-10 sm:px-6 lg:px-8">
-          <div className="rounded-[28px] border border-slate-200/70 bg-white p-6 shadow-sm">
-            <p className="text-lg font-semibold">대시보드 불러오는 중...</p>
-            <p className="mt-2 text-sm text-slate-500">API 연결 상태를 확인하고 있어요.</p>
+          <div className={panelClass}>
+            <div className={panelHeaderClass}>
+              <p className="font-mono text-sm font-bold text-[#d8ffd8]">BOOT_SEQUENCE</p>
+            </div>
+            <div className="p-6 font-mono text-sm text-[#8fd48f]">
+              LOADING_DASHBOARD_DATA...
+            </div>
           </div>
         </div>
       </div>
@@ -718,14 +735,18 @@ export default function Dashboard() {
 
   if (error) {
     return (
-      <div className="min-h-screen bg-gradient-to-br from-slate-50 via-white to-slate-100 text-slate-900">
+      <div className="min-h-screen bg-[#050805] text-[#b7ffb7]">
         <div className="mx-auto max-w-7xl px-4 py-10 sm:px-6 lg:px-8">
-          <div className="rounded-[28px] border border-red-200 bg-white p-6 shadow-sm">
-            <p className="text-lg font-semibold text-red-600">에러</p>
-            <p className="mt-2 text-sm text-slate-600">{error}</p>
-            <p className="mt-3 text-xs text-slate-400">
-              localStorage에 userEmail / apiKey가 저장되어 있는지도 확인해보세요.
-            </p>
+          <div className="border border-red-800 bg-[#120909] text-red-300 shadow-[0_0_0_1px_rgba(0,0,0,0.35)]">
+            <div className="border-b border-red-900 bg-[#1a0d0d] px-5 py-3">
+              <p className="font-mono text-sm font-bold">SYSTEM_ERROR</p>
+            </div>
+            <div className="p-6 font-mono text-sm">
+              <p>{error}</p>
+              <p className="mt-3 text-xs text-red-400">
+                localStorage에 userEmail / apiKey가 저장되어 있는지도 확인해보세요.
+              </p>
+            </div>
           </div>
         </div>
       </div>
@@ -734,29 +755,33 @@ export default function Dashboard() {
 
   return (
     <>
-      <div className="min-h-screen bg-gradient-to-br from-slate-50 via-white to-slate-100 text-slate-900">
+      <div className="min-h-screen bg-[#050805] text-[#b7ffb7]">
         <div className="mx-auto max-w-7xl px-4 py-6 sm:px-6 lg:px-8">
-          <header className="mb-6 rounded-[28px] border border-slate-200/70 bg-white/80 p-5 shadow-sm backdrop-blur">
-            <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
-              <div>
-                <div className="mb-2 inline-flex items-center gap-2 rounded-full border border-slate-200 bg-slate-50 px-3 py-1 text-xs font-medium text-slate-600">
-                  <span className="h-2 w-2 rounded-full bg-emerald-500" />
-                  AutoHWPX SaaS
+          <header className="mb-6 border border-[#2f4f2f] bg-[#0a0f0a] shadow-[0_0_0_1px_rgba(0,0,0,0.35)]">
+            <div className="border-b border-[#2f4f2f] bg-[#121812] px-5 py-3">
+              <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
+                <div>
+                  <div className="mb-2 inline-flex items-center gap-2 border border-[#2f4f2f] bg-[#0d130d] px-3 py-1 font-mono text-xs text-[#7ee787]">
+                    <span className="h-2 w-2 bg-[#7ee787]" />
+                    AUTOHWPX_TERMINAL
+                  </div>
+                  <h1 className="font-mono text-2xl font-bold tracking-wide text-[#d8ffd8] sm:text-3xl">
+                    DASHBOARD.CONSOLE
+                  </h1>
+                  <p className="mt-2 font-mono text-xs text-[#7ee787]">
+                    api-key / templates / generation / files
+                  </p>
                 </div>
-                <h1 className="text-3xl font-bold tracking-tight sm:text-4xl">Dashboard</h1>
-                <p className="mt-2 text-sm text-slate-500 sm:text-base">
-                  내 API 키, 템플릿, 생성 문서를 한눈에 관리하는 공간
-                </p>
-              </div>
 
-              <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
-                <div className="flex items-center gap-2 rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm">
-                  <Search className="h-4 w-4 text-slate-400" />
-                  <span className="text-slate-400">검색은 다음 단계에서 연결</span>
-                </div>
-                <div className="rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm shadow-sm">
-                  <p className="font-medium">{email}</p>
-                  <p className="text-slate-500">Starter Plan</p>
+                <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
+                  <div className="flex items-center gap-2 border border-[#2f4f2f] bg-[#0d130d] px-4 py-3 font-mono text-xs text-[#8fd48f]">
+                    <Search className="h-4 w-4" />
+                    SEARCH_MODULE_PENDING
+                  </div>
+                  <div className="border border-[#2f4f2f] bg-[#0d130d] px-4 py-3 font-mono text-xs text-[#b7ffb7]">
+                    <p className="font-bold text-[#d8ffd8]">{email}</p>
+                    <p className="mt-1 text-[#7ee787]">PLAN: STARTER</p>
+                  </div>
                 </div>
               </div>
             </div>
@@ -764,61 +789,62 @@ export default function Dashboard() {
 
           <div className="grid gap-6 lg:grid-cols-12">
             <aside className="space-y-6 lg:col-span-3">
-              <div className="rounded-[28px] border border-slate-200/70 bg-white shadow-sm">
-                <div className="p-4">
-                  <div className="mb-4 px-2 pt-1 text-xs font-semibold uppercase tracking-[0.2em] text-slate-400">
-                    Menu
-                  </div>
-                  <nav className="space-y-2">
-                    <button className="flex w-full items-center gap-3 rounded-2xl bg-slate-900 px-4 py-3 text-left text-sm font-medium text-white shadow-sm">
-                      <LayoutDashboard className="h-4 w-4" />
-                      Dashboard
-                    </button>
-                    <button className="flex w-full items-center gap-3 rounded-2xl px-4 py-3 text-left text-sm font-medium text-slate-600 transition hover:bg-slate-50">
-                      <FolderOpen className="h-4 w-4" />
-                      Templates
-                    </button>
-                    <button className="flex w-full items-center gap-3 rounded-2xl px-4 py-3 text-left text-sm font-medium text-slate-600 transition hover:bg-slate-50">
-                      <FileText className="h-4 w-4" />
-                      Generated Files
-                    </button>
-                    <button className="flex w-full items-center gap-3 rounded-2xl px-4 py-3 text-left text-sm font-medium text-slate-600 transition hover:bg-slate-50">
-                      <Activity className="h-4 w-4" />
-                      Usage Logs
-                    </button>
-                    <button className="flex w-full items-center gap-3 rounded-2xl px-4 py-3 text-left text-sm font-medium text-slate-600 transition hover:bg-slate-50">
-                      <CreditCard className="h-4 w-4" />
-                      Billing
-                    </button>
-                  </nav>
+              <div className={panelClass}>
+                <div className={panelHeaderClass}>
+                  <p className="font-mono text-sm font-bold tracking-wide text-[#d8ffd8]">
+                    MENU.SYS
+                  </p>
+                </div>
+                <div className="space-y-2 p-4">
+                  <button className="flex w-full items-center gap-3 border border-[#7ee787] bg-[#16301b] px-4 py-3 text-left font-mono text-sm font-bold text-[#d8ffd8]">
+                    <LayoutDashboard className="h-4 w-4" />
+                    DASHBOARD
+                  </button>
+                  <button className={`${buttonClass} flex w-full items-center gap-3 text-left`}>
+                    <FolderOpen className="h-4 w-4" />
+                    TEMPLATES
+                  </button>
+                  <button className={`${buttonClass} flex w-full items-center gap-3 text-left`}>
+                    <FileText className="h-4 w-4" />
+                    GENERATED_FILES
+                  </button>
+                  <button className={`${buttonClass} flex w-full items-center gap-3 text-left`}>
+                    <Activity className="h-4 w-4" />
+                    USAGE_LOGS
+                  </button>
+                  <button className={`${buttonClass} flex w-full items-center gap-3 text-left`}>
+                    <CreditCard className="h-4 w-4" />
+                    BILLING
+                  </button>
                 </div>
               </div>
 
-              <div className="rounded-[28px] border border-slate-200/70 bg-white shadow-sm">
-                <div className="flex flex-row items-start justify-between gap-4 p-6 pb-0">
-                  <div>
-                    <h2 className="flex items-center gap-2 text-xl font-semibold">
-                      <KeyRound className="h-5 w-5" />
-                      API Key
-                    </h2>
-                    <p className="mt-2 text-sm text-slate-500">
-                      문서 생성, 템플릿 업로드, 대시보드 조회에 사용하는 개인 키
-                    </p>
+              <div className={panelClass}>
+                <div className={panelHeaderClass}>
+                  <div className="flex items-center justify-between gap-4">
+                    <div>
+                      <h2 className="font-mono text-sm font-bold tracking-wide text-[#d8ffd8]">
+                        API_KEY.DAT
+                      </h2>
+                      <p className="mt-1 font-mono text-[11px] text-[#7ee787]">
+                        auth / upload / generate / dashboard
+                      </p>
+                    </div>
+                    <button
+                      onClick={handleRegenerateApiKey}
+                      disabled={refreshingKey}
+                      className="border border-[#2f4f2f] bg-[#111611] px-3 py-2 font-mono text-xs text-[#b7ffb7] hover:bg-[#162016] disabled:cursor-not-allowed disabled:opacity-50"
+                    >
+                      <span className="inline-flex items-center gap-2">
+                        <RefreshCw className={`h-3.5 w-3.5 ${refreshingKey ? "animate-spin" : ""}`} />
+                        REISSUE
+                      </span>
+                    </button>
                   </div>
-                  <button
-                    onClick={handleRegenerateApiKey}
-                    disabled={refreshingKey}
-                    className="rounded-2xl border px-4 py-2 text-sm hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-50"
-                  >
-                    <span className="inline-flex items-center gap-2">
-                      <RefreshCw className={`h-4 w-4 ${refreshingKey ? "animate-spin" : ""}`} />
-                      재발급
-                    </span>
-                  </button>
                 </div>
-                <div className="p-6">
-                  <div className="overflow-hidden rounded-2xl bg-slate-950 p-4 font-mono text-sm text-emerald-300 shadow-inner break-all">
-                    {apiKey || "API Key 없음"}
+                <div className="p-5">
+                  <div className="border border-[#2f4f2f] bg-black p-4 font-mono text-xs leading-6 text-[#7ee787] break-all">
+                    {apiKey || "API KEY 없음"}
                   </div>
                 </div>
               </div>
@@ -827,28 +853,43 @@ export default function Dashboard() {
             <main className="space-y-6 lg:col-span-9">
               <section className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
                 {[
-                  ["Templates", String(templates.length)],
-                  ["Generated Files", String(files.length)],
-                  ["This Month Usage", String(thisMonthUsage)],
-                  ["Plan", "Starter"],
+                  ["TEMPLATES", String(templates.length)],
+                  ["GENERATED_FILES", String(files.length)],
+                  ["THIS_MONTH_USAGE", String(thisMonthUsage)],
+                  ["PLAN", "STARTER"],
                 ].map(([label, value]) => (
-                  <div key={label} className="rounded-[26px] border border-slate-200/70 bg-white shadow-sm">
+                  <div key={label} className={panelClass}>
+                    <div className={panelHeaderClass}>
+                      <p className="font-mono text-xs text-[#7ee787]">{label}</p>
+                    </div>
                     <div className="p-5">
-                      <p className="text-sm text-slate-500">{label}</p>
-                      <p className="mt-3 text-3xl font-bold tracking-tight">{value}</p>
+                      <p className="font-mono text-3xl font-bold tracking-tight text-[#d8ffd8]">
+                        {value}
+                      </p>
                     </div>
                   </div>
                 ))}
               </section>
 
               <section>
-                <div className="rounded-[28px] border border-slate-200/70 bg-white shadow-sm">
-                  <div className="p-6 pb-0 text-center">
-                    <h2 className="text-xl font-semibold">Quick Actions</h2>
-                    <p className="text-sm text-slate-500">자주 쓰는 기능을 빠르게 실행</p>
+                <div className={panelClass}>
+                  <div className={panelHeaderClass}>
+                    <div className="flex items-center justify-between gap-4">
+                      <div>
+                        <h2 className="font-mono text-lg font-bold tracking-wide text-[#d8ffd8]">
+                          QUICK_ACTIONS.EXE
+                        </h2>
+                        <p className="mt-1 font-mono text-xs text-[#7ee787]">
+                          upload / generate / refresh
+                        </p>
+                      </div>
+                      <div className="font-mono text-[11px] text-[#5ea85e]">
+                        STATUS: READY
+                      </div>
+                    </div>
                   </div>
 
-                  <div className="space-y-3 p-6">
+                  <div className="space-y-4 p-5 font-mono">
                     <input
                       ref={fileInputRef}
                       type="file"
@@ -862,100 +903,123 @@ export default function Dashboard() {
                       }}
                     />
 
-                    <button
-                      onClick={() => fileInputRef.current?.click()}
-                      disabled={uploading}
-                      className="flex w-full items-center justify-center gap-2 rounded-2xl bg-slate-900 px-4 py-3 text-white hover:bg-slate-800 disabled:cursor-not-allowed disabled:opacity-60"
-                    >
-                      <Upload className="h-4 w-4" />
-                      {uploading ? "업로드 중..." : "템플릿 업로드"}
-                    </button>
+                    <div className="grid grid-cols-1 gap-3 xl:grid-cols-2">
+                      <button
+                        onClick={() => fileInputRef.current?.click()}
+                        disabled={uploading}
+                        className={`${buttonClass} text-left disabled:cursor-not-allowed disabled:opacity-50`}
+                      >
+                        <span className="flex items-center gap-2">
+                          <Upload className="h-4 w-4" />
+                          {uploading ? "UPLOAD_IN_PROGRESS..." : "UPLOAD_TEMPLATE"}
+                        </span>
+                      </button>
 
-                    <select
-                      value={selectedTemplateId}
-                      onChange={(e) => setSelectedTemplateId(e.target.value)}
-                      className="w-full rounded-2xl border border-slate-200 px-4 py-3 text-sm outline-none"
-                    >
-                      <option value="">템플릿 선택</option>
-                      {templates.map((item) => (
-                        <option key={item.templateId} value={item.templateId}>
-                          {item.originalName}
-                        </option>
-                      ))}
-                    </select>
+                      <button
+                        onClick={reloadGeneratedFiles}
+                        className={`${buttonClass} text-left`}
+                      >
+                        REFRESH_GENERATED_FILES
+                      </button>
+                    </div>
+
+                    <div className="border border-[#233223] bg-[#0d130d] p-3">
+                      <label className="mb-2 block text-xs uppercase tracking-wider text-[#7ee787]">
+                        TEMPLATE_TARGET
+                      </label>
+                      <select
+                        value={selectedTemplateId}
+                        onChange={(e) => setSelectedTemplateId(e.target.value)}
+                        className={inputClass}
+                      >
+                        <option value="">SELECT_TEMPLATE</option>
+                        {templates.map((item) => (
+                          <option key={item.templateId} value={item.templateId}>
+                            {item.originalName}
+                          </option>
+                        ))}
+                      </select>
+                    </div>
 
                     <div className="grid grid-cols-2 gap-2">
                       <button
                         type="button"
                         onClick={() => setInputMode("vars")}
-                        className={`rounded-2xl px-4 py-2 text-sm font-medium transition ${
+                        className={`border px-4 py-2 font-mono text-xs tracking-wide transition ${
                           inputMode === "vars"
-                            ? "bg-slate-900 text-white"
-                            : "border border-slate-200 bg-white text-slate-700 hover:bg-slate-50"
+                            ? "border-[#7ee787] bg-[#16301b] text-[#d8ffd8]"
+                            : "border-[#2f4f2f] bg-[#111611] text-[#8fd48f] hover:bg-[#162016]"
                         }`}
                       >
-                        방법 1 · Vars 입력
+                        MODE_01 / VARS
                       </button>
 
                       <button
                         type="button"
                         onClick={() => setInputMode("json")}
-                        className={`rounded-2xl px-4 py-2 text-sm font-medium transition ${
+                        className={`border px-4 py-2 font-mono text-xs tracking-wide transition ${
                           inputMode === "json"
-                            ? "bg-slate-900 text-white"
-                            : "border border-slate-200 bg-white text-slate-700 hover:bg-slate-50"
+                            ? "border-[#7ee787] bg-[#16301b] text-[#d8ffd8]"
+                            : "border-[#2f4f2f] bg-[#111611] text-[#8fd48f] hover:bg-[#162016]"
                         }`}
                       >
-                        방법 2 · JSON 입력
+                        MODE_02 / JSON
                       </button>
                     </div>
 
                     {inputMode === "json" ? (
                       <div className="space-y-2 text-left">
-                        <p className="text-sm font-medium text-slate-700">
-                          JSON Payload
+                        <p className="text-xs uppercase tracking-wider text-[#7ee787]">
+                          PAYLOAD.JSON
                         </p>
                         <textarea
                           value={jsonPayload}
                           onChange={(e) => setJsonPayload(e.target.value)}
                           rows={20}
-                          className="w-full rounded-2xl border border-slate-200 px-4 py-3 text-sm font-mono outline-none"
+                          className="w-full border border-[#2f4f2f] bg-black px-3 py-3 font-mono text-sm leading-6 text-[#b7ffb7] outline-none placeholder:text-[#4d6b4d]"
                           placeholder="문서 생성용 JSON을 입력하세요."
                         />
                       </div>
                     ) : generateVarsLoading ? (
-                      <div className="rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm text-slate-500">
-                        템플릿 변수 불러오는 중...
+                      <div className="border border-[#2f4f2f] bg-[#111611] px-4 py-3 font-mono text-sm text-[#8fd48f]">
+                        LOADING_TEMPLATE_VARIABLES...
                       </div>
                     ) : (
-                      <>
+                      <div className="space-y-3">
                         {textVarNames.length === 0 && tableVarNames.length === 0 ? (
-                          <div className="rounded-2xl border border-dashed border-slate-200 px-4 py-3 text-sm text-slate-500">
-                            선택한 템플릿에 입력할 변수가 없습니다.
+                          <div className="border border-dashed border-[#2f4f2f] bg-[#111611] px-4 py-3 font-mono text-sm text-[#8fd48f]">
+                            NO_INPUT_VARIABLES_FOUND
                           </div>
                         ) : null}
 
                         {textVarNames.map((key) => (
-                          <input
-                            key={key}
-                            type="text"
-                            value={textValues[key] ?? ""}
-                            onChange={(e) =>
-                              setTextValues((prev) => ({
-                                ...prev,
-                                [key]: e.target.value,
-                              }))
-                            }
-                            placeholder={`${key} 값 입력`}
-                            className="w-full rounded-2xl border border-slate-200 px-4 py-3 text-sm outline-none"
-                          />
+                          <div key={key} className="border border-[#233223] bg-[#0d130d] p-3">
+                            <label className="mb-2 block text-xs uppercase tracking-wider text-[#7ee787]">
+                              {key}
+                            </label>
+                            <input
+                              type="text"
+                              value={textValues[key] ?? ""}
+                              onChange={(e) =>
+                                setTextValues((prev) => ({
+                                  ...prev,
+                                  [key]: e.target.value,
+                                }))
+                              }
+                              placeholder={`${key}_VALUE`}
+                              className={inputClass}
+                            />
+                          </div>
                         ))}
 
                         {tableVarNames.map((key) => (
-                          <div key={key} className="space-y-2 text-left">
-                            <p className="text-sm font-medium text-slate-700">
-                              {key} 표 데이터(JSON)
-                            </p>
+                          <div key={key} className="border border-[#233223] bg-[#0d130d] p-3">
+                            <div className="mb-2 flex items-center justify-between gap-3">
+                              <label className="block text-xs uppercase tracking-wider text-[#7ee787]">
+                                {key}
+                              </label>
+                              <span className="text-[11px] text-[#5ea85e]">TABLE_JSON</span>
+                            </div>
                             <textarea
                               value={tableValues[key] ?? ""}
                               onChange={(e) =>
@@ -964,68 +1028,78 @@ export default function Dashboard() {
                                   [key]: e.target.value,
                                 }))
                               }
-                              rows={6}
-                              className="w-full rounded-2xl border border-slate-200 px-4 py-3 text-sm font-mono outline-none"
+                              rows={7}
+                              className="w-full border border-[#2f4f2f] bg-black px-3 py-3 font-mono text-sm leading-6 text-[#b7ffb7] outline-none placeholder:text-[#4d6b4d]"
                               placeholder='[["품목","수량","금액"],["사과","2","3000"],["배","1","5000"]]'
                             />
                           </div>
                         ))}
-                      </>
+                      </div>
                     )}
 
-                    <button
-                      onClick={handleGenerateDocument}
-                      disabled={generating}
-                      className="w-full rounded-2xl border px-4 py-3 hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-60"
-                    >
-                      {generating ? "문서 생성 중..." : "문서 생성 테스트"}
-                    </button>
+                    <div className="grid grid-cols-1 gap-3 xl:grid-cols-2">
+                      <button
+                        onClick={handleGenerateDocument}
+                        disabled={generating}
+                        className={`${activeButtonClass} disabled:cursor-not-allowed disabled:opacity-50`}
+                      >
+                        {generating ? "GENERATING_DOCUMENT..." : "RUN_GENERATE_TEST"}
+                      </button>
 
-                    <button
-                      onClick={reloadGeneratedFiles}
-                      className="w-full rounded-2xl border px-4 py-3 hover:bg-slate-50"
-                    >
-                      생성 파일 새로고침
-                    </button>
+                      <div className="border border-[#2f4f2f] bg-[#0d130d] px-4 py-3 font-mono text-xs text-[#7ee787]">
+                        <div>$ mode: {inputMode}</div>
+                        <div>$ template: {selectedTemplateId || "none"}</div>
+                      </div>
+                    </div>
                   </div>
                 </div>
               </section>
 
               <section className="grid gap-6 xl:grid-cols-2">
-                <div className="rounded-[28px] border border-slate-200/70 bg-white shadow-sm">
-                  <div className="flex flex-row items-start justify-between gap-4 p-6 pb-0">
-                    <div>
-                      <h2 className="text-xl font-semibold">Templates</h2>
-                      <p className="text-sm text-slate-500">내가 업로드한 템플릿 목록</p>
+                <div className={panelClass}>
+                  <div className={panelHeaderClass}>
+                    <div className="flex items-center justify-between gap-4">
+                      <div>
+                        <h2 className="font-mono text-sm font-bold tracking-wide text-[#d8ffd8]">
+                          TEMPLATES.DIR
+                        </h2>
+                        <p className="mt-1 font-mono text-[11px] text-[#7ee787]">
+                          uploaded template list
+                        </p>
+                      </div>
+                      <button className="border border-[#2f4f2f] bg-[#111611] px-3 py-2 font-mono text-xs text-[#b7ffb7] hover:bg-[#162016]">
+                        VIEW_ALL
+                      </button>
                     </div>
-                    <button className="rounded-2xl border px-4 py-2 text-sm hover:bg-slate-50">
-                      전체 보기
-                    </button>
                   </div>
-                  <div className="space-y-3 p-6">
+                  <div className="space-y-3 p-5">
                     {templates.length === 0 ? (
-                      <div className="rounded-2xl border border-dashed border-slate-200 p-6 text-sm text-slate-500">
-                        업로드된 템플릿이 없습니다.
+                      <div className="border border-dashed border-[#2f4f2f] bg-[#111611] p-5 font-mono text-sm text-[#8fd48f]">
+                        NO_TEMPLATES_FOUND
                       </div>
                     ) : (
                       templates.slice(0, 6).map((item) => (
                         <div
                           key={item.templateId}
-                          className="rounded-2xl border border-slate-200 p-4 transition hover:border-slate-300 hover:shadow-sm"
+                          className="border border-[#2f4f2f] bg-[#0d130d] p-4 transition hover:bg-[#101810]"
                         >
                           <div className="flex items-center justify-between gap-4">
                             <div className="min-w-0">
-                              <p className="truncate font-semibold">{item.originalName}</p>
-                              <p className="mt-1 text-sm text-slate-500">
-                                업로드일 {formatDate(item.uploadedAt)} · {formatBytes(item.size)}
+                              <p className="truncate font-mono text-sm font-bold text-[#d8ffd8]">
+                                {item.originalName}
+                              </p>
+                              <p className="mt-1 font-mono text-xs text-[#7ee787]">
+                                upload: {formatDate(item.uploadedAt)} / size: {formatBytes(item.size)}
                               </p>
                             </div>
                             <button
                               onClick={() => handleOpenVars(item.templateId)}
-                              className="inline-flex items-center gap-2 rounded-xl border px-3 py-1.5 text-sm hover:bg-slate-50"
+                              className="border border-[#2f4f2f] bg-[#111611] px-3 py-2 font-mono text-xs text-[#b7ffb7] hover:bg-[#162016]"
                             >
-                              <Braces className="h-4 w-4" />
-                              Vars
+                              <span className="inline-flex items-center gap-2">
+                                <Braces className="h-4 w-4" />
+                                VARS
+                              </span>
                             </button>
                           </div>
                         </div>
@@ -1034,56 +1108,66 @@ export default function Dashboard() {
                   </div>
                 </div>
 
-                <div className="rounded-[28px] border border-slate-200/70 bg-white shadow-sm">
-                  <div className="flex flex-row items-start justify-between gap-4 p-6 pb-0">
-                    <div>
-                      <h2 className="text-xl font-semibold">Generated Files</h2>
-                      <p className="text-sm text-slate-500">최근 생성된 문서</p>
+                <div className={panelClass}>
+                  <div className={panelHeaderClass}>
+                    <div className="flex items-center justify-between gap-4">
+                      <div>
+                        <h2 className="font-mono text-sm font-bold tracking-wide text-[#d8ffd8]">
+                          GENERATED_FILES.OUT
+                        </h2>
+                        <p className="mt-1 font-mono text-[11px] text-[#7ee787]">
+                          recently generated documents
+                        </p>
+                      </div>
+                      <button
+                        onClick={reloadGeneratedFiles}
+                        className="border border-[#2f4f2f] bg-[#111611] px-3 py-2 font-mono text-xs text-[#b7ffb7] hover:bg-[#162016]"
+                      >
+                        VIEW_ALL
+                      </button>
                     </div>
-                    <button
-                      onClick={reloadGeneratedFiles}
-                      className="rounded-2xl border px-4 py-2 text-sm hover:bg-slate-50"
-                    >
-                      전체 보기
-                    </button>
                   </div>
-                  <div className="space-y-3 p-6">
+                  <div className="space-y-3 p-5">
                     {files.length === 0 ? (
-                      <div className="rounded-2xl border border-dashed border-slate-200 p-6 text-sm text-slate-500">
-                        생성된 문서가 없습니다.
+                      <div className="border border-dashed border-[#2f4f2f] bg-[#111611] p-5 font-mono text-sm text-[#8fd48f]">
+                        NO_GENERATED_FILES
                       </div>
                     ) : (
                       files.slice(0, 6).map((item) => (
                         <div
                           key={item.fileId}
-                          className={`rounded-2xl border p-4 transition hover:border-slate-300 hover:shadow-sm ${
+                          className={`border p-4 transition ${
                             highlightedFileId === item.fileId
-                              ? "border-red-300 bg-red-50/60 animate-pulse"
-                              : "border-slate-200"
+                              ? "border-red-500 bg-red-100/10 animate-pulse"
+                              : "border-[#2f4f2f] bg-[#0d130d] hover:bg-[#101810]"
                           }`}
                         >
                           <div className="flex items-center justify-between gap-4">
                             <div className="relative min-w-0">
                               {highlightedFileId === item.fileId ? (
-                                <span className="absolute -right-1 -top-1 h-3 w-3 rounded-full bg-red-500 shadow-sm" />
+                                <span className="absolute -right-1 -top-1 h-3 w-3 bg-red-500 shadow-sm" />
                               ) : null}
 
-                              <p className="truncate font-semibold">{item.originalFilename}</p>
-                              <p className="mt-1 text-sm text-slate-500">
-                                생성일 {formatDate(item.createdAt)} · {formatBytes(item.size)}
+                              <p className="truncate font-mono text-sm font-bold text-[#d8ffd8]">
+                                {item.originalFilename}
+                              </p>
+                              <p className="mt-1 font-mono text-xs text-[#7ee787]">
+                                created: {formatDate(item.createdAt)} / size: {formatBytes(item.size)}
                               </p>
                             </div>
 
                             <div className="flex items-center gap-2">
-                              <span className="rounded-full bg-emerald-50 px-3 py-1 text-xs font-semibold text-emerald-700">
+                              <span className="border border-[#2f4f2f] bg-[#111611] px-3 py-1 font-mono text-[11px] text-[#7ee787]">
                                 {item.status}
                               </span>
                               <button
                                 onClick={() => handleDownloadFile(item)}
-                                className="inline-flex items-center gap-2 rounded-xl border px-3 py-1.5 text-sm hover:bg-slate-50"
+                                className="border border-[#2f4f2f] bg-[#111611] px-3 py-2 font-mono text-xs text-[#b7ffb7] hover:bg-[#162016]"
                               >
-                                <Download className="h-4 w-4" />
-                                다운로드
+                                <span className="inline-flex items-center gap-2">
+                                  <Download className="h-4 w-4" />
+                                  DOWNLOAD
+                                </span>
                               </button>
                             </div>
                           </div>
@@ -1094,53 +1178,57 @@ export default function Dashboard() {
                 </div>
               </section>
 
-              <div className="rounded-[28px] border border-slate-200/70 bg-white shadow-sm">
-                <div className="flex flex-row items-start justify-between gap-4 p-6 pb-0">
-                  <div>
-                    <h2 className="text-xl font-semibold">Usage Logs</h2>
-                    <p className="text-sm text-slate-500">최근 API 사용 기록</p>
+              <div className={panelClass}>
+                <div className={panelHeaderClass}>
+                  <div className="flex items-center justify-between gap-4">
+                    <div>
+                      <h2 className="font-mono text-sm font-bold tracking-wide text-[#d8ffd8]">
+                        USAGE_LOGS.TXT
+                      </h2>
+                      <p className="mt-1 font-mono text-[11px] text-[#7ee787]">
+                        recent API records
+                      </p>
+                    </div>
+                    <button className="border border-[#2f4f2f] bg-[#111611] px-3 py-2 font-mono text-xs text-[#b7ffb7] hover:bg-[#162016]">
+                      VIEW_ALL
+                    </button>
                   </div>
-                  <button className="rounded-2xl border px-4 py-2 text-sm hover:bg-slate-50">
-                    전체 보기
-                  </button>
                 </div>
-                <div className="p-6">
-                  <div className="overflow-hidden rounded-2xl border border-slate-200">
-                    <table className="min-w-full text-sm">
-                      <thead className="bg-slate-50 text-slate-600">
+                <div className="p-5">
+                  <div className="overflow-hidden border border-[#2f4f2f]">
+                    <table className="min-w-full font-mono text-xs">
+                      <thead className="bg-[#121812] text-[#7ee787]">
                         <tr>
-                          <th className="px-4 py-3 text-left font-semibold">Action</th>
-                          <th className="px-4 py-3 text-left font-semibold">Target</th>
-                          <th className="px-4 py-3 text-left font-semibold">Result</th>
-                          <th className="px-4 py-3 text-left font-semibold">Time</th>
+                          <th className="border-b border-[#2f4f2f] px-4 py-3 text-left font-bold">ACTION</th>
+                          <th className="border-b border-[#2f4f2f] px-4 py-3 text-left font-bold">TARGET</th>
+                          <th className="border-b border-[#2f4f2f] px-4 py-3 text-left font-bold">RESULT</th>
+                          <th className="border-b border-[#2f4f2f] px-4 py-3 text-left font-bold">TIME</th>
                         </tr>
                       </thead>
                       <tbody>
                         {logs.length === 0 ? (
-                          <tr className="border-t border-slate-200 bg-white">
-                            <td colSpan={4} className="px-4 py-6 text-center text-slate-500">
-                              사용 로그가 없습니다.
+                          <tr className="bg-[#0d130d]">
+                            <td colSpan={4} className="px-4 py-6 text-center text-[#8fd48f]">
+                              NO_USAGE_LOGS
                             </td>
                           </tr>
                         ) : (
                           logs.slice(0, 10).map((item) => (
-                            <tr key={item.id} className="border-t border-slate-200 bg-white">
-                              <td className="px-4 py-3 font-medium">{item.actionType}</td>
-                              <td className="px-4 py-3 text-slate-600">{item.targetId || "-"}</td>
+                            <tr key={item.id} className="border-t border-[#2f4f2f] bg-[#0d130d]">
+                              <td className="px-4 py-3 text-[#d8ffd8]">{item.actionType}</td>
+                              <td className="px-4 py-3 text-[#8fd48f]">{item.targetId || "-"}</td>
                               <td className="px-4 py-3">
                                 <span
-                                  className={`rounded-full px-3 py-1 text-xs font-semibold ${
+                                  className={`border px-3 py-1 font-mono text-[11px] ${
                                     item.success
-                                      ? "bg-emerald-50 text-emerald-700"
-                                      : "bg-red-50 text-red-700"
+                                      ? "border-[#2f4f2f] bg-[#111611] text-[#7ee787]"
+                                      : "border-red-800 bg-[#1a0d0d] text-red-300"
                                   }`}
                                 >
-                                  {item.success ? "Success" : "Fail"}
+                                  {item.success ? "SUCCESS" : "FAIL"}
                                 </span>
                               </td>
-                              <td className="px-4 py-3 text-slate-500">
-                                {formatDateTime(item.createdAt)}
-                              </td>
+                              <td className="px-4 py-3 text-[#8fd48f]">{formatDateTime(item.createdAt)}</td>
                             </tr>
                           ))
                         )}
@@ -1155,52 +1243,54 @@ export default function Dashboard() {
       </div>
 
       {varsOpen ? (
-        <div className="fixed inset-0 z-[100] flex items-center justify-center bg-slate-900/40 px-4">
-          <div className="w-full max-w-lg rounded-[28px] border border-slate-200 bg-white p-6 shadow-xl">
-            <div className="mb-4 flex items-start justify-between gap-4">
+        <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/70 px-4">
+          <div className="w-full max-w-lg border border-[#2f4f2f] bg-[#0a0f0a] text-[#b7ffb7] shadow-[0_0_0_1px_rgba(0,0,0,0.35)]">
+            <div className="flex items-start justify-between gap-4 border-b border-[#2f4f2f] bg-[#121812] px-5 py-3">
               <div>
-                <h3 className="text-xl font-semibold">Template Vars</h3>
-                <p className="mt-1 text-sm text-slate-500">
-                  템플릿에서 추출된 placeholder 목록
+                <h3 className="font-mono text-lg font-bold text-[#d8ffd8]">
+                  TEMPLATE_VARS.VIEW
+                </h3>
+                <p className="mt-1 font-mono text-xs text-[#7ee787]">
+                  extracted placeholder list
                 </p>
               </div>
               <button
                 onClick={() => setVarsOpen(false)}
-                className="rounded-xl border p-2 hover:bg-slate-50"
+                className="border border-[#2f4f2f] bg-[#111611] p-2 text-[#b7ffb7] hover:bg-[#162016]"
               >
                 <X className="h-4 w-4" />
               </button>
             </div>
 
             {varsLoading ? (
-              <div className="rounded-2xl border border-slate-200 bg-slate-50 px-4 py-6 text-sm text-slate-500">
-                Vars 불러오는 중...
+              <div className="p-5 font-mono text-sm text-[#8fd48f]">
+                LOADING_VARS...
               </div>
             ) : varsError ? (
-              <div className="rounded-2xl border border-red-200 bg-red-50 px-4 py-4 text-sm text-red-600">
+              <div className="border-t border-red-900 bg-[#1a0d0d] p-5 font-mono text-sm text-red-300">
                 {varsError}
               </div>
             ) : varsData ? (
-              <div className="space-y-4">
-                <div className="rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3">
-                  <p className="font-medium">{varsData.originalName}</p>
-                  <p className="mt-1 text-sm text-slate-500">
+              <div className="space-y-4 p-5">
+                <div className="border border-[#2f4f2f] bg-[#0d130d] px-4 py-3">
+                  <p className="font-mono text-sm font-bold text-[#d8ffd8]">{varsData.originalName}</p>
+                  <p className="mt-1 font-mono text-xs text-[#7ee787]">
                     templateId: {varsData.templateId}
                   </p>
                 </div>
 
-                <div className="rounded-2xl border border-slate-200">
-                  <div className="border-b border-slate-200 px-4 py-3 text-sm font-medium text-slate-700">
-                    변수 개수: {varsData.varsCount}
+                <div className="border border-[#2f4f2f]">
+                  <div className="border-b border-[#2f4f2f] bg-[#121812] px-4 py-3 font-mono text-xs font-bold text-[#7ee787]">
+                    VAR_COUNT: {varsData.varsCount}
                   </div>
-                  <div className="max-h-72 space-y-2 overflow-y-auto p-4">
+                  <div className="max-h-72 space-y-2 overflow-y-auto bg-[#0d130d] p-4">
                     {varsData.vars.length === 0 ? (
-                      <p className="text-sm text-slate-500">추출된 변수가 없습니다.</p>
+                      <p className="font-mono text-sm text-[#8fd48f]">NO_VARS_FOUND</p>
                     ) : (
                       varsData.vars.map((item) => (
                         <div
                           key={item}
-                          className="rounded-xl border border-slate-200 bg-white px-3 py-2 font-mono text-sm text-slate-700"
+                          className="border border-[#2f4f2f] bg-black px-3 py-2 font-mono text-sm text-[#b7ffb7]"
                         >
                           {item}
                         </div>
