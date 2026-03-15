@@ -150,6 +150,22 @@ export default function Dashboard() {
   const [generateVarsLoading, setGenerateVarsLoading] = useState(false)
   const [generating, setGenerating] = useState(false)
 
+  const [inputMode, setInputMode] = useState<"vars" | "json">("vars")
+  const [jsonPayload, setJsonPayload] = useState(`{
+  "templateId": "",
+  "outputFilename": "output.hwpx",
+  "elements": [
+    {
+      "placeholder": "title",
+      "type": "text",
+      "content": "문서 제목입니다"
+    }
+  ],
+  "global_variables": {}
+}`)
+
+  const [highlightedFileId, setHighlightedFileId] = useState<string | null>(null)
+
   useEffect(() => {
     const savedEmail = localStorage.getItem("userEmail") ?? ""
     const savedApiKey = localStorage.getItem("apiKey") ?? ""
@@ -296,6 +312,36 @@ export default function Dashboard() {
           }
           return next
         })
+
+        const sampleElements = [
+          ...detectedTextVars.map((key) => ({
+            placeholder: key,
+            type: "text",
+            content: "",
+          })),
+          ...detectedTableVars.map((key) => ({
+            placeholder: key,
+            type: "table",
+            data: [
+              ["구분", "값1", "값2"],
+              ["예시1", "A", "B"],
+              ["예시2", "C", "D"],
+            ],
+          })),
+        ]
+
+        setJsonPayload(
+          JSON.stringify(
+            {
+              templateId: selectedTemplateId,
+              outputFilename: "output.hwpx",
+              elements: sampleElements,
+              global_variables: {},
+            },
+            null,
+            2
+          )
+        )
       } catch (err) {
         if (err instanceof DOMException && err.name === "AbortError") return
         console.error(err)
@@ -439,6 +485,63 @@ export default function Dashboard() {
       return
     }
 
+    if (inputMode === "json") {
+      try {
+        setGenerating(true)
+
+        let parsedBody: any
+        try {
+          parsedBody = JSON.parse(jsonPayload)
+        } catch {
+          throw new Error("JSON 형식이 올바르지 않습니다.")
+        }
+
+        if (!parsedBody.templateId) {
+          parsedBody.templateId = selectedTemplateId
+        }
+
+        if (!parsedBody.templateId) {
+          throw new Error("templateId가 없습니다.")
+        }
+
+        const response = await fetch(`${API_BASE_URL}/api/v1/generate`, {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            "X-API-Key": apiKey,
+          },
+          body: JSON.stringify(parsedBody),
+        })
+
+        const data: GenerateResponse = await response.json()
+        console.log("generate response:", data)
+
+        if (!response.ok || data.ok === false) {
+          throw new Error(data.message ?? "문서 생성 실패")
+        }
+
+        await reloadGeneratedFiles()
+
+        if (data.fileId) {
+          setHighlightedFileId(data.fileId)
+          setTimeout(() => setHighlightedFileId(null), 3500)
+        }
+
+        alert("문서 생성 완료")
+      } catch (err) {
+        console.error(err)
+        if (err instanceof Error) {
+          alert(err.message)
+        } else {
+          alert("문서 생성에 실패했습니다.")
+        }
+      } finally {
+        setGenerating(false)
+      }
+
+      return
+    }
+
     if (!selectedTemplateId) {
       alert("먼저 템플릿을 선택해주세요.")
       return
@@ -518,8 +621,14 @@ export default function Dashboard() {
         throw new Error(data.message ?? "문서 생성 실패")
       }
 
-      alert("문서 생성 완료")
       await reloadGeneratedFiles()
+
+      if (data.fileId) {
+        setHighlightedFileId(data.fileId)
+        setTimeout(() => setHighlightedFileId(null), 3500)
+      }
+
+      alert("문서 생성 완료")
     } catch (err) {
       console.error(err)
       if (err instanceof Error) {
@@ -775,7 +884,46 @@ export default function Dashboard() {
                       ))}
                     </select>
 
-                    {generateVarsLoading ? (
+                    <div className="grid grid-cols-2 gap-2">
+                      <button
+                        type="button"
+                        onClick={() => setInputMode("vars")}
+                        className={`rounded-2xl px-4 py-2 text-sm font-medium transition ${
+                          inputMode === "vars"
+                            ? "bg-slate-900 text-white"
+                            : "border border-slate-200 bg-white text-slate-700 hover:bg-slate-50"
+                        }`}
+                      >
+                        방법 1 · Vars 입력
+                      </button>
+
+                      <button
+                        type="button"
+                        onClick={() => setInputMode("json")}
+                        className={`rounded-2xl px-4 py-2 text-sm font-medium transition ${
+                          inputMode === "json"
+                            ? "bg-slate-900 text-white"
+                            : "border border-slate-200 bg-white text-slate-700 hover:bg-slate-50"
+                        }`}
+                      >
+                        방법 2 · JSON 입력
+                      </button>
+                    </div>
+
+                    {inputMode === "json" ? (
+                      <div className="space-y-2 text-left">
+                        <p className="text-sm font-medium text-slate-700">
+                          JSON Payload
+                        </p>
+                        <textarea
+                          value={jsonPayload}
+                          onChange={(e) => setJsonPayload(e.target.value)}
+                          rows={20}
+                          className="w-full rounded-2xl border border-slate-200 px-4 py-3 text-sm font-mono outline-none"
+                          placeholder="문서 생성용 JSON을 입력하세요."
+                        />
+                      </div>
+                    ) : generateVarsLoading ? (
                       <div className="rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm text-slate-500">
                         템플릿 변수 불러오는 중...
                       </div>
@@ -827,11 +975,7 @@ export default function Dashboard() {
 
                     <button
                       onClick={handleGenerateDocument}
-                      disabled={
-                        generating ||
-                        generateVarsLoading ||
-                        (textVarNames.length === 0 && tableVarNames.length === 0)
-                      }
+                      disabled={generating}
                       className="w-full rounded-2xl border px-4 py-3 hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-60"
                     >
                       {generating ? "문서 생성 중..." : "문서 생성 테스트"}
@@ -912,10 +1056,18 @@ export default function Dashboard() {
                       files.slice(0, 6).map((item) => (
                         <div
                           key={item.fileId}
-                          className="rounded-2xl border border-slate-200 p-4 transition hover:border-slate-300 hover:shadow-sm"
+                          className={`rounded-2xl border p-4 transition hover:border-slate-300 hover:shadow-sm ${
+                            highlightedFileId === item.fileId
+                              ? "border-red-300 bg-red-50/60 animate-pulse"
+                              : "border-slate-200"
+                          }`}
                         >
                           <div className="flex items-center justify-between gap-4">
-                            <div className="min-w-0">
+                            <div className="relative min-w-0">
+                              {highlightedFileId === item.fileId ? (
+                                <span className="absolute -right-1 -top-1 h-3 w-3 rounded-full bg-red-500 shadow-sm" />
+                              ) : null}
+
                               <p className="truncate font-semibold">{item.originalFilename}</p>
                               <p className="mt-1 text-sm text-slate-500">
                                 생성일 {formatDate(item.createdAt)} · {formatBytes(item.size)}
