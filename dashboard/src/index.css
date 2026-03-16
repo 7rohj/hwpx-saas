@@ -1,6 +1,5 @@
-@import "tailwindcss";
-
 @import url('https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@400;500;600;700;800&display=swap');
+@import "tailwindcss";
 
 html, body, #root {
   font-family: 'Noto Sans KR', 'Noto Sans', sans-serif;
