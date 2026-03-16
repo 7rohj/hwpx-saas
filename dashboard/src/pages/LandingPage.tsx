@@ -7,93 +7,61 @@ type LandingPageProps = {
   onLogout: () => void
 }
 
-const LINE1 = "템플릿과 JSON으로"
-const LINE2 = "HWPX 문서를 자동 생성하세요"
+const ROTATING_WORDS = [
+  "AutoHWPX",
+  "한글 자동화",
+  "삶의 질 향상",
+  "업무시간단축",
+]
 
 export default function LandingPage({
   onNavigate,
   onLogout,
 }: LandingPageProps) {
-  const [typedLine1, setTypedLine1] = useState("")
-  const [typedLine2, setTypedLine2] = useState("")
+  const [currentWordIndex, setCurrentWordIndex] = useState(0)
+  const [typedWord, setTypedWord] = useState("")
+  const [isDeleting, setIsDeleting] = useState(false)
 
   useEffect(() => {
-    let mounted = true
-    const timerIds: number[] = []
+    const currentWord = ROTATING_WORDS[currentWordIndex]
+    let timeoutId: number
 
-    function setSafe(line1: string, line2: string) {
-      if (!mounted) return
-      setTypedLine1(line1)
-      setTypedLine2(line2)
+    if (!isDeleting && typedWord.length < currentWord.length) {
+      timeoutId = window.setTimeout(() => {
+        setTypedWord(currentWord.slice(0, typedWord.length + 1))
+      }, 85)
+    } else if (!isDeleting && typedWord.length === currentWord.length) {
+      timeoutId = window.setTimeout(() => {
+        setIsDeleting(true)
+      }, 1800)
+    } else if (isDeleting && typedWord.length > 0) {
+      timeoutId = window.setTimeout(() => {
+        setTypedWord(currentWord.slice(0, typedWord.length - 1))
+      }, 45)
+    } else if (isDeleting && typedWord.length === 0) {
+      timeoutId = window.setTimeout(() => {
+        setIsDeleting(false)
+        setCurrentWordIndex((prev) => (prev + 1) % ROTATING_WORDS.length)
+      }, 350)
     }
 
-    function runLoop() {
-      let t = 0
-
-      setSafe("", "")
-
-      for (let i = 1; i <= LINE1.length; i++) {
-        t += 85
-        timerIds.push(
-          window.setTimeout(() => {
-            setSafe(LINE1.slice(0, i), "")
-          }, t)
-        )
-      }
-
-      t += 220
-
-      for (let i = 1; i <= LINE2.length; i++) {
-        t += 75
-        timerIds.push(
-          window.setTimeout(() => {
-            setSafe(LINE1, LINE2.slice(0, i))
-          }, t)
-        )
-      }
-
-      t += 6000
-
-      timerIds.push(
-        window.setTimeout(() => {
-          setSafe("", "")
-        }, t)
-      )
-
-      t += 1600
-
-      timerIds.push(
-        window.setTimeout(() => {
-          runLoop()
-        }, t)
-      )
-    }
-
-    runLoop()
-
-    return () => {
-      mounted = false
-      timerIds.forEach((id) => window.clearTimeout(id))
-    }
-  }, [])
+    return () => window.clearTimeout(timeoutId)
+  }, [typedWord, isDeleting, currentWordIndex])
 
   const stats = useMemo(
     () => [
-      { label: "활성 템플릿", value: "12+", tone: "blue" },
-      { label: "문서 생성", value: "1,240+", tone: "lime" },
-      { label: "평균 생성 시간", value: "3초", tone: "yellow" },
+        /*
+      { label: "활성 템플릿", value: "12+" },
+      { label: "문서 생성", value: "1,240+" },
+      { label: "평균 생성 시간", value: "3초" },
+       */
     ],
     []
   )
 
   return (
-    <div className="relative min-h-screen overflow-hidden bg-[#fcfdff] text-slate-900">
-      <div className="absolute inset-0 bg-[radial-gradient(circle_at_15%_18%,rgba(31,105,239,0.16),transparent_22%),radial-gradient(circle_at_82%_18%,rgba(79,143,255,0.10),transparent_22%),radial-gradient(circle_at_58%_78%,rgba(167,217,75,0.08),transparent_18%),linear-gradient(to_bottom,#f7faff_0%,#ffffff_42%,#f8fafc_100%)]" />
-
-      <div className="pointer-events-none absolute -left-24 top-24 h-72 w-72 rounded-full bg-[#1f69ef]/20 blur-3xl animate-[float1_10s_ease-in-out_infinite]" />
-      <div className="pointer-events-none absolute right-[-40px] top-16 h-80 w-80 rounded-full bg-[#4f8fff]/16 blur-3xl animate-[float2_12s_ease-in-out_infinite]" />
-      <div className="pointer-events-none absolute bottom-10 left-1/3 h-64 w-64 rounded-full bg-[#a7d94b]/10 blur-3xl animate-[float3_14s_ease-in-out_infinite]" />
-
+    <div className="relative min-h-screen overflow-hidden bg-white text-slate-900">
+    
       <style>{`
         @keyframes float1 {
           0%, 100% { transform: translate3d(0, 0, 0) scale(1); }
@@ -134,34 +102,39 @@ export default function LandingPage({
           <div className="mx-auto max-w-7xl px-4 pb-24 pt-16 sm:px-6 lg:px-8">
             <div className="grid items-center gap-14 lg:grid-cols-[1.05fr_0.95fr]">
               <div>
-                <div className="mb-6 inline-flex items-center rounded-full border border-[#cfe0ff] bg-white/85 px-4 py-2 text-sm font-medium text-[#1f69ef] shadow-sm backdrop-blur">
+                <div className="mb-6 inline-flex items-center rounded-full border border-[#cfe0ff] bg-[#f7fbff] px-4 py-2 text-sm font-medium text-[#1f69ef] shadow-sm">
                   템플릿과 JSON만 있으면, 문서는 자동으로
                 </div>
 
                 <div className="mx-auto mt-2 max-w-4xl">
-                  <h1 className="font-semibold leading-[1.12] tracking-tight text-slate-950">
-                    <span className="block min-h-[1.2em] text-2xl text-slate-950 sm:text-3xl lg:text-4xl">
-                      {typedLine1 || "\u00A0"}
+                  <h1 className="font-semibold leading-[1.08] tracking-tight text-slate-950">
+                    <span className="block text-2xl sm:text-3xl lg:text-4xl">
+                      작업시간을 3시간에서 10초로
                     </span>
 
-                    <span className="mt-2 block min-h-[1.2em] text-4xl sm:text-5xl lg:text-6xl">
-                      <span className="bg-gradient-to-r from-[#1f69ef] via-[#2f7cf6] to-[#a7d94b] bg-clip-text text-transparent">
-                        {typedLine2 || "\u00A0"}
+                    <span className="mt-3 block min-h-[1.15em] text-5xl sm:text-6xl lg:text-7xl">
+                      <span className="text-[#1f69ef]">
+                        {typedWord || "\u00A0"}
                       </span>
-                      <span className="ml-1 inline-block h-[0.9em] w-[3px] rounded-sm bg-[#1f69ef] align-[-0.08em] animate-[blinkCursor_0.9s_step-end_infinite]" />
+                      <span className="ml-1 inline-block h-[0.92em] w-[3px] rounded-sm bg-[#1f69ef] align-[-0.08em] animate-[blinkCursor_0.9s_step-end_infinite]" />
                     </span>
                   </h1>
                 </div>
 
-                <p className="mt-6 max-w-2xl text-lg leading-8 text-slate-600 sm:text-xl">
-                  템플릿을 업로드하고, 변수를 확인하고, JSON 데이터를 입력하면
-                  반복적인 HWPX 문서 작업을 몇 초 만에 자동화할 수 있습니다.
+                 <p className="mt-6 max-w-2xl text-lg leading-8 text-slate-600 sm:text-xl">
+                  1. 템플릿을 업로드하고, 
                 </p>
+                <div className="max-w-2xl text-lg leading-8 text-slate-600 sm:text-xl">
+                  2. JSON 데이터를 입력하면
+                </div>
+                <div className="mt-3 max-w-2xl text-lg leading-8 text-slate-600 sm:text-xl">
+                  HWPX 문서 작업을 몇 초 만에 자동화할 수 있습니다.
+                </div>
 
                 <div className="mt-10 flex flex-col items-start gap-3 sm:flex-row sm:items-center">
                   <button
                     onClick={() => onNavigate("dashboard-loading")}
-                    className="group relative overflow-hidden rounded-full bg-[#1f69ef] px-7 py-3.5 text-sm font-medium text-white shadow-[0_18px_40px_rgba(31,105,239,0.22)] transition-all duration-300 hover:-translate-y-0.5 hover:bg-[#195bd0] hover:shadow-[0_22px_50px_rgba(31,105,239,0.28)]"
+                    className="group relative overflow-hidden rounded-full bg-[#1f69ef] px-7 py-3.5 text-sm font-medium text-white shadow-[0_18px_40px_rgba(31,105,239,0.20)] transition-all duration-300 hover:-translate-y-0.5 hover:bg-[#195bd0] hover:shadow-[0_22px_50px_rgba(31,105,239,0.26)]"
                   >
                     <span className="relative z-10">대시보드 열기</span>
                     <span className="pointer-events-none absolute inset-y-0 left-0 w-16 bg-white/25 blur-md animate-[softShine_2.8s_ease-in-out_infinite]" />
@@ -169,27 +142,21 @@ export default function LandingPage({
 
                   <button
                     onClick={() => onNavigate("pricing")}
-                    className="group rounded-full border border-slate-200 bg-white/90 px-7 py-3.5 text-sm font-medium text-slate-700 shadow-sm transition-all duration-300 hover:-translate-y-0.5 hover:border-[#d7e4ff] hover:bg-white hover:shadow-md"
+                    className="group rounded-full border border-slate-200 bg-white px-7 py-3.5 text-sm font-medium text-slate-700 shadow-sm transition-all duration-300 hover:-translate-y-0.5 hover:border-[#d7e4ff] hover:bg-white hover:shadow-md"
                   >
                     요금제 보기
                   </button>
                 </div>
 
+                {/*
                 <div className="mt-12 flex flex-wrap items-center gap-3">
                   {stats.map((item) => (
+                    
                     <div
                       key={item.label}
-                      className="rounded-2xl border border-white/80 bg-white/80 px-5 py-4 shadow-sm backdrop-blur"
+                      className="rounded-2xl border border-slate-200 bg-white px-5 py-4 shadow-sm"
                     >
-                      <div
-                        className={`text-xs font-medium ${
-                          item.tone === "blue"
-                            ? "text-[#1f69ef]"
-                            : item.tone === "lime"
-                            ? "text-[#7ea72c]"
-                            : "text-[#b99218]"
-                        }`}
-                      >
+                      <div className="text-xs font-medium text-[#1f69ef]">
                         {item.label}
                       </div>
                       <div className="mt-1 text-2xl font-semibold tracking-tight text-slate-900">
@@ -198,14 +165,16 @@ export default function LandingPage({
                     </div>
                   ))}
                 </div>
+                */}
+                
               </div>
 
               <div className="relative">
-                <div className="pointer-events-none absolute -inset-6 rounded-[40px] bg-gradient-to-r from-[#1f69ef]/16 via-[#4f8fff]/10 to-[#a7d94b]/08 blur-2xl" />
+                <div className="pointer-events-none absolute -inset-6 rounded-[40px] bg-[#1f69ef]/8 blur-2xl" />
 
-                <div className="relative animate-[levitateCard_6s_ease-in-out_infinite] rounded-[34px] border border-white/70 bg-white/80 p-4 shadow-[0_30px_80px_rgba(15,23,42,0.12)] backdrop-blur-xl">
+                <div className="relative animate-[levitateCard_6s_ease-in-out_infinite] rounded-[34px] border border-slate-200/80 bg-white/90 p-4 shadow-[0_30px_80px_rgba(15,23,42,0.10)] backdrop-blur-xl">
                   <div className="grid gap-4 lg:grid-cols-[220px_1fr]">
-                    <aside className="rounded-[26px] border border-slate-200/80 bg-slate-50/95 p-4">
+                    <aside className="rounded-[26px] border border-slate-200 bg-slate-50/90 p-4">
                       <div className="mb-4 text-sm font-semibold text-slate-800">
                         작업 공간
                       </div>
@@ -231,7 +200,7 @@ export default function LandingPage({
                       </div>
                     </aside>
 
-                    <div className="rounded-[26px] border border-slate-200/80 bg-white/95 p-6">
+                    <div className="rounded-[26px] border border-slate-200 bg-white p-6">
                       <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
                         <div>
                           <h2 className="text-3xl font-semibold tracking-tight text-slate-900">
@@ -277,7 +246,7 @@ export default function LandingPage({
                         </div>
                       </div>
 
-                      <div className="mt-8 rounded-[28px] border border-[#dbe7ff] bg-[linear-gradient(135deg,#eef5ff_0%,#f9fbff_70%,#fbfdea_100%)] p-6">
+                      <div className="mt-8 rounded-[28px] border border-[#dbe7ff] bg-[#f8fbff] p-6">
                         <div className="text-sm font-medium text-slate-500">
                           예시 요청 데이터
                         </div>
@@ -300,7 +269,7 @@ export default function LandingPage({
                   </div>
                 </div>
 
-                <div className="absolute -right-4 top-10 hidden rounded-2xl border border-white/70 bg-white/88 px-4 py-3 shadow-lg backdrop-blur md:block">
+                <div className="absolute -right-4 top-10 hidden rounded-2xl border border-slate-200 bg-white px-4 py-3 shadow-lg md:block">
                   <div className="text-xs font-medium text-slate-500">
                     문서 생성 속도
                   </div>
@@ -309,7 +278,7 @@ export default function LandingPage({
                   </div>
                 </div>
 
-                <div className="absolute -bottom-4 left-8 hidden rounded-2xl border border-white/70 bg-white/88 px-4 py-3 shadow-lg backdrop-blur md:block">
+                <div className="absolute -bottom-4 left-8 hidden rounded-2xl border border-slate-200 bg-white px-4 py-3 shadow-lg md:block">
                   <div className="text-xs font-medium text-slate-500">
                     자동화 성공률
                   </div>
@@ -320,8 +289,9 @@ export default function LandingPage({
               </div>
             </div>
 
+            {/*}
             <div className="mt-24 grid gap-6 md:grid-cols-3">
-              <div className="rounded-[28px] border border-white/80 bg-white/78 p-6 shadow-[0_20px_60px_rgba(15,23,42,0.07)] backdrop-blur">
+              <div className="rounded-[28px] border border-slate-200 bg-white p-6 shadow-[0_20px_60px_rgba(15,23,42,0.06)]">
                 <div className="mb-4 inline-flex rounded-full bg-[#eef5ff] px-3 py-1 text-xs font-medium text-[#1f69ef]">
                   01
                 </div>
@@ -333,8 +303,8 @@ export default function LandingPage({
                 </p>
               </div>
 
-              <div className="rounded-[28px] border border-white/80 bg-white/78 p-6 shadow-[0_20px_60px_rgba(15,23,42,0.07)] backdrop-blur">
-                <div className="mb-4 inline-flex rounded-full bg-[#f6fbe8] px-3 py-1 text-xs font-medium text-[#7ea72c]">
+              <div className="rounded-[28px] border border-slate-200 bg-white p-6 shadow-[0_20px_60px_rgba(15,23,42,0.06)]">
+                <div className="mb-4 inline-flex rounded-full bg-[#f7fbef] px-3 py-1 text-xs font-medium text-[#7ea72c]">
                   02
                 </div>
                 <h3 className="text-xl font-semibold tracking-tight text-slate-900">
@@ -345,8 +315,8 @@ export default function LandingPage({
                 </p>
               </div>
 
-              <div className="rounded-[28px] border border-white/80 bg-white/78 p-6 shadow-[0_20px_60px_rgba(15,23,42,0.07)] backdrop-blur">
-                <div className="mb-4 inline-flex rounded-full bg-[#fff9e8] px-3 py-1 text-xs font-medium text-[#b99218]">
+              <div className="rounded-[28px] border border-slate-200 bg-white p-6 shadow-[0_20px_60px_rgba(15,23,42,0.06)]">
+                <div className="mb-4 inline-flex rounded-full bg-[#fff9eb] px-3 py-1 text-xs font-medium text-[#b99218]">
                   03
                 </div>
                 <h3 className="text-xl font-semibold tracking-tight text-slate-900">
@@ -357,6 +327,8 @@ export default function LandingPage({
                 </p>
               </div>
             </div>
+            */}
+
           </div>
         </section>
       </main>
