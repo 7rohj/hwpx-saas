@@ -1,13 +1,19 @@
 import { useEffect, useState } from "react"
 import Dashboard from "./pages/Dashboard"
+import LandingPage from "./pages/LandingPage"
+import ApiKeysPage from "./pages/ApiKeysPage"
+import UsageLogsPage from "./pages/UsageLogsPage"
+import PricingPage from "./pages/PricingPage"
 import Login from "./Login"
 import Signup from "./Signup"
 
 type AuthView = "login" | "signup"
+export type PageType = "landing" | "dashboard" | "apikeys" | "usage" | "pricing"
 
 export default function App() {
   const [isLoggedIn, setIsLoggedIn] = useState(false)
   const [authView, setAuthView] = useState<AuthView>("login")
+  const [currentPage, setCurrentPage] = useState<PageType>("landing")
 
   useEffect(() => {
     const email = localStorage.getItem("userEmail")
@@ -17,10 +23,12 @@ export default function App() {
 
   function handleLoginSuccess() {
     setIsLoggedIn(true)
+    setCurrentPage("dashboard")
   }
 
   function handleSignupSuccess() {
     setIsLoggedIn(true)
+    setCurrentPage("dashboard")
   }
 
   function handleLogout() {
@@ -28,6 +36,7 @@ export default function App() {
     localStorage.removeItem("apiKey")
     setIsLoggedIn(false)
     setAuthView("login")
+    setCurrentPage("landing")
   }
 
   if (!isLoggedIn) {
@@ -48,17 +57,25 @@ export default function App() {
     )
   }
 
-  return (
-    <div>
-      <div className="fixed right-4 top-4 z-50">
-        <button
-          onClick={handleLogout}
-          className="rounded-xl border border-slate-200 bg-white px-4 py-2 text-sm shadow-sm hover:bg-slate-50"
-        >
-          로그아웃
-        </button>
-      </div>
-      <Dashboard />
-    </div>
-  )
+  if (currentPage === "landing") {
+    return <LandingPage onNavigate={setCurrentPage} onLogout={handleLogout} />
+  }
+
+  if (currentPage === "dashboard") {
+    return <Dashboard onNavigate={setCurrentPage} onLogout={handleLogout} />
+  }
+
+  if (currentPage === "apikeys") {
+    return <ApiKeysPage onNavigate={setCurrentPage} onLogout={handleLogout} />
+  }
+
+  if (currentPage === "usage") {
+    return <UsageLogsPage onNavigate={setCurrentPage} onLogout={handleLogout} />
+  }
+
+  if (currentPage === "pricing") {
+    return <PricingPage onNavigate={setCurrentPage} onLogout={handleLogout} />
+  }
+
+  return <Dashboard onNavigate={setCurrentPage} onLogout={handleLogout} />
 }
