@@ -7,8 +7,8 @@ type LandingPageProps = {
   onLogout: () => void
 }
 
-const LINE1 = "작업시간을 3시간에서 10초로"
-const LINE2 = "AutoHWPX"
+const LINE1 = "템플릿과 JSON으로"
+const LINE2 = "HWPX 문서를 자동 생성하세요"
 
 export default function LandingPage({
   onNavigate,
@@ -19,7 +19,7 @@ export default function LandingPage({
 
   useEffect(() => {
     let mounted = true
-    let timerIds: number[] = []
+    const timerIds: number[] = []
 
     function setSafe(line1: string, line2: string) {
       if (!mounted) return
@@ -52,17 +52,14 @@ export default function LandingPage({
         )
       }
 
-      // 완성된 상태에서 잠시 유지
       t += 6000
 
-      // 텍스트를 지운 뒤에도 커서만 보이는 상태로 잠깐 유지
       timerIds.push(
         window.setTimeout(() => {
           setSafe("", "")
         }, t)
       )
 
-      // 빈 상태 대기
       t += 1600
 
       timerIds.push(
@@ -82,20 +79,20 @@ export default function LandingPage({
 
   const stats = useMemo(
     () => [
-      { label: "활성 템플릿", value: "12+" },
-      { label: "문서 생성", value: "1,240+" },
-      { label: "평균 생성 시간", value: "3초" },
+      { label: "활성 템플릿", value: "12+", tone: "blue" },
+      { label: "문서 생성", value: "1,240+", tone: "lime" },
+      { label: "평균 생성 시간", value: "3초", tone: "yellow" },
     ],
     []
   )
 
   return (
-    <div className="relative min-h-screen overflow-hidden bg-[#fcfcff] text-slate-900">
-      <div className="absolute inset-0 bg-[radial-gradient(circle_at_15%_20%,rgba(139,92,246,0.20),transparent_22%),radial-gradient(circle_at_80%_18%,rgba(59,130,246,0.18),transparent_22%),radial-gradient(circle_at_55%_72%,rgba(236,72,153,0.12),transparent_24%),linear-gradient(to_bottom,#f8f7ff_0%,#ffffff_38%,#f8fafc_100%)]" />
+    <div className="relative min-h-screen overflow-hidden bg-[#fcfdff] text-slate-900">
+      <div className="absolute inset-0 bg-[radial-gradient(circle_at_15%_18%,rgba(31,105,239,0.16),transparent_22%),radial-gradient(circle_at_82%_18%,rgba(79,143,255,0.10),transparent_22%),radial-gradient(circle_at_58%_78%,rgba(167,217,75,0.08),transparent_18%),linear-gradient(to_bottom,#f7faff_0%,#ffffff_42%,#f8fafc_100%)]" />
 
-      <div className="pointer-events-none absolute -left-24 top-24 h-72 w-72 rounded-full bg-violet-300/30 blur-3xl animate-[float1_10s_ease-in-out_infinite]" />
-      <div className="pointer-events-none absolute right-[-40px] top-16 h-80 w-80 rounded-full bg-sky-300/30 blur-3xl animate-[float2_12s_ease-in-out_infinite]" />
-      <div className="pointer-events-none absolute bottom-10 left-1/3 h-72 w-72 rounded-full bg-fuchsia-200/30 blur-3xl animate-[float3_14s_ease-in-out_infinite]" />
+      <div className="pointer-events-none absolute -left-24 top-24 h-72 w-72 rounded-full bg-[#1f69ef]/20 blur-3xl animate-[float1_10s_ease-in-out_infinite]" />
+      <div className="pointer-events-none absolute right-[-40px] top-16 h-80 w-80 rounded-full bg-[#4f8fff]/16 blur-3xl animate-[float2_12s_ease-in-out_infinite]" />
+      <div className="pointer-events-none absolute bottom-10 left-1/3 h-64 w-64 rounded-full bg-[#a7d94b]/10 blur-3xl animate-[float3_14s_ease-in-out_infinite]" />
 
       <style>{`
         @keyframes float1 {
@@ -120,6 +117,10 @@ export default function LandingPage({
           60% { opacity: 0.12; }
           100% { transform: translateX(220%) skewX(-18deg); opacity: 0; }
         }
+        @keyframes blinkCursor {
+          0%, 49% { opacity: 1; }
+          50%, 100% { opacity: 0; }
+        }
       `}</style>
 
       <TopNav
@@ -133,8 +134,8 @@ export default function LandingPage({
           <div className="mx-auto max-w-7xl px-4 pb-24 pt-16 sm:px-6 lg:px-8">
             <div className="grid items-center gap-14 lg:grid-cols-[1.05fr_0.95fr]">
               <div>
-                <div className="mb-6 inline-flex items-center rounded-full border border-violet-200/80 bg-white/80 px-4 py-2 text-sm font-medium text-violet-700 shadow-sm backdrop-blur">
-                  쉿 ! 원하는 문서 스타일만 알려주세요 ! 서식을 바로 적용해드려요
+                <div className="mb-6 inline-flex items-center rounded-full border border-[#cfe0ff] bg-white/85 px-4 py-2 text-sm font-medium text-[#1f69ef] shadow-sm backdrop-blur">
+                  템플릿과 JSON만 있으면, 문서는 자동으로
                 </div>
 
                 <div className="mx-auto mt-2 max-w-4xl">
@@ -144,36 +145,31 @@ export default function LandingPage({
                     </span>
 
                     <span className="mt-2 block min-h-[1.2em] text-4xl sm:text-5xl lg:text-6xl">
-                      <span className="bg-gradient-to-r from-violet-600 via-fuchsia-500 to-blue-500 bg-clip-text text-transparent">
+                      <span className="bg-gradient-to-r from-[#1f69ef] via-[#2f7cf6] to-[#a7d94b] bg-clip-text text-transparent">
                         {typedLine2 || "\u00A0"}
                       </span>
-                      <span className="ml-1 inline-block h-[0.9em] w-[3px] rounded-sm bg-violet-600 align-[-0.08em] animate-pulse" />
+                      <span className="ml-1 inline-block h-[0.9em] w-[3px] rounded-sm bg-[#1f69ef] align-[-0.08em] animate-[blinkCursor_0.9s_step-end_infinite]" />
                     </span>
                   </h1>
                 </div>
 
                 <p className="mt-6 max-w-2xl text-lg leading-8 text-slate-600 sm:text-xl">
-                  1. 템플릿을 업로드하고, 
+                  템플릿을 업로드하고, 변수를 확인하고, JSON 데이터를 입력하면
+                  반복적인 HWPX 문서 작업을 몇 초 만에 자동화할 수 있습니다.
                 </p>
-                <div className="max-w-2xl text-lg leading-8 text-slate-600 sm:text-xl">
-                  2. JSON 데이터를 입력하면
-                </div>
-                <div className="mt-3 max-w-2xl text-lg leading-8 text-slate-600 sm:text-xl">
-                  HWPX 문서 작업을 몇 초 만에 자동화할 수 있습니다.
-                </div>
 
                 <div className="mt-10 flex flex-col items-start gap-3 sm:flex-row sm:items-center">
                   <button
                     onClick={() => onNavigate("dashboard-loading")}
-                    className="group relative overflow-hidden rounded-full bg-slate-950 px-7 py-3.5 text-sm font-medium text-white shadow-[0_18px_40px_rgba(15,23,42,0.18)] transition-all duration-300 hover:-translate-y-0.5 hover:bg-slate-900 hover:shadow-[0_22px_50px_rgba(15,23,42,0.22)]"
+                    className="group relative overflow-hidden rounded-full bg-[#1f69ef] px-7 py-3.5 text-sm font-medium text-white shadow-[0_18px_40px_rgba(31,105,239,0.22)] transition-all duration-300 hover:-translate-y-0.5 hover:bg-[#195bd0] hover:shadow-[0_22px_50px_rgba(31,105,239,0.28)]"
                   >
                     <span className="relative z-10">대시보드 열기</span>
-                    <span className="pointer-events-none absolute inset-y-0 left-0 w-16 bg-white/20 blur-md animate-[softShine_2.8s_ease-in-out_infinite]" />
+                    <span className="pointer-events-none absolute inset-y-0 left-0 w-16 bg-white/25 blur-md animate-[softShine_2.8s_ease-in-out_infinite]" />
                   </button>
 
                   <button
                     onClick={() => onNavigate("pricing")}
-                    className="group rounded-full border border-slate-200 bg-white/90 px-7 py-3.5 text-sm font-medium text-slate-700 shadow-sm transition-all duration-300 hover:-translate-y-0.5 hover:border-slate-300 hover:bg-white hover:shadow-md"
+                    className="group rounded-full border border-slate-200 bg-white/90 px-7 py-3.5 text-sm font-medium text-slate-700 shadow-sm transition-all duration-300 hover:-translate-y-0.5 hover:border-[#d7e4ff] hover:bg-white hover:shadow-md"
                   >
                     요금제 보기
                   </button>
@@ -183,9 +179,17 @@ export default function LandingPage({
                   {stats.map((item) => (
                     <div
                       key={item.label}
-                      className="rounded-2xl border border-white/80 bg-white/75 px-5 py-4 shadow-sm backdrop-blur"
+                      className="rounded-2xl border border-white/80 bg-white/80 px-5 py-4 shadow-sm backdrop-blur"
                     >
-                      <div className="text-xs font-medium text-slate-500">
+                      <div
+                        className={`text-xs font-medium ${
+                          item.tone === "blue"
+                            ? "text-[#1f69ef]"
+                            : item.tone === "lime"
+                            ? "text-[#7ea72c]"
+                            : "text-[#b99218]"
+                        }`}
+                      >
                         {item.label}
                       </div>
                       <div className="mt-1 text-2xl font-semibold tracking-tight text-slate-900">
@@ -197,11 +201,11 @@ export default function LandingPage({
               </div>
 
               <div className="relative">
-                <div className="pointer-events-none absolute -inset-6 rounded-[40px] bg-gradient-to-r from-violet-200/45 via-fuchsia-200/35 to-sky-200/45 blur-2xl" />
+                <div className="pointer-events-none absolute -inset-6 rounded-[40px] bg-gradient-to-r from-[#1f69ef]/16 via-[#4f8fff]/10 to-[#a7d94b]/08 blur-2xl" />
 
-                <div className="relative animate-[levitateCard_6s_ease-in-out_infinite] rounded-[34px] border border-white/70 bg-white/78 p-4 shadow-[0_30px_80px_rgba(15,23,42,0.12)] backdrop-blur-xl">
+                <div className="relative animate-[levitateCard_6s_ease-in-out_infinite] rounded-[34px] border border-white/70 bg-white/80 p-4 shadow-[0_30px_80px_rgba(15,23,42,0.12)] backdrop-blur-xl">
                   <div className="grid gap-4 lg:grid-cols-[220px_1fr]">
-                    <aside className="rounded-[26px] border border-slate-200/80 bg-slate-50/90 p-4">
+                    <aside className="rounded-[26px] border border-slate-200/80 bg-slate-50/95 p-4">
                       <div className="mb-4 text-sm font-semibold text-slate-800">
                         작업 공간
                       </div>
@@ -217,7 +221,7 @@ export default function LandingPage({
                             key={item}
                             className={`rounded-2xl px-4 py-3 text-sm shadow-sm transition ${
                               idx === 0
-                                ? "border border-violet-200 bg-white text-violet-700"
+                                ? "border border-[#cfe0ff] bg-white text-[#1f69ef]"
                                 : "bg-white text-slate-600"
                             }`}
                           >
@@ -239,7 +243,7 @@ export default function LandingPage({
                           </p>
                         </div>
 
-                        <div className="rounded-full bg-violet-50 px-4 py-2 text-sm font-medium text-violet-700">
+                        <div className="rounded-full bg-[#eef5ff] px-4 py-2 text-sm font-medium text-[#1f69ef]">
                           실시간 워크플로우
                         </div>
                       </div>
@@ -273,7 +277,7 @@ export default function LandingPage({
                         </div>
                       </div>
 
-                      <div className="mt-8 rounded-[28px] border border-slate-200 bg-[linear-gradient(135deg,#fdf4ff_0%,#eef2ff_100%)] p-6">
+                      <div className="mt-8 rounded-[28px] border border-[#dbe7ff] bg-[linear-gradient(135deg,#eef5ff_0%,#f9fbff_70%,#fbfdea_100%)] p-6">
                         <div className="text-sm font-medium text-slate-500">
                           예시 요청 데이터
                         </div>
@@ -296,7 +300,7 @@ export default function LandingPage({
                   </div>
                 </div>
 
-                <div className="absolute -right-4 top-10 hidden rounded-2xl border border-white/70 bg-white/80 px-4 py-3 shadow-lg backdrop-blur md:block">
+                <div className="absolute -right-4 top-10 hidden rounded-2xl border border-white/70 bg-white/88 px-4 py-3 shadow-lg backdrop-blur md:block">
                   <div className="text-xs font-medium text-slate-500">
                     문서 생성 속도
                   </div>
@@ -305,7 +309,7 @@ export default function LandingPage({
                   </div>
                 </div>
 
-                <div className="absolute -bottom-4 left-8 hidden rounded-2xl border border-white/70 bg-white/80 px-4 py-3 shadow-lg backdrop-blur md:block">
+                <div className="absolute -bottom-4 left-8 hidden rounded-2xl border border-white/70 bg-white/88 px-4 py-3 shadow-lg backdrop-blur md:block">
                   <div className="text-xs font-medium text-slate-500">
                     자동화 성공률
                   </div>
@@ -317,8 +321,8 @@ export default function LandingPage({
             </div>
 
             <div className="mt-24 grid gap-6 md:grid-cols-3">
-              <div className="rounded-[28px] border border-white/80 bg-white/75 p-6 shadow-[0_20px_60px_rgba(15,23,42,0.07)] backdrop-blur">
-                <div className="mb-4 inline-flex rounded-full bg-violet-50 px-3 py-1 text-xs font-medium text-violet-700">
+              <div className="rounded-[28px] border border-white/80 bg-white/78 p-6 shadow-[0_20px_60px_rgba(15,23,42,0.07)] backdrop-blur">
+                <div className="mb-4 inline-flex rounded-full bg-[#eef5ff] px-3 py-1 text-xs font-medium text-[#1f69ef]">
                   01
                 </div>
                 <h3 className="text-xl font-semibold tracking-tight text-slate-900">
@@ -329,8 +333,8 @@ export default function LandingPage({
                 </p>
               </div>
 
-              <div className="rounded-[28px] border border-white/80 bg-white/75 p-6 shadow-[0_20px_60px_rgba(15,23,42,0.07)] backdrop-blur">
-                <div className="mb-4 inline-flex rounded-full bg-fuchsia-50 px-3 py-1 text-xs font-medium text-fuchsia-700">
+              <div className="rounded-[28px] border border-white/80 bg-white/78 p-6 shadow-[0_20px_60px_rgba(15,23,42,0.07)] backdrop-blur">
+                <div className="mb-4 inline-flex rounded-full bg-[#f6fbe8] px-3 py-1 text-xs font-medium text-[#7ea72c]">
                   02
                 </div>
                 <h3 className="text-xl font-semibold tracking-tight text-slate-900">
@@ -341,8 +345,8 @@ export default function LandingPage({
                 </p>
               </div>
 
-              <div className="rounded-[28px] border border-white/80 bg-white/75 p-6 shadow-[0_20px_60px_rgba(15,23,42,0.07)] backdrop-blur">
-                <div className="mb-4 inline-flex rounded-full bg-sky-50 px-3 py-1 text-xs font-medium text-sky-700">
+              <div className="rounded-[28px] border border-white/80 bg-white/78 p-6 shadow-[0_20px_60px_rgba(15,23,42,0.07)] backdrop-blur">
+                <div className="mb-4 inline-flex rounded-full bg-[#fff9e8] px-3 py-1 text-xs font-medium text-[#b99218]">
                   03
                 </div>
                 <h3 className="text-xl font-semibold tracking-tight text-slate-900">
