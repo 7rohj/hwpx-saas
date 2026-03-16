@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react"
 import Dashboard from "./pages/Dashboard"
+import DashboardLoadingPage from "./pages/DashboardLoadingPage"
 import LandingPage from "./pages/LandingPage"
 import ApiKeysPage from "./pages/ApiKeysPage"
 import UsageLogsPage from "./pages/UsageLogsPage"
@@ -8,7 +9,14 @@ import Login from "./Login"
 import Signup from "./Signup"
 
 type AuthView = "login" | "signup"
-export type PageType = "landing" | "dashboard" | "apikeys" | "usage" | "pricing"
+
+export type PageType =
+  | "landing"
+  | "dashboard-loading"
+  | "dashboard"
+  | "apikeys"
+  | "usage"
+  | "pricing"
 
 export default function App() {
   const [isLoggedIn, setIsLoggedIn] = useState(false)
@@ -21,14 +29,24 @@ export default function App() {
     setIsLoggedIn(Boolean(email && apiKey))
   }, [])
 
+  useEffect(() => {
+    if (currentPage !== "dashboard-loading") return
+
+    const timer = window.setTimeout(() => {
+      setCurrentPage("dashboard")
+    }, 3200)
+
+    return () => window.clearTimeout(timer)
+  }, [currentPage])
+
   function handleLoginSuccess() {
     setIsLoggedIn(true)
-    setCurrentPage("dashboard")
+    setCurrentPage("dashboard-loading")
   }
 
   function handleSignupSuccess() {
     setIsLoggedIn(true)
-    setCurrentPage("dashboard")
+    setCurrentPage("dashboard-loading")
   }
 
   function handleLogout() {
@@ -57,25 +75,64 @@ export default function App() {
     )
   }
 
+  if (currentPage === "dashboard-loading") {
+    return (
+      <DashboardLoadingPage
+        onNavigate={setCurrentPage}
+        onLogout={handleLogout}
+      />
+    )
+  }
+
   if (currentPage === "landing") {
-    return <LandingPage onNavigate={setCurrentPage} onLogout={handleLogout} />
+    return (
+      <LandingPage
+        onNavigate={setCurrentPage}
+        onLogout={handleLogout}
+      />
+    )
   }
 
   if (currentPage === "dashboard") {
-    return <Dashboard onNavigate={setCurrentPage} onLogout={handleLogout} />
+    return (
+      <Dashboard
+        onNavigate={setCurrentPage}
+        onLogout={handleLogout}
+      />
+    )
   }
 
   if (currentPage === "apikeys") {
-    return <ApiKeysPage onNavigate={setCurrentPage} onLogout={handleLogout} />
+    return (
+      <ApiKeysPage
+        onNavigate={setCurrentPage}
+        onLogout={handleLogout}
+      />
+    )
   }
 
   if (currentPage === "usage") {
-    return <UsageLogsPage onNavigate={setCurrentPage} onLogout={handleLogout} />
+    return (
+      <UsageLogsPage
+        onNavigate={setCurrentPage}
+        onLogout={handleLogout}
+      />
+    )
   }
 
   if (currentPage === "pricing") {
-    return <PricingPage onNavigate={setCurrentPage} onLogout={handleLogout} />
+    return (
+      <PricingPage
+        onNavigate={setCurrentPage}
+        onLogout={handleLogout}
+      />
+    )
   }
 
-  return <Dashboard onNavigate={setCurrentPage} onLogout={handleLogout} />
+  return (
+    <Dashboard
+      onNavigate={setCurrentPage}
+      onLogout={handleLogout}
+    />
+  )
 }
