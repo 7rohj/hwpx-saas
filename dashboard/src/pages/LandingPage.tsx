@@ -50,18 +50,17 @@ export default function LandingPage({
 
   const stats = useMemo(
     () => [
-        /*
+      /*
       { label: "활성 템플릿", value: "12+" },
       { label: "문서 생성", value: "1,240+" },
       { label: "평균 생성 시간", value: "3초" },
-       */
+      */
     ],
     []
   )
 
   return (
     <div className="relative min-h-screen overflow-hidden bg-white text-slate-900">
-    
       <style>{`
         @keyframes float1 {
           0%, 100% { transform: translate3d(0, 0, 0) scale(1); }
@@ -100,8 +99,30 @@ export default function LandingPage({
       <main className="relative">
         <section className="relative">
           <div className="mx-auto max-w-7xl px-4 pb-24 pt-16 sm:px-6 lg:px-8">
-            <div className="grid items-center gap-14 lg:grid-cols-[1.05fr_0.95fr]">
-              <div>
+            <div className="relative min-h-[720px]">
+              <div className="group absolute right-[-100px] top-[38%] z-0 w-[820px] -translate-y-1/2 xl:w-[980px]">
+                <div className="rounded-[34px] bg-transparent transition-all duration-500 ease-out hover:z-20 hover:scale-[1.5]">
+                  <video
+                    className="block h-full w-full rounded-[34px] object-cover"
+                    src="/videos/landing-demo.mp4"
+                    autoPlay
+                    muted
+                    loop
+                    playsInline
+                    controls={false}
+                  />
+                  
+                  {/* 🔥 흰색 그라데이션 오버레이 
+                  <div className="pointer-events-none absolute inset-0 rounded-[34px] opacity-0 transition-opacity duration-500 group-hover:opacity-100"
+                    style={{
+                      background: 'linear-gradient(to right, rgba(255,255,255,1) 0%, rgba(255,255,255,0.6) 25%, rgba(255,255,255,0) 100%)'
+                    }}
+                  />
+                  */}
+                </div>
+              </div>
+
+              <div className="relative z-10 max-w-3xl pt-10">
                 <div className="mb-6 inline-flex items-center rounded-full border border-[#cfe0ff] bg-[#f7fbff] px-4 py-2 text-sm font-medium text-[#1f69ef] shadow-sm">
                   템플릿과 JSON만 있으면, 문서는 자동으로
                 </div>
@@ -121,8 +142,8 @@ export default function LandingPage({
                   </h1>
                 </div>
 
-                 <p className="mt-6 max-w-2xl text-lg leading-8 text-slate-600 sm:text-xl">
-                  1. 템플릿을 업로드하고, 
+                <p className="mt-6 max-w-2xl text-lg leading-8 text-slate-600 sm:text-xl">
+                  1. 템플릿을 업로드하고,
                 </p>
                 <div className="max-w-2xl text-lg leading-8 text-slate-600 sm:text-xl">
                   2. JSON 데이터를 입력하면
@@ -151,7 +172,6 @@ export default function LandingPage({
                 {/*
                 <div className="mt-12 flex flex-wrap items-center gap-3">
                   {stats.map((item) => (
-                    
                     <div
                       key={item.label}
                       className="rounded-2xl border border-slate-200 bg-white px-5 py-4 shadow-sm"
@@ -166,26 +186,6 @@ export default function LandingPage({
                   ))}
                 </div>
                 */}
-                
-              </div>
-              
-              {/* 좌측 화면 코드 -> mp4 영상 삽입 */}
-              <div className="relative">
-                <div className="pointer-events-none absolute -inset-6 rounded-[40px] bg-[#1f69ef]/8 blur-2xl" />
-
-                <div className="relative overflow-hidden rounded-[34px] border border-slate-200/80 bg-white/90 p-3 backdrop-blur-xl">
-                  <div className="overflow-hidden rounded-[26px] bg-slate-100">
-                    <video
-                      className="block h-full w-full object-cover"
-                      src="/videos/landing-demo.mp4"
-                      autoPlay
-                      muted
-                      loop
-                      playsInline
-                      controls={false}
-                    />
-                  </div>
-                </div>
               </div>
             </div>
 
@@ -228,7 +228,6 @@ export default function LandingPage({
               </div>
             </div>
             */}
-
           </div>
         </section>
       </main>
