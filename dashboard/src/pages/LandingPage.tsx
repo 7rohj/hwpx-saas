@@ -168,122 +168,22 @@ export default function LandingPage({
                 */}
                 
               </div>
-
+              
+              {/* 좌측 화면 코드 -> mp4 영상 삽입 */}
               <div className="relative">
                 <div className="pointer-events-none absolute -inset-6 rounded-[40px] bg-[#1f69ef]/8 blur-2xl" />
 
-                <div className="relative animate-[levitateCard_6s_ease-in-out_infinite] rounded-[34px] border border-slate-200/80 bg-white/90 p-4 shadow-[0_30px_80px_rgba(15,23,42,0.10)] backdrop-blur-xl">
-                  <div className="grid gap-4 lg:grid-cols-[220px_1fr]">
-                    <aside className="rounded-[26px] border border-slate-200 bg-slate-50/90 p-4">
-                      <div className="mb-4 text-sm font-semibold text-slate-800">
-                        작업 공간
-                      </div>
-
-                      <div className="space-y-2.5">
-                        {[
-                          "빠른 실행",
-                          "템플릿 목록",
-                          "생성된 파일",
-                          "사용 로그",
-                        ].map((item, idx) => (
-                          <div
-                            key={item}
-                            className={`rounded-2xl px-4 py-3 text-sm shadow-sm transition ${
-                              idx === 0
-                                ? "border border-[#cfe0ff] bg-white text-[#1f69ef]"
-                                : "bg-white text-slate-600"
-                            }`}
-                          >
-                            {item}
-                          </div>
-                        ))}
-                      </div>
-                    </aside>
-
-                    <div className="rounded-[26px] border border-slate-200 bg-white p-6">
-                      <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-                        <div>
-                          <h2 className="text-3xl font-semibold tracking-tight text-slate-900">
-                            문서 자동화를 더 빠르고 아름답게
-                          </h2>
-                          <p className="mt-2 text-sm leading-6 text-slate-500">
-                            템플릿 업로드부터 변수 확인, JSON 입력, 문서 생성까지
-                            하나의 워크플로우로 연결됩니다.
-                          </p>
-                        </div>
-
-                        <div className="rounded-full bg-[#eef5ff] px-4 py-2 text-sm font-medium text-[#1f69ef]">
-                          실시간 워크플로우
-                        </div>
-                      </div>
-
-                      <div className="mt-8 grid gap-4 md:grid-cols-3">
-                        <div className="rounded-3xl border border-slate-200 bg-slate-50 p-5">
-                          <div className="text-sm font-medium text-slate-500">
-                            템플릿 수
-                          </div>
-                          <div className="mt-3 text-3xl font-semibold text-slate-900">
-                            12
-                          </div>
-                        </div>
-
-                        <div className="rounded-3xl border border-slate-200 bg-slate-50 p-5">
-                          <div className="text-sm font-medium text-slate-500">
-                            생성된 문서
-                          </div>
-                          <div className="mt-3 text-3xl font-semibold text-slate-900">
-                            38
-                          </div>
-                        </div>
-
-                        <div className="rounded-3xl border border-slate-200 bg-slate-50 p-5">
-                          <div className="text-sm font-medium text-slate-500">
-                            이번 달 사용량
-                          </div>
-                          <div className="mt-3 text-3xl font-semibold text-slate-900">
-                            84
-                          </div>
-                        </div>
-                      </div>
-
-                      <div className="mt-8 rounded-[28px] border border-[#dbe7ff] bg-[#f8fbff] p-6">
-                        <div className="text-sm font-medium text-slate-500">
-                          예시 요청 데이터
-                        </div>
-
-                        <pre className="mt-4 overflow-x-auto rounded-2xl bg-slate-950 p-4 text-sm leading-6 text-emerald-300 shadow-inner">
-{`{
-  "templateId": "template_001",
-  "outputFilename": "output.hwpx",
-  "elements": [
-    {
-      "placeholder": "title",
-      "type": "text",
-      "content": "문서 제목입니다"
-    }
-  ]
-}`}
-                        </pre>
-                      </div>
-                    </div>
-                  </div>
-                </div>
-
-                <div className="absolute -right-4 top-10 hidden rounded-2xl border border-slate-200 bg-white px-4 py-3 shadow-lg md:block">
-                  <div className="text-xs font-medium text-slate-500">
-                    문서 생성 속도
-                  </div>
-                  <div className="mt-1 text-xl font-semibold text-slate-900">
-                    평균 3초
-                  </div>
-                </div>
-
-                <div className="absolute -bottom-4 left-8 hidden rounded-2xl border border-slate-200 bg-white px-4 py-3 shadow-lg md:block">
-                  <div className="text-xs font-medium text-slate-500">
-                    자동화 성공률
-                  </div>
-                  <div className="mt-1 text-xl font-semibold text-slate-900">
-                    99.9%
+                <div className="relative overflow-hidden rounded-[34px] border border-slate-200/80 bg-white/90 p-3 backdrop-blur-xl">
+                  <div className="overflow-hidden rounded-[26px] bg-slate-100">
+                    <video
+                      className="block h-full w-full object-cover"
+                      src="/videos/landing-demo.mp4"
+                      autoPlay
+                      muted
+                      loop
+                      playsInline
+                      controls={false}
+                    />
                   </div>
                 </div>
               </div>
