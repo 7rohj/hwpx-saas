@@ -754,7 +754,7 @@ export default function Dashboard( { onNavigate, onLogout }: DashboardProps) {
                 </div>
                 <h1 className="text-3xl font-bold tracking-tight sm:text-4xl">Dashboard</h1>
                 <p className="mt-2 text-sm text-slate-500 sm:text-base">
-                  내 API 키, 템플릿, 생성 문서를 한눈에 관리하는 공간
+                  내 API 키, 템플릿, 생성 문서를 한눈에 관리하는 공간입니다
                 </p>
               </div>
 
@@ -781,23 +781,23 @@ export default function Dashboard( { onNavigate, onLogout }: DashboardProps) {
                   <nav className="space-y-2">
                     <button className="flex w-full items-center gap-3 rounded-2xl bg-slate-900 px-4 py-3 text-left text-sm font-medium text-white shadow-sm">
                       <LayoutDashboard className="h-4 w-4" />
-                      Dashboard
+                      대시보드
                     </button>
                     <button className="flex w-full items-center gap-3 rounded-2xl px-4 py-3 text-left text-sm font-medium text-slate-600 transition hover:bg-slate-50">
                       <FolderOpen className="h-4 w-4" />
-                      Templates
+                      템플릿
                     </button>
                     <button className="flex w-full items-center gap-3 rounded-2xl px-4 py-3 text-left text-sm font-medium text-slate-600 transition hover:bg-slate-50">
                       <FileText className="h-4 w-4" />
-                      Generated Files
+                      생성문서
                     </button>
                     <button className="flex w-full items-center gap-3 rounded-2xl px-4 py-3 text-left text-sm font-medium text-slate-600 transition hover:bg-slate-50">
                       <Activity className="h-4 w-4" />
-                      Usage Logs
+                      사용량 로그
                     </button>
                     <button className="flex w-full items-center gap-3 rounded-2xl px-4 py-3 text-left text-sm font-medium text-slate-600 transition hover:bg-slate-50">
                       <CreditCard className="h-4 w-4" />
-                      Billing
+                      요금운영
                     </button>
                   </nav>
                 </div>
@@ -836,10 +836,10 @@ export default function Dashboard( { onNavigate, onLogout }: DashboardProps) {
             <main className="space-y-6 lg:col-span-9">
               <section className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
                 {[
-                  ["Templates", String(templates.length)],
-                  ["Generated Files", String(files.length)],
-                  ["This Month Usage", String(thisMonthUsage)],
-                  ["Plan", "Starter"],
+                  ["템플릿", String(templates.length)],
+                  ["생성문서", String(files.length)],
+                  ["이번 달 사용량", String(thisMonthUsage)],
+                  ["요금제", "Starter"],
                 ].map(([label, value]) => (
                   <div key={label} className="rounded-[26px] border border-slate-200/70 bg-white shadow-sm">
                     <div className="p-5">
@@ -853,7 +853,7 @@ export default function Dashboard( { onNavigate, onLogout }: DashboardProps) {
               <section>
                 <div className="rounded-[28px] border border-slate-200/70 bg-white shadow-sm">
                   <div className="p-6 pb-0 text-center">
-                    <h2 className="text-xl font-semibold">Quick Actions</h2>
+                    <h2 className="text-xl font-semibold">빠른 실행</h2>
                     <p className="text-sm text-slate-500">자주 쓰는 기능을 빠르게 실행</p>
                   </div>
 
@@ -1004,7 +1004,7 @@ export default function Dashboard( { onNavigate, onLogout }: DashboardProps) {
                 <div className="rounded-[28px] border border-slate-200/70 bg-white shadow-sm">
                   <div className="flex flex-row items-start justify-between gap-4 p-6 pb-0">
                     <div>
-                      <h2 className="text-xl font-semibold">Templates</h2>
+                      <h2 className="text-xl font-semibold">템플릿</h2>
                       <p className="text-sm text-slate-500">내가 업로드한 템플릿 목록</p>
                     </div>
                     <button className="rounded-2xl border px-4 py-2 text-sm hover:bg-slate-50">
@@ -1046,7 +1046,7 @@ export default function Dashboard( { onNavigate, onLogout }: DashboardProps) {
                 <div className="rounded-[28px] border border-slate-200/70 bg-white shadow-sm">
                   <div className="flex flex-row items-start justify-between gap-4 p-6 pb-0">
                     <div>
-                      <h2 className="text-xl font-semibold">Generated Files</h2>
+                      <h2 className="text-xl font-semibold">생성문서</h2>
                       <p className="text-sm text-slate-500">최근 생성된 문서</p>
                     </div>
                     <button
@@ -1106,7 +1106,7 @@ export default function Dashboard( { onNavigate, onLogout }: DashboardProps) {
               <div className="rounded-[28px] border border-slate-200/70 bg-white shadow-sm">
                 <div className="flex flex-row items-start justify-between gap-4 p-6 pb-0">
                   <div>
-                    <h2 className="text-xl font-semibold">Usage Logs</h2>
+                    <h2 className="text-xl font-semibold">사용량 로그</h2>
                     <p className="text-sm text-slate-500">최근 API 사용 기록</p>
                   </div>
                   <button className="rounded-2xl border px-4 py-2 text-sm hover:bg-slate-50">

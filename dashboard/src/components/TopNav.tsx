@@ -12,11 +12,11 @@ export default function TopNav({
   onLogout,
 }: TopNavProps) {
   const menu = [
-    ["Docs", "landing"],
-    ["Dashboard", "dashboard"],
+    ["홈화면", "landing"],
+    ["대시보드", "dashboard"],
     ["API Keys", "apikeys"],
-    ["Usage", "usage"],
-    ["Pricing", "pricing"],
+    ["사용량 로그", "usage"],
+    ["요금운영", "pricing"],
   ] as const
 
   return (
