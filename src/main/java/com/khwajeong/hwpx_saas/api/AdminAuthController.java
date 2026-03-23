@@ -54,17 +54,29 @@ public class AdminAuthController {
         UserEntity user = userRepository.findByEmail(email).orElse(null);
 
         if (user == null) {
-            adminLoginLogRepository.save(createLog(null, email, false, ip, ua, "USER_NOT_FOUND"));
+            try {
+                adminLoginLogRepository.save(createLog(null, email, false, ip, ua, "USER_NOT_FOUND"));
+            } catch (Exception e) {
+                e.printStackTrace();
+            }
             return ResponseEntity.status(401).body(error("invalid admin email or password"));
         }
 
         if (!passwordEncoder.matches(req.password, user.getPasswordHash())) {
-            adminLoginLogRepository.save(createLog(user.getId(), user.getEmail(), false, ip, ua, "WRONG_PASSWORD"));
+            try {
+                adminLoginLogRepository.save(createLog(user.getId(), user.getEmail(), false, ip, ua, "WRONG_PASSWORD"));
+            } catch (Exception e) {
+                e.printStackTrace();
+            }
             return ResponseEntity.status(401).body(error("invalid admin email or password"));
         }
 
         if (!"ADMIN".equalsIgnoreCase(user.getRole())) {
-            adminLoginLogRepository.save(createLog(user.getId(), user.getEmail(), false, ip, ua, "NOT_ADMIN"));
+            try {
+                adminLoginLogRepository.save(createLog(user.getId(), user.getEmail(), false, ip, ua, "NOT_ADMIN"));
+            } catch (Exception e) {
+                e.printStackTrace();
+            }
             return ResponseEntity.status(403).body(error("admin access denied"));
         }
 
@@ -80,7 +92,11 @@ public class AdminAuthController {
         session.setUserAgent(ua);
         adminSessionRepository.save(session);
 
-        adminLoginLogRepository.save(createLog(user.getId(), user.getEmail(), true, ip, ua, "SUCCESS"));
+        try {
+            adminLoginLogRepository.save(createLog(user.getId(), user.getEmail(), true, ip, ua, "SUCCESS"));
+        } catch (Exception e) {
+            e.printStackTrace();
+        }
 
         Map<String, Object> res = new LinkedHashMap<>();
         res.put("ok", true);

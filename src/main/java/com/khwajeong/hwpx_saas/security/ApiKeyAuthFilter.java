@@ -42,6 +42,7 @@ public class ApiKeyAuthFilter extends OncePerRequestFilter {
 
       // 사용자 API는 공용키 필터에서 제외
       if (path.startsWith("/api/v1/auth")) return true;
+      if (path.startsWith("/api/v1/admin")) return true;
       if (path.startsWith("/api/v1/template")) return true;
       if (path.startsWith("/api/v1/generate")) return true;
       if (path.startsWith("/api/v1/dashboard")) return true;
@@ -59,6 +60,10 @@ public class ApiKeyAuthFilter extends OncePerRequestFilter {
 
     // 우리 API만 보호하고 싶으면 여기서 제한 가능
     // 예: if (!request.getRequestURI().startsWith("/api/v1")) { filterChain.doFilter(...); return; }
+    if ("OPTIONS".equalsIgnoreCase(request.getMethod())) {
+            filterChain.doFilter(request, response);
+            return;
+        }
 
     String expected = props.getApiKey();
     String provided = request.getHeader(HEADER_NAME);

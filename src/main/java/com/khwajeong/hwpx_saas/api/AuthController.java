@@ -46,9 +46,11 @@ public class AuthController {
         if (req.email == null || req.email.isBlank()) {
             return ResponseEntity.badRequest().body(error("email is required"));
         }
+
         if (req.password == null || req.password.length() < 8) {
             return ResponseEntity.badRequest().body(error("password must be at least 8 characters"));
         }
+
         if (userRepository.existsByEmail(req.email.trim())) {
             return ResponseEntity.badRequest().body(error("email already exists"));
         }
@@ -58,6 +60,7 @@ public class AuthController {
         user.setPasswordHash(passwordEncoder.encode(req.password));
         user.setRole("USER");
         user.setGrade("STARTER");
+        user.setStatus("ACTIVE");
         user = userRepository.save(user);
 
         ApiKeyEntity apiKey = new ApiKeyEntity();
@@ -92,6 +95,16 @@ public class AuthController {
         if (!passwordEncoder.matches(req.password, user.getPasswordHash())) {
             loginLogRepository.save(createLog(user.getId(), user.getEmail(), false, "WRONG_PASSWORD"));
             return ResponseEntity.status(401).body(error("invalid email or password"));
+        }
+
+        if ("BLOCKED".equalsIgnoreCase(user.getStatus())) {
+            loginLogRepository.save(createLog(user.getId(), user.getEmail(), false, "BLOCKED_USER"));
+            return ResponseEntity.status(403).body(error("blocked user"));
+        }
+
+        if ("DELETED".equalsIgnoreCase(user.getStatus())) {
+            loginLogRepository.save(createLog(user.getId(), user.getEmail(), false, "DELETED_USER"));
+            return ResponseEntity.status(403).body(error("deleted user"));
         }
 
         user.setLastLoginAt(OffsetDateTime.now());

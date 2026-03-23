@@ -4,11 +4,38 @@ import { KeyRound, Mail, Lock } from "lucide-react"
 type LoginProps = {
   onLoginSuccess: () => void
   onGoSignup: () => void
+  onGoAdminLogin?: () => void
 }
 
 const API_BASE_URL = import.meta.env.VITE_API_BASE_URL ?? "http://localhost:8080"
 
-export default function Login({ onLoginSuccess, onGoSignup }: LoginProps) {
+function mapLoginErrorMessage(message?: string) {
+  if (!message) return "로그인에 실패했습니다."
+
+  if (message === "blocked user") {
+    return "차단된 계정입니다. 관리자에게 문의해주세요."
+  }
+
+  if (message === "deleted user") {
+    return "삭제 처리된 계정입니다. 관리자에게 문의해주세요."
+  }
+
+  if (message === "invalid email or password") {
+    return "이메일 또는 비밀번호가 올바르지 않습니다."
+  }
+
+  if (message === "email and password are required") {
+    return "이메일과 비밀번호를 입력해주세요."
+  }
+
+  return message
+}
+
+export default function Login({
+  onLoginSuccess,
+  onGoSignup,
+  onGoAdminLogin,
+}: LoginProps) {
   const [email, setEmail] = useState("")
   const [password, setPassword] = useState("")
   const [loading, setLoading] = useState(false)
@@ -35,7 +62,7 @@ export default function Login({ onLoginSuccess, onGoSignup }: LoginProps) {
       const data = await response.json()
 
       if (!response.ok || !data.ok) {
-        setError(data.message ?? "로그인에 실패했습니다.")
+        setError(mapLoginErrorMessage(data.message))
         return
       }
 
@@ -128,6 +155,16 @@ export default function Login({ onLoginSuccess, onGoSignup }: LoginProps) {
             >
               회원가입 하러가기
             </button>
+
+            {onGoAdminLogin ? (
+              <button
+                type="button"
+                onClick={onGoAdminLogin}
+                className="w-full rounded-2xl border border-[#d7e5ff] px-4 py-3 text-sm font-medium text-[#1f69ef] hover:bg-[#f5f9ff]"
+              >
+                관리자 로그인
+              </button>
+            ) : null}
           </form>
         </div>
       </div>

@@ -70,7 +70,7 @@ export default function PricingPage({ onNavigate, onLogout }: PricingPageProps) 
                   AutoHWPX SaaS
                 </div>
                 <h1 className="text-3xl font-bold tracking-tight text-[#162033] sm:text-4xl">
-                  Pricing
+                  요금제
                 </h1>
                 <p className="mt-2 text-sm text-[#63708a] sm:text-base">
                   현재 및 예정 요금제를 한눈에 비교할 수 있는 공간입니다

@@ -79,11 +79,10 @@ export default function AdminPage({ onNavigate, onLogout }: AdminPageProps) {
   const [keyword, setKeyword] = useState("")
 
   useEffect(() => {
-    // const apiKey = localStorage.getItem("apiKey") ?? ""
     const adminToken = localStorage.getItem("adminToken") ?? ""
     if (!adminToken) {
       setLoading(false)
-      setError("API 키가 없습니다. 먼저 로그인해주세요.")
+      setError("관리자 토큰이 없습니다. 먼저 관리자 로그인해주세요.")
       return
     }
 
@@ -180,6 +179,148 @@ export default function AdminPage({ onNavigate, onLogout }: AdminPageProps) {
     }
   }
 
+  async function handleChangeGrade(userId: number, grade: string) {
+    const adminToken = localStorage.getItem("adminToken") ?? ""
+    if (!adminToken) {
+      alert("관리자 토큰이 없습니다.")
+      return
+    }
+
+    try {
+      const response = await fetch(
+        `${API_BASE_URL}/api/v1/admin/users/${userId}/grade`,
+        {
+          method: "PATCH",
+          headers: {
+            "Content-Type": "application/json",
+            "X-Admin-Token": adminToken,
+          },
+          body: JSON.stringify({ grade }),
+        }
+      )
+
+      const data = await response.json()
+
+      if (!response.ok || !data.ok) {
+        throw new Error(data.message ?? "등급 변경 실패")
+      }
+
+      setUsers((prev) =>
+        prev.map((user) =>
+          user.id === userId ? { ...user, grade } : user
+        )
+      )
+    } catch (err) {
+      console.error(err)
+      alert(err instanceof Error ? err.message : "등급 변경에 실패했습니다.")
+    }
+  }
+
+  async function handleBlockUser(userId: number) {
+    const adminToken = localStorage.getItem("adminToken") ?? ""
+    if (!adminToken) {
+      alert("관리자 토큰이 없습니다.")
+      return
+    }
+
+    try {
+      const response = await fetch(
+        `${API_BASE_URL}/api/v1/admin/users/${userId}/block`,
+        {
+          method: "PATCH",
+          headers: {
+            "X-Admin-Token": adminToken,
+          },
+        }
+      )
+
+      const data = await response.json()
+
+      if (!response.ok || !data.ok) {
+        throw new Error(data.message ?? "유저 차단 실패")
+      }
+
+      setUsers((prev) =>
+        prev.map((user) =>
+          user.id === userId ? { ...user, status: "BLOCKED" } : user
+        )
+      )
+    } catch (err) {
+      console.error(err)
+      alert(err instanceof Error ? err.message : "유저 차단에 실패했습니다.")
+    }
+  }
+
+  async function handleUnblockUser(userId: number) {
+    const adminToken = localStorage.getItem("adminToken") ?? ""
+    if (!adminToken) {
+      alert("관리자 토큰이 없습니다.")
+      return
+    }
+
+    try {
+      const response = await fetch(
+        `${API_BASE_URL}/api/v1/admin/users/${userId}/unblock`,
+        {
+          method: "PATCH",
+          headers: {
+            "X-Admin-Token": adminToken,
+          },
+        }
+      )
+
+      const data = await response.json()
+
+      if (!response.ok || !data.ok) {
+        throw new Error(data.message ?? "유저 차단 해제 실패")
+      }
+
+      setUsers((prev) =>
+        prev.map((user) =>
+          user.id === userId ? { ...user, status: "ACTIVE" } : user
+        )
+      )
+    } catch (err) {
+      console.error(err)
+      alert(err instanceof Error ? err.message : "유저 차단 해제에 실패했습니다.")
+    }
+  }
+
+  async function handleDeleteUser(userId: number) {
+    const adminToken = localStorage.getItem("adminToken") ?? ""
+    if (!adminToken) {
+      alert("관리자 토큰이 없습니다.")
+      return
+    }
+
+    const ok = window.confirm("정말 이 유저를 삭제 처리할까요?")
+    if (!ok) return
+
+    try {
+      const response = await fetch(`${API_BASE_URL}/api/v1/admin/users/${userId}`, {
+        method: "DELETE",
+        headers: {
+          "X-Admin-Token": adminToken,
+        },
+      })
+
+      const data = await response.json()
+
+      if (!response.ok || !data.ok) {
+        throw new Error(data.message ?? "유저 삭제 실패")
+      }
+
+      setUsers((prev) =>
+        prev.map((user) =>
+          user.id === userId ? { ...user, status: "DELETED" } : user
+        )
+      )
+    } catch (err) {
+      console.error(err)
+      alert(err instanceof Error ? err.message : "유저 삭제에 실패했습니다.")
+    }
+  }
+
   const filteredUsers = useMemo(() => {
     if (!keyword.trim()) return users
     const q = keyword.toLowerCase()
@@ -223,7 +364,9 @@ export default function AdminPage({ onNavigate, onLogout }: AdminPageProps) {
         <div className="mx-auto max-w-7xl px-4 py-10 sm:px-6 lg:px-8">
           <div className="rounded-[32px] border border-[#dbe7ff] bg-white p-6">
             <p className="text-lg font-semibold text-[#1a2540]">관리자 페이지 불러오는 중...</p>
-            <p className="mt-2 text-sm text-[#63708a]">유저, 로그인 로그, API 키 정보를 확인하고 있어요.</p>
+            <p className="mt-2 text-sm text-[#63708a]">
+              유저, 로그인 로그, API 키 정보를 확인하고 있어요.
+            </p>
           </div>
         </div>
       </div>
@@ -245,7 +388,7 @@ export default function AdminPage({ onNavigate, onLogout }: AdminPageProps) {
 
   return (
     <>
-      <TopNav onNavigate={onNavigate} currentPage={"dashboard" as PageType} onLogout={onLogout} />
+      <TopNav onNavigate={onNavigate} currentPage={"admin" as PageType} onLogout={onLogout} />
 
       <div className="min-h-screen bg-[linear-gradient(180deg,#f5f9ff_0%,#eef5ff_42%,#fffdf2_100%)] text-slate-900">
         <div className="mx-auto max-w-7xl px-4 py-6 sm:px-6 lg:px-8">
@@ -257,7 +400,7 @@ export default function AdminPage({ onNavigate, onLogout }: AdminPageProps) {
                   AutoHWPX SaaS
                 </div>
                 <h1 className="text-3xl font-bold tracking-tight text-[#162033] sm:text-4xl">
-                  Admin Page
+                  관리자 페이지
                 </h1>
                 <p className="mt-2 text-sm text-[#63708a] sm:text-base">
                   회원, 로그인 이력, API 키 상태를 관리하는 공간
@@ -356,12 +499,14 @@ export default function AdminPage({ onNavigate, onLogout }: AdminPageProps) {
                           <th className="px-4 py-3 text-center font-semibold">상태</th>
                           <th className="px-4 py-3 text-center font-semibold">가입일</th>
                           <th className="px-4 py-3 text-center font-semibold">최근 로그인</th>
+                          <th className="px-4 py-3 text-center font-semibold">등급 변경</th>
+                          <th className="px-4 py-3 text-center font-semibold">관리</th>
                         </tr>
                       </thead>
                       <tbody>
                         {filteredUsers.length === 0 ? (
                           <tr className="border-t border-[#dbe7ff] bg-white">
-                            <td colSpan={7} className="px-4 py-8 text-center text-[#63708a]">
+                            <td colSpan={9} className="px-4 py-8 text-center text-[#63708a]">
                               표시할 회원이 없습니다.
                             </td>
                           </tr>
@@ -381,10 +526,16 @@ export default function AdminPage({ onNavigate, onLogout }: AdminPageProps) {
                                   className={`rounded-full px-3 py-1 text-xs font-semibold ${
                                     item.status === "ACTIVE"
                                       ? "bg-[#eef4ff] text-[#1f69ef]"
+                                      : item.status === "BLOCKED"
+                                      ? "bg-amber-50 text-amber-700"
                                       : "bg-red-50 text-red-700"
                                   }`}
                                 >
-                                  {item.status}
+                                  {item.status === "ACTIVE"
+                                    ? "ACTIVE"
+                                    : item.status === "BLOCKED"
+                                    ? "BLOCKED"
+                                    : "DELETED"}                                  
                                 </span>
                               </td>
                               <td className="px-4 py-3 text-center text-[#63708a]">
@@ -392,6 +543,48 @@ export default function AdminPage({ onNavigate, onLogout }: AdminPageProps) {
                               </td>
                               <td className="px-4 py-3 text-center text-[#63708a]">
                                 {formatDateTime(item.lastLoginAt)}
+                              </td>
+
+                              <td className="px-4 py-3 text-center">
+                                <select
+                                  value={item.grade}
+                                  onChange={(e) => handleChangeGrade(item.id, e.target.value)}
+                                  className="rounded-xl border border-[#d7e5ff] bg-white px-3 py-2 text-sm text-[#1a2540] outline-none"
+                                  disabled={item.status === "DELETED"}
+                                >
+                                  <option value="STARTER">STARTER</option>
+                                  <option value="PRO">PRO</option>
+                                  <option value="BUSINESS">BUSINESS</option>
+                                </select>
+                              </td>
+
+                              <td className="px-4 py-3 text-center">
+                                <div className="flex justify-center gap-2">
+                                  {item.status === "BLOCKED" ? (
+                                    <button
+                                      onClick={() => handleUnblockUser(item.id)}
+                                      className="rounded-xl bg-[#1f69ef] px-3 py-2 text-xs font-semibold text-white hover:bg-[#1859ca]"
+                                    >
+                                      차단 해제
+                                    </button>
+                                  ) : (
+                                    <button
+                                      onClick={() => handleBlockUser(item.id)}
+                                      disabled={item.status === "DELETED"}
+                                      className="rounded-xl bg-amber-500 px-3 py-2 text-xs font-semibold text-white hover:bg-amber-600 disabled:cursor-not-allowed disabled:opacity-50"
+                                    >
+                                      차단
+                                    </button>
+                                  )}
+
+                                  <button
+                                    onClick={() => handleDeleteUser(item.id)}
+                                    disabled={item.status === "DELETED"}
+                                    className="rounded-xl bg-red-500 px-3 py-2 text-xs font-semibold text-white hover:bg-red-600 disabled:cursor-not-allowed disabled:opacity-50"
+                                  >
+                                    삭제
+                                  </button>
+                                </div>
                               </td>
                             </tr>
                           ))

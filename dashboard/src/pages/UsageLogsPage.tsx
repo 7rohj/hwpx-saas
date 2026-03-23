@@ -189,7 +189,7 @@ export default function UsageLogsPage({ onNavigate, onLogout }: UsageLogsPagePro
                   AutoHWPX SaaS
                 </div>
                 <h1 className="text-3xl font-bold tracking-tight text-[#162033] sm:text-4xl">
-                  Usage Logs
+                  사용량 로그
                 </h1>
                 <p className="mt-2 text-sm text-[#63708a] sm:text-base">
                   API 호출 기록과 상태를 확인하는 공간입니다

@@ -24,7 +24,10 @@ public class UserEntity {
     private String role = "USER"; // USER / ADMIN
 
     @Column(nullable = false, length = 30)
-    private String grade = "STARTER";
+    private String grade = "STARTER"; // STARTER / PRO / BUSINESS
+
+    @Column(nullable = false, length = 30)
+    private String status = "ACTIVE"; // ACTIVE / BLOCKED / DELETED
 
     private OffsetDateTime lastLoginAt;
 
@@ -33,11 +36,14 @@ public class UserEntity {
         if (createdAt == null) {
             createdAt = OffsetDateTime.now();
         }
-        if (role == null) {
+        if (role == null || role.isBlank()) {
             role = "USER";
         }
-        if (grade == null) {
+        if (grade == null|| grade.isBlank()) {
             grade = "STARTER";
+        }
+        if (status == null|| status.isBlank()) {
+            status = "ACTIVE";
         }
     }
 
@@ -52,17 +58,21 @@ public class UserEntity {
     public String getPasswordHash() {
         return passwordHash;
     }
-
-    public OffsetDateTime getCreatedAt() {
-        return createdAt;
-    }
-
+    
     public String getRole() {
         return role;
     }
 
     public String getGrade() {
         return grade;
+    }
+
+    public String getStatus() {
+        return status;
+    }
+
+    public OffsetDateTime getCreatedAt() {
+        return createdAt;
     }
 
     public OffsetDateTime getLastLoginAt() {
@@ -87,6 +97,10 @@ public class UserEntity {
 
     public void setGrade(String grade) {
         this.grade = grade;
+    }
+
+    public void setStatus(String status) {
+        this.status = status;
     }
 
     public void setLastLoginAt(OffsetDateTime lastLoginAt) {

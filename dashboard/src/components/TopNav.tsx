@@ -16,7 +16,7 @@ export default function TopNav({
     ["대시보드", "dashboard"],
     ["API Keys", "apikeys"],
     ["사용량 로그", "usage"],
-    ["요금운영", "pricing"],
+    ["요금제", "pricing"],
   ] as const
 
   return (
