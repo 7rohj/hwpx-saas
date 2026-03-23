@@ -705,7 +705,7 @@ export default function Dashboard({ onNavigate, onLogout }: DashboardProps) {
     return (
       <div className="min-h-screen bg-[linear-gradient(180deg,#f5f9ff_0%,#eef5ff_42%,#fffdf2_100%)] text-slate-900">
         <div className="mx-auto max-w-7xl px-4 py-10 sm:px-6 lg:px-8">
-          <div className="rounded-[32px] border border-[#dbe7ff] bg-white p-6 shadow-[0_16px_40px_rgba(31,105,239,0.08)]">
+          <div className="rounded-[32px] border border-[#dbe7ff] bg-white p-6 ">
             <p className="text-lg font-semibold text-[#1a2540]">대시보드 불러오는 중...</p>
             <p className="mt-2 text-sm text-[#63708a]">API 연결 상태를 확인하고 있어요.</p>
           </div>
@@ -736,7 +736,7 @@ export default function Dashboard({ onNavigate, onLogout }: DashboardProps) {
 
       <div className="min-h-screen bg-[linear-gradient(180deg,#f5f9ff_0%,#eef5ff_42%,#fffdf2_100%)] text-slate-900">
         <div className="mx-auto max-w-7xl px-4 py-6 sm:px-6 lg:px-8">
-          <header className="mb-6 rounded-[32px] border border-[#cfe0ff] bg-white/85 p-6 shadow-[0_20px_60px_rgba(31,105,239,0.10)] backdrop-blur">
+          <header className="mb-6 rounded-[32px] border border-[#cfe0ff] bg-white/85 p-6 backdrop-blur">
             <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
               <div>
                 <div className="mb-3 inline-flex items-center gap-2 rounded-full border border-[#cfe0ff] bg-[#edf4ff] px-3 py-1 text-xs font-semibold text-[#1f69ef]">
@@ -744,7 +744,7 @@ export default function Dashboard({ onNavigate, onLogout }: DashboardProps) {
                   AutoHWPX SaaS
                 </div>
                 <h1 className="text-3xl font-bold tracking-tight text-[#162033] sm:text-4xl">
-                  Dashboard
+                  대시보드
                 </h1>
                 <p className="mt-2 text-sm text-[#63708a] sm:text-base">
                   내 API 키, 템플릿, 생성 문서를 한눈에 관리하는 공간
@@ -766,7 +766,7 @@ export default function Dashboard({ onNavigate, onLogout }: DashboardProps) {
 
           <div className="grid gap-6 lg:grid-cols-12">
             <aside className="space-y-6 lg:col-span-3">
-              <div className="rounded-[32px] border border-[#d7e5ff] bg-white/95 shadow-[0_16px_40px_rgba(31,105,239,0.08)]">
+              <div className="rounded-[32px] border border-[#d7e5ff] bg-white/95">
                 <div className="p-4">
                   <div className="mb-4 px-2 pt-1 text-xs font-semibold uppercase tracking-[0.2em] text-[#8a97b3]">
                     메뉴
@@ -796,7 +796,7 @@ export default function Dashboard({ onNavigate, onLogout }: DashboardProps) {
                 </div>
               </div>
 
-              <div className="rounded-[32px] border border-[#d7e5ff] bg-white/95 shadow-[0_16px_40px_rgba(31,105,239,0.08)]">
+              <div className="rounded-[32px] border border-[#d7e5ff] bg-white/95 ">
                 <div className="flex flex-row items-start justify-between gap-4 p-6 pb-0">
                   <div>
                     <h2 className="flex items-center gap-2 text-xl font-semibold text-[#162033]">
@@ -848,7 +848,7 @@ export default function Dashboard({ onNavigate, onLogout }: DashboardProps) {
             </section>
 
               <section>
-                <div className="rounded-[32px] border border-[#dbe7ff] bg-white shadow-[0_18px_44px_rgba(31,105,239,0.08)]">
+                <div className="rounded-[32px] border border-[#dbe7ff] bg-white ">
                   <div className="p-6 pb-0 text-center">
                     <h2 className="text-xl font-semibold text-[#162033]">빠른 실행</h2>
                     <p className="text-sm text-[#63708a]">자주 쓰는 기능을 빠르게 실행</p>
@@ -994,7 +994,7 @@ export default function Dashboard({ onNavigate, onLogout }: DashboardProps) {
               </section>
 
               <section className="grid gap-6 xl:grid-cols-2">
-                <div className="rounded-[32px] border border-[#dbe7ff] bg-white shadow-[0_18px_44px_rgba(31,105,239,0.08)]">
+                <div className="rounded-[32px] border border-[#dbe7ff] bg-white ">
                   <div className="flex flex-row items-start justify-between gap-4 p-6 pb-0">
                     <div>
                       <h2 className="text-xl font-semibold text-[#162033]">템플릿</h2>
@@ -1036,7 +1036,7 @@ export default function Dashboard({ onNavigate, onLogout }: DashboardProps) {
                   </div>
                 </div>
 
-                <div className="rounded-[32px] border border-[#dbe7ff] bg-white shadow-[0_18px_44px_rgba(31,105,239,0.08)]">
+                <div className="rounded-[32px] border border-[#dbe7ff] bg-white ">
                   <div className="flex flex-row items-start justify-between gap-4 p-6 pb-0">
                     <div>
                       <h2 className="text-xl font-semibold text-[#162033]">생성문서</h2>
@@ -1098,7 +1098,7 @@ export default function Dashboard({ onNavigate, onLogout }: DashboardProps) {
                 </div>
               </section>
 
-              <div className="rounded-[32px] border border-[#dbe7ff] bg-white shadow-[0_18px_44px_rgba(31,105,239,0.08)]">
+              <div className="rounded-[32px] border border-[#dbe7ff] bg-white ">
                 <div className="flex flex-row items-start justify-between gap-4 p-6 pb-0">
                   <div>
                     <h2 className="text-xl font-semibold text-[#162033]">사용량 로그</h2>
