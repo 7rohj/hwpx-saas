@@ -772,7 +772,7 @@ export default function Dashboard({ onNavigate, onLogout }: DashboardProps) {
                     메뉴
                   </div>
                   <nav className="space-y-2">
-                    <button className="flex w-full items-center gap-3 rounded-2xl bg-[#1f69ef] px-4 py-3 text-left text-sm font-semibold text-white shadow-[0_10px_24px_rgba(31,105,239,0.28)]">
+                    <button className="flex w-full items-center gap-3 rounded-2xl bg-[#1f69ef] px-4 py-3 text-left text-sm font-semibold text-white ">
                       <LayoutDashboard className="h-4 w-4" />
                       대시보드
                     </button>
@@ -810,7 +810,7 @@ export default function Dashboard({ onNavigate, onLogout }: DashboardProps) {
                   <button
                     onClick={handleRegenerateApiKey}
                     disabled={refreshingKey}
-                    className="rounded-2xl border border-[#cfe0ff] bg-[#f7fbff] px-4 py-2 text-sm text-[#1f69ef] hover:bg-[#edf4ff] disabled:cursor-not-allowed disabled:opacity-50"
+                    className="rounded-2xl bg-[#1f69ef] px-4 py-2 text-sm font-semibold text-white hover:bg-[#1859ca] disabled:cursor-not-allowed disabled:opacity-50"
                   >
                     <span className="inline-flex items-center gap-2">
                       <RefreshCw className={`h-4 w-4 ${refreshingKey ? "animate-spin" : ""}`} />
@@ -819,7 +819,7 @@ export default function Dashboard({ onNavigate, onLogout }: DashboardProps) {
                   </button>
                 </div>
                 <div className="p-6">
-                  <div className="overflow-hidden rounded-2xl bg-[#1f69ef] p-4 font-mono text-sm text-white shadow-inner break-all">
+                  <div className="overflow-hidden rounded-2xl bg-[#111827] p-4 font-mono text-sm text-[#60a5fa] shadow-inner break-all">
                     {apiKey || "API Key 없음"}
                   </div>
                 </div>
@@ -828,30 +828,44 @@ export default function Dashboard({ onNavigate, onLogout }: DashboardProps) {
 
             <main className="space-y-6 lg:col-span-9">
               <section className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
-              {[
-                ["템플릿", String(templates.length)],
-                ["생성문서", String(files.length)],
-                ["이번 달 사용량", String(thisMonthUsage)],
-                ["요금제", "스타터"],
-              ].map(([label, value]) => (
-                <div
-                  key={label}
-                  className="overflow-hidden rounded-[26px] border border-slate-200/70 bg-white shadow-sm"
-                >
-                  <div className="h-1.5 bg-slate-200" />
-                  <div className="p-5">
-                    <p className="text-sm text-slate-500">{label}</p>
-                    <p className="mt-3 text-3xl font-bold tracking-tight">{value}</p>
+                {[
+                  ["템플릿", String(templates.length)],
+                  ["생성문서", String(files.length)],
+                  ["이번 달 사용량", String(thisMonthUsage)],
+                  ["요금제", "스타터"],
+                ].map(([label, value]) => (
+                  <div
+                    key={label}
+                    className="overflow-hidden rounded-[26px] border border-slate-200/70 bg-white shadow-sm"
+                  >
+                    <div className="h-1.5 bg-slate-200" />
+
+                    <div className="p-5">
+                      <div className="flex items-center justify-between gap-3">
+                        <p className="text-sm text-slate-500">{label}</p>
+
+                        {label === "요금제" ? (
+                          <button
+                            type="button"
+                            onClick={() => onNavigate("pricing")}
+                            className="text-xs font-medium text-slate-400 hover:text-[#1f69ef]"
+                          >
+                            업그레이드
+                          </button>
+                        ) : null}
+                      </div>
+
+                      <p className="mt-3 text-3xl font-bold tracking-tight">{value}</p>
+                    </div>
                   </div>
-                </div>
-              ))}
-            </section>
+                ))}
+              </section>
 
               <section>
                 <div className="rounded-[32px] border border-[#dbe7ff] bg-white ">
                   <div className="p-6 pb-0 text-center">
                     <h2 className="text-xl font-semibold text-[#162033]">빠른 실행</h2>
-                    <p className="text-sm text-[#63708a]">자주 쓰는 기능을 빠르게 실행</p>
+                    <p className="text-sm text-[#63708a]">자주 쓰는 기능을 빠르게 실행하세요</p>
                   </div>
 
                   <div className="space-y-3 p-6">
@@ -896,8 +910,8 @@ export default function Dashboard({ onNavigate, onLogout }: DashboardProps) {
                         onClick={() => setInputMode("vars")}
                         className={`rounded-2xl px-4 py-2 text-sm font-medium transition ${
                           inputMode === "vars"
-                            ? "bg-[#1f69ef] text-white shadow-[0_8px_18px_rgba(31,105,239,0.20)]"
-                            : "border border-[#d7e5ff] bg-white text-slate-700 hover:bg-[#f5f9ff]"
+                            ? "bg-[#1f69ef] text-white "
+                            : "border border-[#d7e5ff] bg-white text-slate-700 hover:bg-[#f5f9ff]"//shadow-[0_8px_18px_rgba(31,105,239,0.20)]
                         }`}
                       >
                         방법 1 · Vars 입력
@@ -998,7 +1012,7 @@ export default function Dashboard({ onNavigate, onLogout }: DashboardProps) {
                   <div className="flex flex-row items-start justify-between gap-4 p-6 pb-0">
                     <div>
                       <h2 className="text-xl font-semibold text-[#162033]">템플릿</h2>
-                      <p className="text-sm text-[#63708a]">내가 업로드한 템플릿 목록</p>
+                      <p className="text-sm text-[#63708a]">업로드된 템플릿 목록</p>
                     </div>
                     <button className="rounded-2xl border border-[#d7e5ff] px-4 py-2 text-sm text-slate-700 hover:bg-[#f5f9ff]">
                       전체 보기
@@ -1024,10 +1038,10 @@ export default function Dashboard({ onNavigate, onLogout }: DashboardProps) {
                             </div>
                             <button
                               onClick={() => handleOpenVars(item.templateId)}
-                              className="inline-flex items-center gap-2 rounded-xl border border-[#d7e5ff] px-3 py-1.5 text-sm text-slate-700 hover:bg-[#f5f9ff]"
+                              className="inline-flex items-center gap-2 rounded-xl bg-[#1f69ef] px-3 py-1.5 text-sm font-semibold text-white hover:bg-[#1859ca]"
                             >
-                              <Braces className="h-4 w-4 text-[#1f69ef]" />
-                              Vars
+                              <Braces className="h-4 w-4 text-white" />
+                              변수확인
                             </button>
                           </div>
                         </div>
@@ -1079,16 +1093,22 @@ export default function Dashboard({ onNavigate, onLogout }: DashboardProps) {
                             </div>
 
                             <div className="flex items-center gap-2">
-                              <span className="rounded-full bg-[#eef4ff] px-3 py-1 text-xs font-semibold text-[#1f69ef]">
-                                {item.status}
+                              <span
+                                className={`rounded-full px-3 py-1 text-xs font-semibold ${
+                                  item.status === "SUCCESS"
+                                    ? "bg-[#eef4ff] text-[#1f69ef]"
+                                    : "bg-red-50 text-red-700"
+                                }`}
+                              >
+                                {item.status === "SUCCESS" ? "성공" : "실패"}
                               </span>
                               <button
-                                onClick={() => handleDownloadFile(item)}
-                                className="inline-flex items-center gap-2 rounded-xl border border-[#d7e5ff] px-3 py-1.5 text-sm text-slate-700 hover:bg-[#f5f9ff]"
-                              >
-                                <Download className="h-4 w-4 text-[#1f69ef]" />
-                                다운로드
-                              </button>
+                              onClick={() => handleDownloadFile(item)}
+                              className="inline-flex items-center gap-2 rounded-xl bg-[#1f69ef] px-3 py-1.5 text-sm font-semibold text-white hover:bg-[#1859ca]"
+                            >
+                              <Download className="h-4 w-4 text-white" />
+                              다운로드
+                            </button>
                             </div>
                           </div>
                         </div>
@@ -1139,7 +1159,7 @@ export default function Dashboard({ onNavigate, onLogout }: DashboardProps) {
                                       : "bg-red-50 text-red-700"
                                   }`}
                                 >
-                                  {item.success ? "Success" : "Fail"}
+                                  {item.success ? "성공" : "실패"}
                                 </span>
                               </td>
                               <td className="px-4 py-3 text-[#63708a]">
