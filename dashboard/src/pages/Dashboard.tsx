@@ -812,9 +812,9 @@ export default function Dashboard({ onNavigate, onLogout }: DashboardProps) {
                     disabled={refreshingKey}
                     className="rounded-2xl bg-[#1f69ef] px-4 py-2 text-sm font-semibold text-white hover:bg-[#1859ca] disabled:cursor-not-allowed disabled:opacity-50"
                   >
-                    <span className="inline-flex items-center gap-2">
+                    <span className="items-center gap-2">
                       <RefreshCw className={`h-4 w-4 ${refreshingKey ? "animate-spin" : ""}`} />
-                      재발급
+                      
                     </span>
                   </button>
                 </div>
@@ -1133,10 +1133,10 @@ export default function Dashboard({ onNavigate, onLogout }: DashboardProps) {
                     <table className="min-w-full text-sm">
                       <thead className="bg-[#f3f8ff] text-[#45608d]">
                         <tr>
-                          <th className="px-4 py-3 text-left font-semibold">실행</th>
-                          <th className="px-4 py-3 text-left font-semibold">파일명</th>
-                          <th className="px-4 py-3 text-left font-semibold">결과</th>
-                          <th className="px-4 py-3 text-left font-semibold">생성시각</th>
+                          <th className="px-4 py-3 text-center font-semibold">실행</th>
+                          <th className="px-4 py-3 text-center font-semibold">파일명</th>
+                          <th className="px-4 py-3 text-center font-semibold">결과</th>
+                          <th className="px-4 py-3 text-center font-semibold">생성시각</th>
                         </tr>
                       </thead>
                       <tbody>
@@ -1149,9 +1149,9 @@ export default function Dashboard({ onNavigate, onLogout }: DashboardProps) {
                         ) : (
                           logs.slice(0, 10).map((item) => (
                             <tr key={item.id} className="border-t border-[#dbe7ff] bg-white">
-                              <td className="px-4 py-3 font-medium text-[#1a2540]">{item.actionType}</td>
+                              <td className="px-4 py-3 text-center font-medium text-[#1a2540]">{item.actionType}</td>
                               <td className="px-4 py-3 text-[#63708a]">{item.targetId || "-"}</td>
-                              <td className="px-4 py-3">
+                              <td className="px-4 py-3 text-center">
                                 <span
                                   className={`rounded-full px-3 py-1 text-xs font-semibold ${
                                     item.success
