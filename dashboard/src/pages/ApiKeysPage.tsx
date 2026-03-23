@@ -4,7 +4,6 @@ import { useEffect, useState } from "react"
 import {
   KeyRound,
   RefreshCw,
-  ShieldCheck,
   Copy,
   AlertCircle,
   CheckCircle2,
@@ -143,11 +142,11 @@ export default function ApiKeysPage({ onNavigate, onLogout }: ApiKeysPageProps) 
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-gradient-to-br from-slate-50 via-white to-slate-100 text-slate-900">
+      <div className="min-h-screen bg-[linear-gradient(180deg,#f5f9ff_0%,#eef5ff_42%,#fffdf2_100%)] text-slate-900">
         <div className="mx-auto max-w-7xl px-4 py-10 sm:px-6 lg:px-8">
-          <div className="rounded-[28px] border border-slate-200/70 bg-white p-6 shadow-sm">
-            <p className="text-lg font-semibold">API Key 페이지 불러오는 중...</p>
-            <p className="mt-2 text-sm text-slate-500">계정 정보와 키 상태를 확인하고 있어요.</p>
+          <div className="rounded-[32px] border border-[#dbe7ff] bg-white p-6">
+            <p className="text-lg font-semibold text-[#1a2540]">API 키 페이지 불러오는 중...</p>
+            <p className="mt-2 text-sm text-[#63708a]">계정 정보와 키 상태를 확인하고 있어요.</p>
           </div>
         </div>
       </div>
@@ -156,9 +155,9 @@ export default function ApiKeysPage({ onNavigate, onLogout }: ApiKeysPageProps) 
 
   if (error) {
     return (
-      <div className="min-h-screen bg-gradient-to-br from-slate-50 via-white to-slate-100 text-slate-900">
+      <div className="min-h-screen bg-[linear-gradient(180deg,#f5f9ff_0%,#eef5ff_42%,#fffdf2_100%)] text-slate-900">
         <div className="mx-auto max-w-7xl px-4 py-10 sm:px-6 lg:px-8">
-          <div className="rounded-[28px] border border-red-200 bg-white p-6 shadow-sm">
+          <div className="rounded-[32px] border border-red-200 bg-white p-6">
             <p className="text-lg font-semibold text-red-600">에러</p>
             <p className="mt-2 text-sm text-slate-600">{error}</p>
             <p className="mt-3 text-xs text-slate-400">
@@ -174,84 +173,81 @@ export default function ApiKeysPage({ onNavigate, onLogout }: ApiKeysPageProps) 
     <>
       <TopNav onNavigate={onNavigate} currentPage="apikeys" onLogout={onLogout} />
 
-      <div className="min-h-screen bg-gradient-to-br from-slate-50 via-white to-slate-100 text-slate-900">
+      <div className="min-h-screen bg-[linear-gradient(180deg,#f5f9ff_0%,#eef5ff_42%,#fffdf2_100%)] text-slate-900">
         <div className="mx-auto max-w-7xl px-4 py-6 sm:px-6 lg:px-8">
-          <header className="mb-6 rounded-[28px] border border-slate-200/70 bg-white/80 p-5 shadow-sm backdrop-blur">
+          <header className="mb-6 rounded-[32px] border border-[#cfe0ff] bg-white/85 p-6 backdrop-blur">
             <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
               <div>
-                <div className="mb-2 inline-flex items-center gap-2 rounded-full border border-slate-200 bg-slate-50 px-3 py-1 text-xs font-medium text-slate-600">
-                  <span className="h-2 w-2 rounded-full bg-emerald-500" />
+                <div className="mb-3 inline-flex items-center gap-2 rounded-full border border-[#cfe0ff] bg-[#edf4ff] px-3 py-1 text-xs font-semibold text-[#1f69ef]">
+                  <span className="h-2.5 w-2.5 rounded-full bg-[#ffd400]" />
                   AutoHWPX SaaS
                 </div>
-                <h1 className="text-3xl font-bold tracking-tight sm:text-4xl">API Keys</h1>
-                <p className="mt-2 text-sm text-slate-500 sm:text-base">
-                  개인 API 키를 확인하고 안전하게 재발급하는 공간입니다
+                <h1 className="text-3xl font-bold tracking-tight text-[#162033] sm:text-4xl">
+                  API Keys
+                </h1>
+                <p className="mt-2 text-sm text-[#63708a] sm:text-base">
+                  개인 API 키를 확인하고 안전하게 관리하는 공간
                 </p>
               </div>
 
-              <div className="rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm shadow-sm">
-                <p className="font-medium">{email}</p>
-                <p className="text-slate-500">Starter Plan</p>
+              <div className="rounded-2xl border border-[#dbe7ff] bg-white px-4 py-3 text-sm shadow-sm">
+                <p className="font-medium text-[#1a2540]">{email}</p>
+                <p className="text-[#63708a]">Starter Plan</p>
               </div>
             </div>
           </header>
 
           <div className="grid gap-6 lg:grid-cols-12">
             <aside className="space-y-6 lg:col-span-4">
-              {/*
-              <div className="rounded-[28px] border border-slate-200/70 bg-white shadow-sm">
+              <div className="rounded-[32px] border border-[#dbe7ff] bg-white">
                 <div className="p-6">
-                  <h2 className="flex items-center gap-2 text-xl font-semibold">
-                    <ShieldCheck className="h-5 w-5" />
-                    보안 안내
+                  <h2 className="flex items-center gap-2 text-xl font-semibold text-[#162033]">
+                    <Lock className="h-5 w-5 text-[#1f69ef]" />
+                    키 상태
                   </h2>
-                  <div className="mt-4 space-y-3 text-sm text-slate-600">
-                    <div className="rounded-2xl border border-slate-200 bg-slate-50 p-4">
-                      API 키는 문서 생성, 템플릿 업로드, 대시보드 조회 요청에 사용됩니다.
+
+                  <div className="mt-4 grid gap-4">
+                    <div className="rounded-2xl border border-[#d7e5ff] bg-[#f7fbff] p-4">
+                      <p className="text-sm text-[#63708a]">계정 이메일</p>
+                      <p className="mt-2 font-semibold text-[#1a2540]">{email || "-"}</p>
                     </div>
-                    <div className="rounded-2xl border border-slate-200 bg-slate-50 p-4">
-                      프론트 코드나 공개 저장소에 직접 노출하지 않는 것을 권장합니다.
-                    </div>
-                    <div className="rounded-2xl border border-slate-200 bg-slate-50 p-4">
-                      유출이 의심되면 즉시 재발급하고 기존 키 사용을 중단하세요.
+
+                    <div className="rounded-2xl border border-[#d7e5ff] bg-[#f7fbff] p-4">
+                      <p className="text-sm text-[#63708a]">키 상태</p>
+                      <div className="mt-2">
+                        <span className="inline-flex items-center gap-2 rounded-full bg-[#eef4ff] px-3 py-1 text-xs font-semibold text-[#1f69ef]">
+                          <CheckCircle2 className="h-4 w-4" />
+                          Active
+                        </span>
+                      </div>
                     </div>
                   </div>
                 </div>
               </div>
-              */}
 
-              <div className="rounded-[28px] border border-slate-200/70 bg-white shadow-sm">
+              <div className="rounded-[32px] border border-[#dbe7ff] bg-white">
                 <div className="p-6">
-                  <h2 className="flex items-center gap-2 text-xl font-semibold">
-                    <Lock className="h-5 w-5" />
-                    키 상태
+                  <h2 className="flex items-center gap-2 text-xl font-semibold text-[#162033]">
+                    <AlertCircle className="h-5 w-5 text-[#1f69ef]" />
+                    안내
                   </h2>
-                  <div className="mt-4 grid gap-4 sm:grid-cols-2 lg:grid-cols-1">
-                    <div className="rounded-2xl border border-slate-200 bg-slate-50 p-4">
-                      <p className="text-sm text-slate-500">계정 이메일</p>
-                      <p className="mt-2 font-semibold">{email || "-"}</p>
-                    </div>
-                    <div className="rounded-2xl border border-slate-200 bg-slate-50 p-4">
-                      <p className="text-sm text-slate-500">키 상태</p>
-                      <p className="mt-2 inline-flex items-center gap-2 rounded-full bg-emerald-50 px-3 py-1 text-xs font-semibold text-emerald-700">
-                        <CheckCircle2 className="h-4 w-4" />
-                        Active
-                      </p>
-                    </div>
+
+                  <div className="mt-4 rounded-2xl border border-amber-200 bg-amber-50 px-4 py-4 text-sm leading-6 text-amber-800">
+                    API 키를 재발급하면 기존 키를 사용 중인 클라이언트에서는 새 키로 다시 설정해야 합니다.
                   </div>
                 </div>
               </div>
             </aside>
 
             <main className="space-y-6 lg:col-span-8">
-              <section className="rounded-[28px] border border-slate-200/70 bg-white shadow-sm">
+              <section className="rounded-[32px] border border-[#dbe7ff] bg-white">
                 <div className="flex flex-col gap-4 p-6 sm:flex-row sm:items-start sm:justify-between">
                   <div>
-                    <h2 className="flex items-center gap-2 text-xl font-semibold">
-                      <KeyRound className="h-5 w-5" />
+                    <h2 className="flex items-center gap-2 text-xl font-semibold text-[#162033]">
+                      <KeyRound className="h-5 w-5 text-[#1f69ef]" />
                       현재 API Key
                     </h2>
-                    <p className="mt-2 text-sm text-slate-500">
+                    <p className="mt-2 text-sm text-[#63708a]">
                       현재 발급된 키입니다. 필요 시 복사 또는 재발급할 수 있습니다.
                     </p>
                   </div>
@@ -260,7 +256,7 @@ export default function ApiKeysPage({ onNavigate, onLogout }: ApiKeysPageProps) 
                     <button
                       onClick={handleCopy}
                       disabled={!apiKey}
-                      className="inline-flex items-center gap-2 rounded-2xl border px-4 py-2 text-sm hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-50"
+                      className="inline-flex items-center gap-2 rounded-2xl bg-[#1f69ef] px-4 py-2 text-sm font-semibold text-white hover:bg-[#1859ca] disabled:cursor-not-allowed disabled:opacity-50"
                     >
                       <Copy className="h-4 w-4" />
                       {copied ? "복사됨" : "복사"}
@@ -269,7 +265,7 @@ export default function ApiKeysPage({ onNavigate, onLogout }: ApiKeysPageProps) 
                     <button
                       onClick={handleRegenerateApiKey}
                       disabled={refreshingKey}
-                      className="inline-flex items-center gap-2 rounded-2xl border px-4 py-2 text-sm hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-50"
+                      className="inline-flex items-center gap-2 rounded-2xl bg-[#1f69ef] px-4 py-2 text-sm font-semibold text-white hover:bg-[#1859ca] disabled:cursor-not-allowed disabled:opacity-50"
                     >
                       <RefreshCw className={`h-4 w-4 ${refreshingKey ? "animate-spin" : ""}`} />
                       재발급
@@ -278,42 +274,40 @@ export default function ApiKeysPage({ onNavigate, onLogout }: ApiKeysPageProps) 
                 </div>
 
                 <div className="px-6 pb-6">
-                  <div className="overflow-hidden rounded-[24px] bg-slate-950 p-5 font-mono text-sm text-emerald-300 shadow-inner break-all">
+                  <div className="overflow-hidden rounded-[24px] bg-[#111827] p-5 font-mono text-sm text-[#60a5fa] shadow-inner break-all">
                     {apiKey || "API Key 없음"}
-                  </div>
-
-                  <div className="mt-4 rounded-2xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800">
-                    <div className="flex items-start gap-2">
-                      <AlertCircle className="mt-0.5 h-4 w-4 shrink-0" />
-                      <p>
-                        재발급 시 기존 키를 사용 중인 클라이언트가 있다면 새 키로 교체해야 합니다.
-                      </p>
-                    </div>
                   </div>
                 </div>
               </section>
 
               <section className="grid gap-4 sm:grid-cols-3">
-                <div className="rounded-[26px] border border-slate-200/70 bg-white shadow-sm">
+                <div className="overflow-hidden rounded-[26px] border border-slate-200/70 bg-white">
+                  <div className="h-1.5 bg-slate-200" />
                   <div className="p-5">
                     <p className="text-sm text-slate-500">미리보기</p>
-                    <p className="mt-3 font-mono text-lg font-bold tracking-tight">
+                    <p className="mt-3 font-mono text-lg font-bold tracking-tight text-[#162033]">
                       {apiKey ? maskApiKey(apiKey) : "-"}
                     </p>
                   </div>
                 </div>
 
-                <div className="rounded-[26px] border border-slate-200/70 bg-white shadow-sm">
+                <div className="overflow-hidden rounded-[26px] border border-slate-200/70 bg-white">
+                  <div className="h-1.5 bg-slate-200" />
                   <div className="p-5">
                     <p className="text-sm text-slate-500">저장위치</p>
-                    <p className="mt-3 text-3xl font-bold tracking-tight">localStorage</p>
+                    <p className="mt-3 text-3xl font-bold tracking-tight text-[#162033]">
+                      localStorage
+                    </p>
                   </div>
                 </div>
 
-                <div className="rounded-[26px] border border-slate-200/70 bg-white shadow-sm">
+                <div className="overflow-hidden rounded-[26px] border border-slate-200/70 bg-white">
+                  <div className="h-1.5 bg-slate-200" />
                   <div className="p-5">
                     <p className="text-sm text-slate-500">사용환경</p>
-                    <p className="mt-3 text-3xl font-bold tracking-tight">Starter</p>
+                    <p className="mt-3 text-3xl font-bold tracking-tight text-[#162033]">
+                      Starter
+                    </p>
                   </div>
                 </div>
               </section>

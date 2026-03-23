@@ -60,47 +60,58 @@ export default function PricingPage({ onNavigate, onLogout }: PricingPageProps) 
     <>
       <TopNav onNavigate={onNavigate} currentPage="pricing" onLogout={onLogout} />
 
-      <div className="min-h-screen bg-gradient-to-br from-slate-50 via-white to-slate-100 text-slate-900">
+      <div className="min-h-screen bg-[linear-gradient(180deg,#f5f9ff_0%,#eef5ff_42%,#fffdf2_100%)] text-slate-900">
         <div className="mx-auto max-w-7xl px-4 py-6 sm:px-6 lg:px-8">
-          <header className="mb-6 rounded-[28px] border border-slate-200/70 bg-white/80 p-5 shadow-sm backdrop-blur">
+          <header className="mb-6 rounded-[32px] border border-[#cfe0ff] bg-white/85 p-6 backdrop-blur">
             <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
               <div>
-                <div className="mb-2 inline-flex items-center gap-2 rounded-full border border-slate-200 bg-slate-50 px-3 py-1 text-xs font-medium text-slate-600">
-                  <span className="h-2 w-2 rounded-full bg-emerald-500" />
+                <div className="mb-3 inline-flex items-center gap-2 rounded-full border border-[#cfe0ff] bg-[#edf4ff] px-3 py-1 text-xs font-semibold text-[#1f69ef]">
+                  <span className="h-2.5 w-2.5 rounded-full bg-[#ffd400]" />
                   AutoHWPX SaaS
                 </div>
-                <h1 className="text-3xl font-bold tracking-tight sm:text-4xl">Pricing</h1>
-                <p className="mt-2 text-sm text-slate-500 sm:text-base">
-                  현재/예정 요금제를 한눈에 비교하는 공간입니다
+                <h1 className="text-3xl font-bold tracking-tight text-[#162033] sm:text-4xl">
+                  Pricing
+                </h1>
+                <p className="mt-2 text-sm text-[#63708a] sm:text-base">
+                  현재 및 예정 요금제를 한눈에 비교할 수 있는 공간입니다
                 </p>
               </div>
 
-              <div className="rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm shadow-sm">
-                <p className="font-medium">Billing 준비 중</p>
-                <p className="text-slate-500">Starter Plan Active</p>
+              <div className="rounded-2xl border border-[#dbe7ff] bg-white px-4 py-3 text-sm shadow-sm">
+                <p className="font-medium text-[#1a2540]">결제 기능 준비 중</p>
+                <p className="text-[#63708a]">Starter Plan Active</p>
               </div>
             </div>
           </header>
 
           <section className="mb-6 grid gap-4 sm:grid-cols-3">
-            <div className="rounded-[26px] border border-slate-200/70 bg-white shadow-sm">
+            <div className="overflow-hidden rounded-[26px] border border-slate-200/70 bg-white">
+              <div className="h-1.5 bg-slate-200" />
               <div className="p-5">
                 <p className="text-sm text-slate-500">현재 요금제</p>
-                <p className="mt-3 text-3xl font-bold tracking-tight">Starter</p>
+                <p className="mt-3 text-3xl font-bold tracking-tight text-[#162033]">
+                  Starter
+                </p>
               </div>
             </div>
 
-            <div className="rounded-[26px] border border-slate-200/70 bg-white shadow-sm">
+            <div className="overflow-hidden rounded-[26px] border border-slate-200/70 bg-white">
+              <div className="h-1.5 bg-slate-200" />
               <div className="p-5">
-                <p className="text-sm text-slate-500">결제상태</p>
-                <p className="mt-3 text-3xl font-bold tracking-tight">Inactive</p>
+                <p className="text-sm text-slate-500">결제 상태</p>
+                <p className="mt-3 text-3xl font-bold tracking-tight text-[#162033]">
+                  Inactive
+                </p>
               </div>
             </div>
 
-            <div className="rounded-[26px] border border-slate-200/70 bg-white shadow-sm">
+            <div className="overflow-hidden rounded-[26px] border border-slate-200/70 bg-white">
+              <div className="h-1.5 bg-slate-200" />
               <div className="p-5">
                 <p className="text-sm text-slate-500">업그레이드</p>
-                <p className="mt-3 text-3xl font-bold tracking-tight">Soon</p>
+                <p className="mt-3 text-3xl font-bold tracking-tight text-[#162033]">
+                  Soon
+                </p>
               </div>
             </div>
           </section>
@@ -109,21 +120,21 @@ export default function PricingPage({ onNavigate, onLogout }: PricingPageProps) 
             {plans.map((plan) => (
               <div
                 key={plan.name}
-                className={`rounded-[30px] border bg-white shadow-sm ${
+                className={`rounded-[32px] border bg-white ${
                   plan.highlighted
-                    ? "border-slate-900 ring-1 ring-slate-900/10"
-                    : "border-slate-200/70"
+                    ? "border-[#1f69ef] ring-1 ring-[#1f69ef]/10"
+                    : "border-[#dbe7ff]"
                 }`}
               >
                 <div className="p-6">
                   <div className="flex items-start justify-between gap-3">
                     <div>
-                      <h2 className="text-2xl font-semibold">{plan.name}</h2>
-                      <p className="mt-2 text-sm text-slate-500">{plan.description}</p>
+                      <h2 className="text-2xl font-semibold text-[#162033]">{plan.name}</h2>
+                      <p className="mt-2 text-sm text-[#63708a]">{plan.description}</p>
                     </div>
 
                     {plan.highlighted ? (
-                      <span className="inline-flex items-center gap-1 rounded-full bg-slate-900 px-3 py-1 text-xs font-semibold text-white">
+                      <span className="inline-flex items-center gap-1 rounded-full bg-[#1f69ef] px-3 py-1 text-xs font-semibold text-white">
                         <Sparkles className="h-3.5 w-3.5" />
                         Recommended
                       </span>
@@ -131,15 +142,19 @@ export default function PricingPage({ onNavigate, onLogout }: PricingPageProps) 
                   </div>
 
                   <div className="mt-6 flex items-end gap-1">
-                    <span className="text-4xl font-bold tracking-tight">{plan.price}</span>
-                    {plan.period ? <span className="pb-1 text-slate-500">{plan.period}</span> : null}
+                    <span className="text-4xl font-bold tracking-tight text-[#162033]">
+                      {plan.price}
+                    </span>
+                    {plan.period ? (
+                      <span className="pb-1 text-[#63708a]">{plan.period}</span>
+                    ) : null}
                   </div>
 
                   <button
-                    className={`mt-6 flex w-full items-center justify-center gap-2 rounded-2xl px-4 py-3 text-sm font-medium transition ${
+                    className={`mt-6 flex w-full items-center justify-center gap-2 rounded-2xl px-4 py-3 text-sm font-semibold transition ${
                       plan.highlighted
-                        ? "bg-slate-900 text-white hover:bg-slate-800"
-                        : "border border-slate-200 bg-white text-slate-700 hover:bg-slate-50"
+                        ? "bg-[#1f69ef] text-white hover:bg-[#1859ca]"
+                        : "border border-[#d7e5ff] bg-white text-slate-700 hover:bg-[#f5f9ff]"
                     }`}
                   >
                     <CreditCard className="h-4 w-4" />
@@ -148,8 +163,11 @@ export default function PricingPage({ onNavigate, onLogout }: PricingPageProps) 
 
                   <div className="mt-6 space-y-3">
                     {plan.features.map((feature) => (
-                      <div key={feature} className="flex items-start gap-3 text-sm text-slate-600">
-                        <span className="mt-0.5 inline-flex h-5 w-5 items-center justify-center rounded-full bg-emerald-50 text-emerald-700">
+                      <div
+                        key={feature}
+                        className="flex items-start gap-3 text-sm text-[#4b5563]"
+                      >
+                        <span className="mt-0.5 inline-flex h-5 w-5 items-center justify-center rounded-full bg-[#eef4ff] text-[#1f69ef]">
                           <Check className="h-3.5 w-3.5" />
                         </span>
                         <span>{feature}</span>
@@ -161,20 +179,23 @@ export default function PricingPage({ onNavigate, onLogout }: PricingPageProps) 
             ))}
           </section>
 
-          <section className="mt-6 rounded-[28px] border border-slate-200/70 bg-white shadow-sm">
+          <section className="mt-6 rounded-[32px] border border-[#dbe7ff] bg-white">
             <div className="p-6">
-              <h2 className="flex items-center gap-2 text-xl font-semibold">
-                <BadgeCheck className="h-5 w-5" />
+              <h2 className="flex items-center gap-2 text-xl font-semibold text-[#162033]">
+                <BadgeCheck className="h-5 w-5 text-[#1f69ef]" />
                 Billing Notes
               </h2>
+
               <div className="mt-4 grid gap-4 lg:grid-cols-3">
-                <div className="rounded-2xl border border-slate-200 bg-slate-50 p-4 text-sm text-slate-600">
-                  현재 페이지는 UI 우선 버전이라 실제 결제 연동 전 상태를 표현합니다.
+                <div className="rounded-2xl border border-[#d7e5ff] bg-[#f7fbff] p-4 text-sm text-[#63708a]">
+                  현재 페이지는 UI 우선 버전이며, 실제 결제 연동 전 상태를 표현합니다.
                 </div>
-                <div className="rounded-2xl border border-slate-200 bg-slate-50 p-4 text-sm text-slate-600">
-                  추후 토스페이먼츠 또는 Stripe 연결 시 이 영역에 결제 수단/청구 내역을 붙이면 됩니다.
+
+                <div className="rounded-2xl border border-[#d7e5ff] bg-[#f7fbff] p-4 text-sm text-[#63708a]">
+                  추후 토스페이먼츠 또는 Stripe 연결 시 이 영역에 결제 수단과 청구 내역을 붙이면 됩니다.
                 </div>
-                <div className="rounded-2xl border border-slate-200 bg-slate-50 p-4 text-sm text-slate-600">
+
+                <div className="rounded-2xl border border-[#d7e5ff] bg-[#f7fbff] p-4 text-sm text-[#63708a]">
                   플랜별 생성량, 팀 기능, 저장 용량 등은 이후 백엔드 정책에 맞춰 세부화하면 됩니다.
                 </div>
               </div>

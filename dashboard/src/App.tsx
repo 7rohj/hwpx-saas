@@ -7,6 +7,8 @@ import UsageLogsPage from "./pages/UsageLogsPage"
 import PricingPage from "./pages/PricingPage"
 import Login from "./Login"
 import Signup from "./Signup"
+import AdminLoginPage from "./pages/AdminLoginPage"
+import AdminPage from "./pages/AdminPage"
 
 type AuthView = "login" | "signup"
 
@@ -17,6 +19,8 @@ export type PageType =
   | "apikeys"
   | "usage"
   | "pricing"
+  | "admin-login"
+  | "admin"
 
 export default function App() {
   const [isLoggedIn, setIsLoggedIn] = useState(false)
@@ -44,6 +48,10 @@ export default function App() {
     setCurrentPage("dashboard-loading")
   }
 
+  function handleAdminLoginSuccess() {
+    setCurrentPage("admin")
+  }
+
   function handleSignupSuccess() {
     setIsLoggedIn(true)
     setCurrentPage("dashboard-loading")
@@ -55,6 +63,26 @@ export default function App() {
     setIsLoggedIn(false)
     setAuthView("login")
     setCurrentPage("landing")
+  }
+
+  
+  if (currentPage === "admin-login") {
+    return (
+      <AdminLoginPage
+        onAdminLoginSuccess={handleAdminLoginSuccess}
+        onBackToLogin={() => setAuthView("login")}
+      />
+    )
+  }
+
+  
+  if (currentPage === "admin") {
+    return (
+      <AdminPage
+        onNavigate={setCurrentPage}
+        onLogout={handleLogout}
+      />
+    )
   }
 
   if (!isLoggedIn) {

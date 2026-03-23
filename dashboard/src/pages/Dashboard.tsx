@@ -1150,7 +1150,7 @@ export default function Dashboard({ onNavigate, onLogout }: DashboardProps) {
                           logs.slice(0, 10).map((item) => (
                             <tr key={item.id} className="border-t border-[#dbe7ff] bg-white">
                               <td className="px-4 py-3 text-center font-medium text-[#1a2540]">{item.actionType}</td>
-                              <td className="px-4 py-3 text-[#63708a]">{item.targetId || "-"}</td>
+                              <td className="px-4 py-3 text-center text-[#63708a]">{item.targetId || "-"}</td>
                               <td className="px-4 py-3 text-center">
                                 <span
                                   className={`rounded-full px-3 py-1 text-xs font-semibold ${
@@ -1162,7 +1162,7 @@ export default function Dashboard({ onNavigate, onLogout }: DashboardProps) {
                                   {item.success ? "성공" : "실패"}
                                 </span>
                               </td>
-                              <td className="px-4 py-3 text-[#63708a]">
+                              <td className="px-4 py-3 text-center text-[#63708a]">
                                 {formatDateTime(item.createdAt)}
                               </td>
                             </tr>
