@@ -124,14 +124,10 @@ function formatBytes(bytes?: number | null) {
 
 function isTableVarName(name: string) {
   const lower = name.toLowerCase()
-  return (
-    lower.includes("table") ||
-    lower.includes("rows") ||
-    lower.includes("items")
-  )
+  return lower.includes("table") || lower.includes("rows") || lower.includes("items")
 }
 
-export default function Dashboard( { onNavigate, onLogout }: DashboardProps) {
+export default function Dashboard({ onNavigate, onLogout }: DashboardProps) {
   const [email, setEmail] = useState("")
   const [apiKey, setApiKey] = useState("")
   const [templates, setTemplates] = useState<TemplateItem[]>([])
@@ -314,8 +310,7 @@ export default function Dashboard( { onNavigate, onLogout }: DashboardProps) {
         setTableValues((prev) => {
           const next: Record<string, string> = {}
           for (const key of detectedTableVars) {
-            next[key] =
-              prev[key] ?? '[["항목","값"],["예시1","100"],["예시2","200"]]'
+            next[key] = prev[key] ?? '[["항목","값"],["예시1","100"],["예시2","200"]]'
           }
           return next
         })
@@ -559,18 +554,14 @@ export default function Dashboard( { onNavigate, onLogout }: DashboardProps) {
       return
     }
 
-    const hasEmptyTextValue = textVarNames.some(
-      (key) => !String(textValues[key] ?? "").trim()
-    )
+    const hasEmptyTextValue = textVarNames.some((key) => !String(textValues[key] ?? "").trim())
 
     if (hasEmptyTextValue) {
       alert("텍스트 변수 값을 모두 입력해주세요.")
       return
     }
 
-    const hasEmptyTableValue = tableVarNames.some(
-      (key) => !String(tableValues[key] ?? "").trim()
-    )
+    const hasEmptyTableValue = tableVarNames.some((key) => !String(tableValues[key] ?? "").trim())
 
     if (hasEmptyTableValue) {
       alert("표 변수 JSON 값을 입력해주세요.")
@@ -712,11 +703,11 @@ export default function Dashboard( { onNavigate, onLogout }: DashboardProps) {
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-gradient-to-br from-slate-50 via-white to-slate-100 text-slate-900">
+      <div className="min-h-screen bg-[linear-gradient(180deg,#f5f9ff_0%,#eef5ff_42%,#fffdf2_100%)] text-slate-900">
         <div className="mx-auto max-w-7xl px-4 py-10 sm:px-6 lg:px-8">
-          <div className="rounded-[28px] border border-slate-200/70 bg-white p-6 shadow-sm">
-            <p className="text-lg font-semibold">대시보드 불러오는 중...</p>
-            <p className="mt-2 text-sm text-slate-500">API 연결 상태를 확인하고 있어요.</p>
+          <div className="rounded-[32px] border border-[#dbe7ff] bg-white p-6 shadow-[0_16px_40px_rgba(31,105,239,0.08)]">
+            <p className="text-lg font-semibold text-[#1a2540]">대시보드 불러오는 중...</p>
+            <p className="mt-2 text-sm text-[#63708a]">API 연결 상태를 확인하고 있어요.</p>
           </div>
         </div>
       </div>
@@ -725,9 +716,9 @@ export default function Dashboard( { onNavigate, onLogout }: DashboardProps) {
 
   if (error) {
     return (
-      <div className="min-h-screen bg-gradient-to-br from-slate-50 via-white to-slate-100 text-slate-900">
+      <div className="min-h-screen bg-[linear-gradient(180deg,#f5f9ff_0%,#eef5ff_42%,#fffdf2_100%)] text-slate-900">
         <div className="mx-auto max-w-7xl px-4 py-10 sm:px-6 lg:px-8">
-          <div className="rounded-[28px] border border-red-200 bg-white p-6 shadow-sm">
+          <div className="rounded-[32px] border border-red-200 bg-white p-6 shadow-[0_16px_40px_rgba(31,105,239,0.08)]">
             <p className="text-lg font-semibold text-red-600">에러</p>
             <p className="mt-2 text-sm text-slate-600">{error}</p>
             <p className="mt-3 text-xs text-slate-400">
@@ -741,31 +732,33 @@ export default function Dashboard( { onNavigate, onLogout }: DashboardProps) {
 
   return (
     <>
-    <TopNav onNavigate={onNavigate} currentPage="dashboard" onLogout={onLogout} />
-    
-      <div className="min-h-screen bg-gradient-to-br from-slate-50 via-white to-slate-100 text-slate-900">
+      <TopNav onNavigate={onNavigate} currentPage="dashboard" onLogout={onLogout} />
+
+      <div className="min-h-screen bg-[linear-gradient(180deg,#f5f9ff_0%,#eef5ff_42%,#fffdf2_100%)] text-slate-900">
         <div className="mx-auto max-w-7xl px-4 py-6 sm:px-6 lg:px-8">
-          <header className="mb-6 rounded-[28px] border border-slate-200/70 bg-white/80 p-5 shadow-sm backdrop-blur">
+          <header className="mb-6 rounded-[32px] border border-[#cfe0ff] bg-white/85 p-6 shadow-[0_20px_60px_rgba(31,105,239,0.10)] backdrop-blur">
             <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
               <div>
-                <div className="mb-2 inline-flex items-center gap-2 rounded-full border border-slate-200 bg-slate-50 px-3 py-1 text-xs font-medium text-slate-600">
-                  <span className="h-2 w-2 rounded-full bg-emerald-500" />
+                <div className="mb-3 inline-flex items-center gap-2 rounded-full border border-[#cfe0ff] bg-[#edf4ff] px-3 py-1 text-xs font-semibold text-[#1f69ef]">
+                  <span className="h-2.5 w-2.5 rounded-full bg-[#ffd400]" />
                   AutoHWPX SaaS
                 </div>
-                <h1 className="text-3xl font-bold tracking-tight sm:text-4xl">Dashboard</h1>
-                <p className="mt-2 text-sm text-slate-500 sm:text-base">
-                  내 API 키, 템플릿, 생성 문서를 한눈에 관리하는 공간입니다
+                <h1 className="text-3xl font-bold tracking-tight text-[#162033] sm:text-4xl">
+                  Dashboard
+                </h1>
+                <p className="mt-2 text-sm text-[#63708a] sm:text-base">
+                  내 API 키, 템플릿, 생성 문서를 한눈에 관리하는 공간
                 </p>
               </div>
 
               <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
-                <div className="flex items-center gap-2 rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm">
-                  <Search className="h-4 w-4 text-slate-400" />
-                  <span className="text-slate-400">검색은 다음 단계에서 연결</span>
+                <div className="flex items-center gap-2 rounded-2xl border border-[#dbe7ff] bg-[#f3f8ff] px-4 py-3 text-sm">
+                  <Search className="h-4 w-4 text-[#7c8aa5]" />
+                  <span className="text-[#63708a]">검색은 다음 단계에서 연결</span>
                 </div>
-                <div className="rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm shadow-sm">
-                  <p className="font-medium">{email}</p>
-                  <p className="text-slate-500">Starter Plan</p>
+                <div className="rounded-2xl border border-[#dbe7ff] bg-white px-4 py-3 text-sm shadow-sm">
+                  <p className="font-medium text-[#1a2540]">{email}</p>
+                  <p className="text-[#63708a]">Starter Plan</p>
                 </div>
               </div>
             </div>
@@ -773,29 +766,29 @@ export default function Dashboard( { onNavigate, onLogout }: DashboardProps) {
 
           <div className="grid gap-6 lg:grid-cols-12">
             <aside className="space-y-6 lg:col-span-3">
-              <div className="rounded-[28px] border border-slate-200/70 bg-white shadow-sm">
+              <div className="rounded-[32px] border border-[#d7e5ff] bg-white/95 shadow-[0_16px_40px_rgba(31,105,239,0.08)]">
                 <div className="p-4">
-                  <div className="mb-4 px-2 pt-1 text-xs font-semibold uppercase tracking-[0.2em] text-slate-400">
-                    Menu
+                  <div className="mb-4 px-2 pt-1 text-xs font-semibold uppercase tracking-[0.2em] text-[#8a97b3]">
+                    메뉴
                   </div>
                   <nav className="space-y-2">
-                    <button className="flex w-full items-center gap-3 rounded-2xl bg-slate-900 px-4 py-3 text-left text-sm font-medium text-white shadow-sm">
+                    <button className="flex w-full items-center gap-3 rounded-2xl bg-[#1f69ef] px-4 py-3 text-left text-sm font-semibold text-white shadow-[0_10px_24px_rgba(31,105,239,0.28)]">
                       <LayoutDashboard className="h-4 w-4" />
                       대시보드
                     </button>
-                    <button className="flex w-full items-center gap-3 rounded-2xl px-4 py-3 text-left text-sm font-medium text-slate-600 transition hover:bg-slate-50">
+                    <button className="flex w-full items-center gap-3 rounded-2xl px-4 py-3 text-left text-sm font-medium text-slate-600 transition hover:bg-[#f3f8ff] hover:text-[#1f69ef]">
                       <FolderOpen className="h-4 w-4" />
                       템플릿
                     </button>
-                    <button className="flex w-full items-center gap-3 rounded-2xl px-4 py-3 text-left text-sm font-medium text-slate-600 transition hover:bg-slate-50">
+                    <button className="flex w-full items-center gap-3 rounded-2xl px-4 py-3 text-left text-sm font-medium text-slate-600 transition hover:bg-[#f3f8ff] hover:text-[#1f69ef]">
                       <FileText className="h-4 w-4" />
                       생성문서
                     </button>
-                    <button className="flex w-full items-center gap-3 rounded-2xl px-4 py-3 text-left text-sm font-medium text-slate-600 transition hover:bg-slate-50">
+                    <button className="flex w-full items-center gap-3 rounded-2xl px-4 py-3 text-left text-sm font-medium text-slate-600 transition hover:bg-[#f3f8ff] hover:text-[#1f69ef]">
                       <Activity className="h-4 w-4" />
                       사용량 로그
                     </button>
-                    <button className="flex w-full items-center gap-3 rounded-2xl px-4 py-3 text-left text-sm font-medium text-slate-600 transition hover:bg-slate-50">
+                    <button className="flex w-full items-center gap-3 rounded-2xl px-4 py-3 text-left text-sm font-medium text-slate-600 transition hover:bg-[#f3f8ff] hover:text-[#1f69ef]">
                       <CreditCard className="h-4 w-4" />
                       요금운영
                     </button>
@@ -803,21 +796,21 @@ export default function Dashboard( { onNavigate, onLogout }: DashboardProps) {
                 </div>
               </div>
 
-              <div className="rounded-[28px] border border-slate-200/70 bg-white shadow-sm">
+              <div className="rounded-[32px] border border-[#d7e5ff] bg-white/95 shadow-[0_16px_40px_rgba(31,105,239,0.08)]">
                 <div className="flex flex-row items-start justify-between gap-4 p-6 pb-0">
                   <div>
-                    <h2 className="flex items-center gap-2 text-xl font-semibold">
-                      <KeyRound className="h-5 w-5" />
+                    <h2 className="flex items-center gap-2 text-xl font-semibold text-[#162033]">
+                      <KeyRound className="h-5 w-5 text-[#1f69ef]" />
                       API Key
                     </h2>
-                    <p className="mt-2 text-sm text-slate-500">
+                    <p className="mt-2 text-sm text-[#63708a]">
                       문서 생성, 템플릿 업로드, 대시보드 조회에 사용하는 개인 키
                     </p>
                   </div>
                   <button
                     onClick={handleRegenerateApiKey}
                     disabled={refreshingKey}
-                    className="rounded-2xl border px-4 py-2 text-sm hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-50"
+                    className="rounded-2xl border border-[#cfe0ff] bg-[#f7fbff] px-4 py-2 text-sm text-[#1f69ef] hover:bg-[#edf4ff] disabled:cursor-not-allowed disabled:opacity-50"
                   >
                     <span className="inline-flex items-center gap-2">
                       <RefreshCw className={`h-4 w-4 ${refreshingKey ? "animate-spin" : ""}`} />
@@ -826,7 +819,7 @@ export default function Dashboard( { onNavigate, onLogout }: DashboardProps) {
                   </button>
                 </div>
                 <div className="p-6">
-                  <div className="overflow-hidden rounded-2xl bg-slate-950 p-4 font-mono text-sm text-emerald-300 shadow-inner break-all">
+                  <div className="overflow-hidden rounded-2xl bg-[#1f69ef] p-4 font-mono text-sm text-white shadow-inner break-all">
                     {apiKey || "API Key 없음"}
                   </div>
                 </div>
@@ -835,26 +828,30 @@ export default function Dashboard( { onNavigate, onLogout }: DashboardProps) {
 
             <main className="space-y-6 lg:col-span-9">
               <section className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
-                {[
-                  ["템플릿", String(templates.length)],
-                  ["생성문서", String(files.length)],
-                  ["이번 달 사용량", String(thisMonthUsage)],
-                  ["요금제", "Starter"],
-                ].map(([label, value]) => (
-                  <div key={label} className="rounded-[26px] border border-slate-200/70 bg-white shadow-sm">
-                    <div className="p-5">
-                      <p className="text-sm text-slate-500">{label}</p>
-                      <p className="mt-3 text-3xl font-bold tracking-tight">{value}</p>
-                    </div>
+              {[
+                ["템플릿", String(templates.length)],
+                ["생성문서", String(files.length)],
+                ["이번 달 사용량", String(thisMonthUsage)],
+                ["요금제", "스타터"],
+              ].map(([label, value]) => (
+                <div
+                  key={label}
+                  className="overflow-hidden rounded-[26px] border border-slate-200/70 bg-white shadow-sm"
+                >
+                  <div className="h-1.5 bg-slate-200" />
+                  <div className="p-5">
+                    <p className="text-sm text-slate-500">{label}</p>
+                    <p className="mt-3 text-3xl font-bold tracking-tight">{value}</p>
                   </div>
-                ))}
-              </section>
+                </div>
+              ))}
+            </section>
 
               <section>
-                <div className="rounded-[28px] border border-slate-200/70 bg-white shadow-sm">
+                <div className="rounded-[32px] border border-[#dbe7ff] bg-white shadow-[0_18px_44px_rgba(31,105,239,0.08)]">
                   <div className="p-6 pb-0 text-center">
-                    <h2 className="text-xl font-semibold">빠른 실행</h2>
-                    <p className="text-sm text-slate-500">자주 쓰는 기능을 빠르게 실행</p>
+                    <h2 className="text-xl font-semibold text-[#162033]">빠른 실행</h2>
+                    <p className="text-sm text-[#63708a]">자주 쓰는 기능을 빠르게 실행</p>
                   </div>
 
                   <div className="space-y-3 p-6">
@@ -874,7 +871,7 @@ export default function Dashboard( { onNavigate, onLogout }: DashboardProps) {
                     <button
                       onClick={() => fileInputRef.current?.click()}
                       disabled={uploading}
-                      className="flex w-full items-center justify-center gap-2 rounded-2xl bg-slate-900 px-4 py-3 text-white hover:bg-slate-800 disabled:cursor-not-allowed disabled:opacity-60"
+                      className="flex w-full items-center justify-center gap-2 rounded-2xl bg-[#1f69ef] px-4 py-3 font-semibold text-white shadow-[0_10px_24px_rgba(31,105,239,0.22)] hover:bg-[#1859ca] disabled:cursor-not-allowed disabled:opacity-60"
                     >
                       <Upload className="h-4 w-4" />
                       {uploading ? "업로드 중..." : "템플릿 업로드"}
@@ -883,7 +880,7 @@ export default function Dashboard( { onNavigate, onLogout }: DashboardProps) {
                     <select
                       value={selectedTemplateId}
                       onChange={(e) => setSelectedTemplateId(e.target.value)}
-                      className="w-full rounded-2xl border border-slate-200 px-4 py-3 text-sm outline-none"
+                      className="w-full rounded-2xl border border-[#d7e5ff] bg-white px-4 py-3 text-sm text-[#1a2540] outline-none"
                     >
                       <option value="">템플릿 선택</option>
                       {templates.map((item) => (
@@ -899,8 +896,8 @@ export default function Dashboard( { onNavigate, onLogout }: DashboardProps) {
                         onClick={() => setInputMode("vars")}
                         className={`rounded-2xl px-4 py-2 text-sm font-medium transition ${
                           inputMode === "vars"
-                            ? "bg-slate-900 text-white"
-                            : "border border-slate-200 bg-white text-slate-700 hover:bg-slate-50"
+                            ? "bg-[#1f69ef] text-white shadow-[0_8px_18px_rgba(31,105,239,0.20)]"
+                            : "border border-[#d7e5ff] bg-white text-slate-700 hover:bg-[#f5f9ff]"
                         }`}
                       >
                         방법 1 · Vars 입력
@@ -911,8 +908,8 @@ export default function Dashboard( { onNavigate, onLogout }: DashboardProps) {
                         onClick={() => setInputMode("json")}
                         className={`rounded-2xl px-4 py-2 text-sm font-medium transition ${
                           inputMode === "json"
-                            ? "bg-slate-900 text-white"
-                            : "border border-slate-200 bg-white text-slate-700 hover:bg-slate-50"
+                            ? "bg-[#1f69ef] text-white shadow-[0_8px_18px_rgba(31,105,239,0.20)]"
+                            : "border border-[#d7e5ff] bg-white text-slate-700 hover:bg-[#f5f9ff]"
                         }`}
                       >
                         방법 2 · JSON 입력
@@ -921,25 +918,23 @@ export default function Dashboard( { onNavigate, onLogout }: DashboardProps) {
 
                     {inputMode === "json" ? (
                       <div className="space-y-2 text-left">
-                        <p className="text-sm font-medium text-slate-700">
-                          JSON Payload
-                        </p>
+                        <p className="text-sm font-medium text-[#1a2540]">JSON Payload</p>
                         <textarea
                           value={jsonPayload}
                           onChange={(e) => setJsonPayload(e.target.value)}
                           rows={20}
-                          className="w-full rounded-2xl border border-slate-200 px-4 py-3 text-sm font-mono outline-none"
+                          className="w-full rounded-2xl border border-[#d7e5ff] px-4 py-3 text-sm font-mono outline-none"
                           placeholder="문서 생성용 JSON을 입력하세요."
                         />
                       </div>
                     ) : generateVarsLoading ? (
-                      <div className="rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm text-slate-500">
+                      <div className="rounded-2xl border border-[#d7e5ff] bg-[#f3f8ff] px-4 py-3 text-sm text-[#63708a]">
                         템플릿 변수 불러오는 중...
                       </div>
                     ) : (
                       <>
                         {textVarNames.length === 0 && tableVarNames.length === 0 ? (
-                          <div className="rounded-2xl border border-dashed border-slate-200 px-4 py-3 text-sm text-slate-500">
+                          <div className="rounded-2xl border border-dashed border-[#d7e5ff] px-4 py-3 text-sm text-[#63708a]">
                             선택한 템플릿에 입력할 변수가 없습니다.
                           </div>
                         ) : null}
@@ -956,15 +951,13 @@ export default function Dashboard( { onNavigate, onLogout }: DashboardProps) {
                               }))
                             }
                             placeholder={`${key} 값 입력`}
-                            className="w-full rounded-2xl border border-slate-200 px-4 py-3 text-sm outline-none"
+                            className="w-full rounded-2xl border border-[#d7e5ff] px-4 py-3 text-sm outline-none"
                           />
                         ))}
 
                         {tableVarNames.map((key) => (
                           <div key={key} className="space-y-2 text-left">
-                            <p className="text-sm font-medium text-slate-700">
-                              {key} 표 데이터(JSON)
-                            </p>
+                            <p className="text-sm font-medium text-[#1a2540]">{key} 표 데이터(JSON)</p>
                             <textarea
                               value={tableValues[key] ?? ""}
                               onChange={(e) =>
@@ -974,7 +967,7 @@ export default function Dashboard( { onNavigate, onLogout }: DashboardProps) {
                                 }))
                               }
                               rows={6}
-                              className="w-full rounded-2xl border border-slate-200 px-4 py-3 text-sm font-mono outline-none"
+                              className="w-full rounded-2xl border border-[#d7e5ff] px-4 py-3 text-sm font-mono outline-none"
                               placeholder='[["품목","수량","금액"],["사과","2","3000"],["배","1","5000"]]'
                             />
                           </div>
@@ -985,14 +978,14 @@ export default function Dashboard( { onNavigate, onLogout }: DashboardProps) {
                     <button
                       onClick={handleGenerateDocument}
                       disabled={generating}
-                      className="w-full rounded-2xl border px-4 py-3 hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-60"
+                      className="w-full rounded-2xl border border-[#d7e5ff] bg-white px-4 py-3 text-slate-700 hover:bg-[#f5f9ff] disabled:cursor-not-allowed disabled:opacity-60"
                     >
                       {generating ? "문서 생성 중..." : "문서 생성 테스트"}
                     </button>
 
                     <button
                       onClick={reloadGeneratedFiles}
-                      className="w-full rounded-2xl border px-4 py-3 hover:bg-slate-50"
+                      className="w-full rounded-2xl border border-[#d7e5ff] bg-white px-4 py-3 text-slate-700 hover:bg-[#f5f9ff]"
                     >
                       생성 파일 새로고침
                     </button>
@@ -1001,39 +994,39 @@ export default function Dashboard( { onNavigate, onLogout }: DashboardProps) {
               </section>
 
               <section className="grid gap-6 xl:grid-cols-2">
-                <div className="rounded-[28px] border border-slate-200/70 bg-white shadow-sm">
+                <div className="rounded-[32px] border border-[#dbe7ff] bg-white shadow-[0_18px_44px_rgba(31,105,239,0.08)]">
                   <div className="flex flex-row items-start justify-between gap-4 p-6 pb-0">
                     <div>
-                      <h2 className="text-xl font-semibold">템플릿</h2>
-                      <p className="text-sm text-slate-500">내가 업로드한 템플릿 목록</p>
+                      <h2 className="text-xl font-semibold text-[#162033]">템플릿</h2>
+                      <p className="text-sm text-[#63708a]">내가 업로드한 템플릿 목록</p>
                     </div>
-                    <button className="rounded-2xl border px-4 py-2 text-sm hover:bg-slate-50">
+                    <button className="rounded-2xl border border-[#d7e5ff] px-4 py-2 text-sm text-slate-700 hover:bg-[#f5f9ff]">
                       전체 보기
                     </button>
                   </div>
                   <div className="space-y-3 p-6">
                     {templates.length === 0 ? (
-                      <div className="rounded-2xl border border-dashed border-slate-200 p-6 text-sm text-slate-500">
+                      <div className="rounded-2xl border border-dashed border-[#d7e5ff] p-6 text-sm text-[#63708a]">
                         업로드된 템플릿이 없습니다.
                       </div>
                     ) : (
                       templates.slice(0, 6).map((item) => (
                         <div
                           key={item.templateId}
-                          className="rounded-2xl border border-slate-200 p-4 transition hover:border-slate-300 hover:shadow-sm"
+                          className="rounded-[24px] border border-[#dbe7ff] p-4 transition hover:border-[#1f69ef]/40 hover:shadow-[0_10px_26px_rgba(31,105,239,0.08)]"
                         >
                           <div className="flex items-center justify-between gap-4">
                             <div className="min-w-0">
-                              <p className="truncate font-semibold">{item.originalName}</p>
-                              <p className="mt-1 text-sm text-slate-500">
+                              <p className="truncate font-semibold text-[#1a2540]">{item.originalName}</p>
+                              <p className="mt-1 text-sm text-[#63708a]">
                                 업로드일 {formatDate(item.uploadedAt)} · {formatBytes(item.size)}
                               </p>
                             </div>
                             <button
                               onClick={() => handleOpenVars(item.templateId)}
-                              className="inline-flex items-center gap-2 rounded-xl border px-3 py-1.5 text-sm hover:bg-slate-50"
+                              className="inline-flex items-center gap-2 rounded-xl border border-[#d7e5ff] px-3 py-1.5 text-sm text-slate-700 hover:bg-[#f5f9ff]"
                             >
-                              <Braces className="h-4 w-4" />
+                              <Braces className="h-4 w-4 text-[#1f69ef]" />
                               Vars
                             </button>
                           </div>
@@ -1043,55 +1036,57 @@ export default function Dashboard( { onNavigate, onLogout }: DashboardProps) {
                   </div>
                 </div>
 
-                <div className="rounded-[28px] border border-slate-200/70 bg-white shadow-sm">
+                <div className="rounded-[32px] border border-[#dbe7ff] bg-white shadow-[0_18px_44px_rgba(31,105,239,0.08)]">
                   <div className="flex flex-row items-start justify-between gap-4 p-6 pb-0">
                     <div>
-                      <h2 className="text-xl font-semibold">생성문서</h2>
-                      <p className="text-sm text-slate-500">최근 생성된 문서</p>
+                      <h2 className="text-xl font-semibold text-[#162033]">생성문서</h2>
+                      <p className="text-sm text-[#63708a]">최근 생성된 문서</p>
                     </div>
                     <button
                       onClick={reloadGeneratedFiles}
-                      className="rounded-2xl border px-4 py-2 text-sm hover:bg-slate-50"
+                      className="rounded-2xl border border-[#d7e5ff] px-4 py-2 text-sm text-slate-700 hover:bg-[#f5f9ff]"
                     >
                       전체 보기
                     </button>
                   </div>
                   <div className="space-y-3 p-6">
                     {files.length === 0 ? (
-                      <div className="rounded-2xl border border-dashed border-slate-200 p-6 text-sm text-slate-500">
+                      <div className="rounded-2xl border border-dashed border-[#d7e5ff] p-6 text-sm text-[#63708a]">
                         생성된 문서가 없습니다.
                       </div>
                     ) : (
                       files.slice(0, 6).map((item) => (
                         <div
                           key={item.fileId}
-                          className={`rounded-2xl border p-4 transition hover:border-slate-300 hover:shadow-sm ${
+                          className={`rounded-[24px] border p-4 transition hover:border-[#1f69ef]/40 hover:shadow-[0_10px_26px_rgba(31,105,239,0.08)] ${
                             highlightedFileId === item.fileId
-                              ? "border-red-300 bg-red-50/60 animate-pulse"
-                              : "border-slate-200"
+                              ? "border-[#ffd400] bg-[#fffbe8] animate-pulse"
+                              : "border-[#dbe7ff]"
                           }`}
                         >
                           <div className="flex items-center justify-between gap-4">
                             <div className="relative min-w-0">
                               {highlightedFileId === item.fileId ? (
-                                <span className="absolute -right-1 -top-1 h-3 w-3 rounded-full bg-red-500 shadow-sm" />
+                                <span className="absolute -right-1 -top-1 h-3 w-3 rounded-full bg-[#ffd400] shadow-sm" />
                               ) : null}
 
-                              <p className="truncate font-semibold">{item.originalFilename}</p>
-                              <p className="mt-1 text-sm text-slate-500">
+                              <p className="truncate font-semibold text-[#1a2540]">
+                                {item.originalFilename}
+                              </p>
+                              <p className="mt-1 text-sm text-[#63708a]">
                                 생성일 {formatDate(item.createdAt)} · {formatBytes(item.size)}
                               </p>
                             </div>
 
                             <div className="flex items-center gap-2">
-                              <span className="rounded-full bg-emerald-50 px-3 py-1 text-xs font-semibold text-emerald-700">
+                              <span className="rounded-full bg-[#eef4ff] px-3 py-1 text-xs font-semibold text-[#1f69ef]">
                                 {item.status}
                               </span>
                               <button
                                 onClick={() => handleDownloadFile(item)}
-                                className="inline-flex items-center gap-2 rounded-xl border px-3 py-1.5 text-sm hover:bg-slate-50"
+                                className="inline-flex items-center gap-2 rounded-xl border border-[#d7e5ff] px-3 py-1.5 text-sm text-slate-700 hover:bg-[#f5f9ff]"
                               >
-                                <Download className="h-4 w-4" />
+                                <Download className="h-4 w-4 text-[#1f69ef]" />
                                 다운로드
                               </button>
                             </div>
@@ -1103,51 +1098,51 @@ export default function Dashboard( { onNavigate, onLogout }: DashboardProps) {
                 </div>
               </section>
 
-              <div className="rounded-[28px] border border-slate-200/70 bg-white shadow-sm">
+              <div className="rounded-[32px] border border-[#dbe7ff] bg-white shadow-[0_18px_44px_rgba(31,105,239,0.08)]">
                 <div className="flex flex-row items-start justify-between gap-4 p-6 pb-0">
                   <div>
-                    <h2 className="text-xl font-semibold">사용량 로그</h2>
-                    <p className="text-sm text-slate-500">최근 API 사용 기록</p>
+                    <h2 className="text-xl font-semibold text-[#162033]">사용량 로그</h2>
+                    <p className="text-sm text-[#63708a]">최근 API 사용 기록</p>
                   </div>
-                  <button className="rounded-2xl border px-4 py-2 text-sm hover:bg-slate-50">
+                  <button className="rounded-2xl border border-[#d7e5ff] px-4 py-2 text-sm text-slate-700 hover:bg-[#f5f9ff]">
                     전체 보기
                   </button>
                 </div>
                 <div className="p-6">
-                  <div className="overflow-hidden rounded-2xl border border-slate-200">
+                  <div className="overflow-hidden rounded-[24px] border border-[#dbe7ff]">
                     <table className="min-w-full text-sm">
-                      <thead className="bg-slate-50 text-slate-600">
+                      <thead className="bg-[#f3f8ff] text-[#45608d]">
                         <tr>
-                          <th className="px-4 py-3 text-left font-semibold">Action</th>
-                          <th className="px-4 py-3 text-left font-semibold">Target</th>
-                          <th className="px-4 py-3 text-left font-semibold">Result</th>
-                          <th className="px-4 py-3 text-left font-semibold">Time</th>
+                          <th className="px-4 py-3 text-left font-semibold">실행</th>
+                          <th className="px-4 py-3 text-left font-semibold">파일명</th>
+                          <th className="px-4 py-3 text-left font-semibold">결과</th>
+                          <th className="px-4 py-3 text-left font-semibold">생성시각</th>
                         </tr>
                       </thead>
                       <tbody>
                         {logs.length === 0 ? (
-                          <tr className="border-t border-slate-200 bg-white">
-                            <td colSpan={4} className="px-4 py-6 text-center text-slate-500">
+                          <tr className="border-t border-[#dbe7ff] bg-white">
+                            <td colSpan={4} className="px-4 py-6 text-center text-[#63708a]">
                               사용 로그가 없습니다.
                             </td>
                           </tr>
                         ) : (
                           logs.slice(0, 10).map((item) => (
-                            <tr key={item.id} className="border-t border-slate-200 bg-white">
-                              <td className="px-4 py-3 font-medium">{item.actionType}</td>
-                              <td className="px-4 py-3 text-slate-600">{item.targetId || "-"}</td>
+                            <tr key={item.id} className="border-t border-[#dbe7ff] bg-white">
+                              <td className="px-4 py-3 font-medium text-[#1a2540]">{item.actionType}</td>
+                              <td className="px-4 py-3 text-[#63708a]">{item.targetId || "-"}</td>
                               <td className="px-4 py-3">
                                 <span
                                   className={`rounded-full px-3 py-1 text-xs font-semibold ${
                                     item.success
-                                      ? "bg-emerald-50 text-emerald-700"
+                                      ? "bg-[#eef4ff] text-[#1f69ef]"
                                       : "bg-red-50 text-red-700"
                                   }`}
                                 >
                                   {item.success ? "Success" : "Fail"}
                                 </span>
                               </td>
-                              <td className="px-4 py-3 text-slate-500">
+                              <td className="px-4 py-3 text-[#63708a]">
                                 {formatDateTime(item.createdAt)}
                               </td>
                             </tr>
@@ -1164,25 +1159,23 @@ export default function Dashboard( { onNavigate, onLogout }: DashboardProps) {
       </div>
 
       {varsOpen ? (
-        <div className="fixed inset-0 z-[100] flex items-center justify-center bg-slate-900/40 px-4">
-          <div className="w-full max-w-lg rounded-[28px] border border-slate-200 bg-white p-6 shadow-xl">
+        <div className="fixed inset-0 z-[100] flex items-center justify-center bg-[#0f172a]/45 px-4">
+          <div className="w-full max-w-lg rounded-[32px] border border-[#dbe7ff] bg-white p-6 shadow-[0_30px_80px_rgba(15,23,42,0.22)]">
             <div className="mb-4 flex items-start justify-between gap-4">
               <div>
-                <h3 className="text-xl font-semibold">Template Vars</h3>
-                <p className="mt-1 text-sm text-slate-500">
-                  템플릿에서 추출된 placeholder 목록
-                </p>
+                <h3 className="text-xl font-semibold text-[#162033]">Template Vars</h3>
+                <p className="mt-1 text-sm text-[#63708a]">템플릿에서 추출된 placeholder 목록</p>
               </div>
               <button
                 onClick={() => setVarsOpen(false)}
-                className="rounded-xl border p-2 hover:bg-slate-50"
+                className="rounded-xl border border-[#dbe7ff] p-2 hover:bg-[#f3f8ff]"
               >
-                <X className="h-4 w-4" />
+                <X className="h-4 w-4 text-[#1f69ef]" />
               </button>
             </div>
 
             {varsLoading ? (
-              <div className="rounded-2xl border border-slate-200 bg-slate-50 px-4 py-6 text-sm text-slate-500">
+              <div className="rounded-2xl border border-[#d7e5ff] bg-[#f3f8ff] px-4 py-6 text-sm text-[#63708a]">
                 Vars 불러오는 중...
               </div>
             ) : varsError ? (
@@ -1191,25 +1184,23 @@ export default function Dashboard( { onNavigate, onLogout }: DashboardProps) {
               </div>
             ) : varsData ? (
               <div className="space-y-4">
-                <div className="rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3">
-                  <p className="font-medium">{varsData.originalName}</p>
-                  <p className="mt-1 text-sm text-slate-500">
-                    templateId: {varsData.templateId}
-                  </p>
+                <div className="rounded-2xl border border-[#d7e5ff] bg-[#f7fbff] px-4 py-3">
+                  <p className="font-medium text-[#1a2540]">{varsData.originalName}</p>
+                  <p className="mt-1 text-sm text-[#63708a]">templateId: {varsData.templateId}</p>
                 </div>
 
-                <div className="rounded-2xl border border-slate-200">
-                  <div className="border-b border-slate-200 px-4 py-3 text-sm font-medium text-slate-700">
+                <div className="rounded-2xl border border-[#d7e5ff]">
+                  <div className="border-b border-[#d7e5ff] px-4 py-3 text-sm font-medium text-[#1a2540]">
                     변수 개수: {varsData.varsCount}
                   </div>
                   <div className="max-h-72 space-y-2 overflow-y-auto p-4">
                     {varsData.vars.length === 0 ? (
-                      <p className="text-sm text-slate-500">추출된 변수가 없습니다.</p>
+                      <p className="text-sm text-[#63708a]">추출된 변수가 없습니다.</p>
                     ) : (
                       varsData.vars.map((item) => (
                         <div
                           key={item}
-                          className="rounded-xl border border-slate-200 bg-white px-3 py-2 font-mono text-sm text-slate-700"
+                          className="rounded-xl border border-[#dbe7ff] bg-white px-3 py-2 font-mono text-sm text-[#1a2540]"
                         >
                           {item}
                         </div>
