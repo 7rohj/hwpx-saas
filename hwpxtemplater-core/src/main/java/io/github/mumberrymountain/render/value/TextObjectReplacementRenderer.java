@@ -82,44 +82,55 @@ public class TextObjectReplacementRenderer implements ValueReplacementRenderer {
             (kr.dogfoot.hwpxlib.object.content.section_xml.paragraph.Para)
                 linkedRunItem.parent().parent().data();
 
-        linkedRunItem.parent().data().charPrIDRef(
-            rootRenderer.styleRenderer().renderCharStyleAndReturnCharPrId(value)
-        );
+        String preferredCharBaseId = value.getBaseCharPrId();
+            if (preferredCharBaseId != null && !preferredCharBaseId.isBlank()) {
+                linkedRunItem.parent().data().charPrIDRef(preferredCharBaseId);
+            }
 
-        io.github.mumberrymountain.model.table.Align alignEnum =
-                io.github.mumberrymountain.model.table.Align.Left;
-
-        String al = value.getAlign();
-        if (al != null) al = al.trim().toLowerCase();
-
-        if ("center".equals(al)) {
-            alignEnum = io.github.mumberrymountain.model.table.Align.Center;
-        } else if ("right".equals(al)) {
-            alignEnum = io.github.mumberrymountain.model.table.Align.Right;
-        }
-
-        Integer lineSpacingPercent = value.getLineSpacingPercent(); // 예: 160
-        Integer spaceBeforePt = value.getSpaceBefore(); // pt
-        Integer spaceAfterPt  = value.getSpaceAfter();  // pt
-
-        boolean needParaStyle =
-                alignEnum != io.github.mumberrymountain.model.table.Align.Left
-                || lineSpacingPercent != null
-                || spaceBeforePt != null
-                || spaceAfterPt != null;
-
-        if (needParaStyle) {
-            String baseId = para.paraPrIDRef();
-            para.paraPrIDRef(
-                    rootRenderer.styleRenderer().renderParaStyleFromBaseAndReturnParaPrId(
-                            baseId,
-                            alignEnum,
-                            lineSpacingPercent,
-                            spaceBeforePt,
-                            spaceAfterPt
-                    )
+            linkedRunItem.parent().data().charPrIDRef(
+                rootRenderer.styleRenderer().renderCharStyleAndReturnCharPrId(value)
             );
-        }
+
+            io.github.mumberrymountain.model.table.Align alignEnum =
+                    io.github.mumberrymountain.model.table.Align.Left;
+
+            String al = value.getAlign();
+            if (al != null) al = al.trim().toLowerCase();
+
+            if ("center".equals(al)) {
+                alignEnum = io.github.mumberrymountain.model.table.Align.Center;
+            } else if ("right".equals(al)) {
+                alignEnum = io.github.mumberrymountain.model.table.Align.Right;
+            }
+
+            Integer lineSpacingPercent = value.getLineSpacingPercent();
+            Integer spaceBeforePt = value.getSpaceBefore();
+            Integer spaceAfterPt  = value.getSpaceAfter();
+
+            boolean needParaStyle =
+                    alignEnum != io.github.mumberrymountain.model.table.Align.Left
+                    || lineSpacingPercent != null
+                    || spaceBeforePt != null
+                    || spaceAfterPt != null
+                    || (value.getBaseParaPrId() != null && !value.getBaseParaPrId().isBlank());
+
+            if (needParaStyle) {
+                String baseId = value.getBaseParaPrId();
+
+                if (baseId == null || baseId.isBlank()) {
+                    baseId = para.paraPrIDRef();
+                }
+
+                para.paraPrIDRef(
+                        rootRenderer.styleRenderer().renderParaStyleFromBaseAndReturnParaPrId(
+                                baseId,
+                                alignEnum,
+                                lineSpacingPercent,
+                                spaceBeforePt,
+                                spaceAfterPt
+                        )
+                );
+            }
 
         para.removeLineSegArray();
 

@@ -18,21 +18,24 @@ public class ComposeService {
     private final TemplateAnalyzer templateAnalyzer;
     private final SourceAnalyzer sourceAnalyzer;
     private final StyleMapper styleMapper;
-    private final ComposeHwpxBuilder composeHwpxBuilder;
     private final TemplateStyleExtractor templateStyleExtractor;
+    private final TemplateClonePlanBuilder templateClonePlanBuilder;
+    private final TemplateCloneRenderer templateCloneRenderer;
 
     public ComposeService(
             TemplateAnalyzer templateAnalyzer,
             SourceAnalyzer sourceAnalyzer,
             StyleMapper styleMapper,
-            ComposeHwpxBuilder composeHwpxBuilder,
-            TemplateStyleExtractor templateStyleExtractor
+            TemplateStyleExtractor templateStyleExtractor,
+            TemplateClonePlanBuilder templateClonePlanBuilder,
+            TemplateCloneRenderer templateCloneRenderer
     ) {
         this.templateAnalyzer = templateAnalyzer;
         this.sourceAnalyzer = sourceAnalyzer;
         this.styleMapper = styleMapper;
-        this.composeHwpxBuilder = composeHwpxBuilder;
         this.templateStyleExtractor = templateStyleExtractor;
+        this.templateClonePlanBuilder = templateClonePlanBuilder;
+        this.templateCloneRenderer = templateCloneRenderer;
     }
 
     public ComposeDebugResponse composeDebug(
@@ -57,19 +60,17 @@ public class ComposeService {
             MultipartFile sourceFile,
             String prompt
     ) throws Exception {
-        // 1. 템플릿 스타일 추출
         TemplateStyleSet styleSet = templateStyleExtractor.extract(templateFile);
 
-        // 2. 기존 구조 분석
         List<TemplateStyleRole> templateRoles = templateAnalyzer.analyze(templateFile);
         List<ParsedBlock> sourceBlocks = sourceAnalyzer.analyze(sourceFile);
         List<StyleMapping> mappings = styleMapper.map(sourceBlocks, templateRoles);
 
-        // 3. 실제 hwpx 생성
-        Path outputPath = composeHwpxBuilder.build(sourceBlocks, mappings, styleSet);
+        var plan = templateClonePlanBuilder.build(sourceBlocks, mappings, styleSet);
+        Path outputPath = templateCloneRenderer.render(templateFile, plan, styleSet);
 
         return ComposeRenderResult.of(
-                "스타일 적용 결과 hwpx 생성 완료",
+                "사용자 템플릿 복제 기반 hwpx 생성 완료",
                 outputPath.getFileName().toString(),
                 outputPath.toAbsolutePath().toString(),
                 mappings

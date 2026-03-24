@@ -1,0 +1,42 @@
+TEMPLATE FILE = 템플릿 스타일1.hwpx
+
+ROLE = CHAPTER_TITLE
+baseParaPrId = 8
+baseCharPrId = 17
+TEXT = 2. 사회경제지표 분석
+--------------------------------------------------
+ROLE = SECTION_TITLE
+baseParaPrId = null
+baseCharPrId = null
+TEXT = 2.1 사회경제지표 분석 기준
+--------------------------------------------------
+ROLE = SUBSECTION_TITLE
+baseParaPrId = 2
+baseCharPrId = 16
+TEXT = A3-1-2.1-01
+--------------------------------------------------
+ROLE = SUBSECTION_TITLE
+baseParaPrId = 2
+baseCharPrId = 16
+TEXT = 사회경제지표 정리 및 분석의 기준
+--------------------------------------------------
+ROLE = BODY
+baseParaPrId = 4
+baseCharPrId = 4
+TEXT = 사회경제지표 분석은 장래 교통수요예측을 위한 기초자료이다.
+--------------------------------------------------
+ROLE = SECTION_TITLE
+baseParaPrId = null
+baseCharPrId = null
+TEXT = 2.2 사회경제지표 현황
+--------------------------------------------------
+ROLE = TABLE_HEADER
+baseParaPrId = 4
+baseCharPrId = 4
+TEXT = 인구수 / 종사자수 / 학생수
+--------------------------------------------------
+ROLE = TABLE_BODY
+baseParaPrId = 4
+baseCharPrId = 4
+TEXT = (직접영향권) 연평균 1.78% 증가
+--------------------------------------------------

@@ -19,6 +19,8 @@ public class ExtractedStyle {
     private String baseCharPrId;
     private String sampleText;
 
+    private String paragraphXml;
+
     public TemplateRoleType getRoleType() {
         return roleType;
     }
@@ -126,4 +128,14 @@ public class ExtractedStyle {
         this.sampleText = sampleText;
         return this;
     }
+
+    public String getParagraphXml() {
+        return paragraphXml;
+    }
+
+    public ExtractedStyle setParagraphXml(String paragraphXml) {
+        this.paragraphXml = paragraphXml;
+        return this;
+    }
+
 }

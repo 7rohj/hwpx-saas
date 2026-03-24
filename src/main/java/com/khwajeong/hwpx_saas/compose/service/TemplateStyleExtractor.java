@@ -35,23 +35,30 @@ public class TemplateStyleExtractor {
             ParagraphSample tableHeader = findTableHeader(samples);
             ParagraphSample tableBody = findTableBody(samples);
 
-            styleSet.put(TemplateRoleType.CHAPTER_TITLE,
-                    buildStyle(TemplateRoleType.CHAPTER_TITLE, chapter, 22, true, "left", 20, 10, 160));
-
-            styleSet.put(TemplateRoleType.SECTION_TITLE,
-                    buildStyle(TemplateRoleType.SECTION_TITLE, section, 18, true, "left", 12, 6, 160));
-
-            styleSet.put(TemplateRoleType.SUBSECTION_TITLE,
-                    buildStyle(TemplateRoleType.SUBSECTION_TITLE, subsection, 14, true, "left", 8, 4, 160));
-
-            styleSet.put(TemplateRoleType.BODY,
-                    buildStyle(TemplateRoleType.BODY, body, 11, false, "left", 0, 0, 160));
-
-            styleSet.put(TemplateRoleType.TABLE_HEADER,
-                    buildStyle(TemplateRoleType.TABLE_HEADER, tableHeader, 11, true, "center", 0, 0, 160));
-
-            styleSet.put(TemplateRoleType.TABLE_BODY,
-                    buildStyle(TemplateRoleType.TABLE_BODY, tableBody, 11, false, "left", 0, 0, 160));
+            styleSet.put(
+                    TemplateRoleType.CHAPTER_TITLE,
+                    buildStyle(TemplateRoleType.CHAPTER_TITLE, chapter, 22, true, "left", 20, 10, 160)
+            );
+            styleSet.put(
+                    TemplateRoleType.SECTION_TITLE,
+                    buildStyle(TemplateRoleType.SECTION_TITLE, section, 18, true, "left", 12, 6, 160)
+            );
+            styleSet.put(
+                    TemplateRoleType.SUBSECTION_TITLE,
+                    buildStyle(TemplateRoleType.SUBSECTION_TITLE, subsection, 14, true, "left", 8, 4, 160)
+            );
+            styleSet.put(
+                    TemplateRoleType.BODY,
+                    buildStyle(TemplateRoleType.BODY, body, 11, false, "left", 0, 0, 160)
+            );
+            styleSet.put(
+                    TemplateRoleType.TABLE_HEADER,
+                    buildStyle(TemplateRoleType.TABLE_HEADER, tableHeader, 11, true, "center", 0, 0, 160)
+            );
+            styleSet.put(
+                    TemplateRoleType.TABLE_BODY,
+                    buildStyle(TemplateRoleType.TABLE_BODY, tableBody, 11, false, "left", 0, 0, 160)
+            );
 
             return styleSet;
         } finally {
@@ -82,6 +89,7 @@ public class TemplateStyleExtractor {
             style.setSampleText(sample.getText());
             style.setBaseParaPrId(sample.getParaPrId());
             style.setBaseCharPrId(sample.getCharPrId());
+            style.setParagraphXml(sample.getParagraphXml());
         }
 
         return style;

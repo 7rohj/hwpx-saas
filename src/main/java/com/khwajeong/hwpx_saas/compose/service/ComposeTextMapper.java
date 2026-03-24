@@ -18,6 +18,14 @@ public class ComposeTextMapper {
             return t.fontSize(11).lineSpacingPercent(160);
         }
 
+        if (style.getBaseParaPrId() != null) {
+            t.baseParaPrId(style.getBaseParaPrId());
+        }
+
+        if (style.getBaseCharPrId() != null) {
+            t.baseCharPrId(style.getBaseCharPrId());
+        }
+
         if (style.getFontFamily() != null) t.fontFamily(style.getFontFamily());
         if (style.getFontSize() != null) t.fontSize(style.getFontSize());
         if (style.getBold() != null) t.bold(style.getBold());

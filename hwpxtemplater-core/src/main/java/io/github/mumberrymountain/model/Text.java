@@ -26,6 +26,9 @@ public class Text {
     private Integer spaceBefore; // pt
     private Integer spaceAfter;  // pt
 
+    private String baseParaPrId;
+    private String baseCharPrId;
+
     public Text(String value) {
         this.value = value;
     }
@@ -133,6 +136,17 @@ public class Text {
         return this;
     }
 
+    // 추가 260325
+    public Text baseParaPrId(String baseParaPrId) {
+        this.baseParaPrId = baseParaPrId;
+        return this;
+    }
+
+    public Text baseCharPrId(String baseCharPrId) {
+        this.baseCharPrId = baseCharPrId;
+        return this;
+    }
+
     public String getBackgroundColor(){
         return backgroundColor;
     }
@@ -214,6 +228,14 @@ public class Text {
 
     public Integer getSpaceAfter() {
         return spaceAfter;
+    }
+
+    public String getBaseParaPrId() {
+        return baseParaPrId;
+    }
+
+    public String getBaseCharPrId() {
+        return baseCharPrId;
     }
 
     public String getValue() { return value; }

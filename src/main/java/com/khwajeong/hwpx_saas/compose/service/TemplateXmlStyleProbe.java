@@ -5,11 +5,18 @@ import org.w3c.dom.*;
 import org.xml.sax.InputSource;
 
 import javax.xml.parsers.DocumentBuilderFactory;
+import javax.xml.transform.Transformer;
+import javax.xml.transform.TransformerFactory;
+import javax.xml.transform.dom.DOMSource;
+import javax.xml.transform.stream.StreamResult;
 import java.io.InputStream;
 import java.io.StringReader;
+import java.io.StringWriter;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Path;
-import java.util.*;
+import java.util.ArrayList;
+import java.util.Enumeration;
+import java.util.List;
 import java.util.zip.ZipEntry;
 import java.util.zip.ZipFile;
 
@@ -20,11 +27,13 @@ public class TemplateXmlStyleProbe {
         private final String text;
         private final String paraPrId;
         private final String charPrId;
+        private final String paragraphXml;
 
-        public ParagraphSample(String text, String paraPrId, String charPrId) {
+        public ParagraphSample(String text, String paraPrId, String charPrId, String paragraphXml) {
             this.text = text;
             this.paraPrId = paraPrId;
             this.charPrId = charPrId;
+            this.paragraphXml = paragraphXml;
         }
 
         public String getText() {
@@ -39,13 +48,8 @@ public class TemplateXmlStyleProbe {
             return charPrId;
         }
 
-        @Override
-        public String toString() {
-            return "ParagraphSample{" +
-                    "text='" + text + '\'' +
-                    ", paraPrId='" + paraPrId + '\'' +
-                    ", charPrId='" + charPrId + '\'' +
-                    '}';
+        public String getParagraphXml() {
+            return paragraphXml;
         }
     }
 
@@ -90,7 +94,12 @@ public class TemplateXmlStyleProbe {
                 String text = collectParagraphText(element).trim();
 
                 if (!text.isBlank()) {
-                    out.add(new ParagraphSample(text, paraPrId, charPrId));
+                    out.add(new ParagraphSample(
+                            text,
+                            paraPrId,
+                            charPrId,
+                            nodeToString(element)
+                    ));
                 }
             }
         }
@@ -164,5 +173,16 @@ public class TemplateXmlStyleProbe {
         if (s == null || s.isEmpty()) return s;
         if (s.charAt(0) == '\uFEFF') return s.substring(1);
         return s;
+    }
+
+    private String nodeToString(Node node) {
+        try {
+            Transformer transformer = TransformerFactory.newInstance().newTransformer();
+            StringWriter writer = new StringWriter();
+            transformer.transform(new DOMSource(node), new StreamResult(writer));
+            return writer.toString();
+        } catch (Exception e) {
+            throw new RuntimeException(e);
+        }
     }
 }
