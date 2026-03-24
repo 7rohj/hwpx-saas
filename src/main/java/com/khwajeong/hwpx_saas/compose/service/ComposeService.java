@@ -5,6 +5,7 @@ import com.khwajeong.hwpx_saas.compose.dto.ComposeRenderResult;
 import com.khwajeong.hwpx_saas.compose.model.ParsedBlock;
 import com.khwajeong.hwpx_saas.compose.model.StyleMapping;
 import com.khwajeong.hwpx_saas.compose.model.TemplateStyleRole;
+import com.khwajeong.hwpx_saas.compose.model.TemplateStyleSet;
 import org.springframework.stereotype.Service;
 import org.springframework.web.multipart.MultipartFile;
 
@@ -17,18 +18,21 @@ public class ComposeService {
     private final TemplateAnalyzer templateAnalyzer;
     private final SourceAnalyzer sourceAnalyzer;
     private final StyleMapper styleMapper;
-    private final RenderedDocumentBuilder renderedDocumentBuilder;
+    private final ComposeHwpxBuilder composeHwpxBuilder;
+    private final TemplateStyleExtractor templateStyleExtractor;
 
     public ComposeService(
             TemplateAnalyzer templateAnalyzer,
             SourceAnalyzer sourceAnalyzer,
             StyleMapper styleMapper,
-            RenderedDocumentBuilder renderedDocumentBuilder
+            ComposeHwpxBuilder composeHwpxBuilder,
+            TemplateStyleExtractor templateStyleExtractor
     ) {
         this.templateAnalyzer = templateAnalyzer;
         this.sourceAnalyzer = sourceAnalyzer;
         this.styleMapper = styleMapper;
-        this.renderedDocumentBuilder = renderedDocumentBuilder;
+        this.composeHwpxBuilder = composeHwpxBuilder;
+        this.templateStyleExtractor = templateStyleExtractor;
     }
 
     public ComposeDebugResponse composeDebug(
@@ -53,14 +57,19 @@ public class ComposeService {
             MultipartFile sourceFile,
             String prompt
     ) throws Exception {
+        // 1. 템플릿 스타일 추출
+        TemplateStyleSet styleSet = templateStyleExtractor.extract(templateFile);
+
+        // 2. 기존 구조 분석
         List<TemplateStyleRole> templateRoles = templateAnalyzer.analyze(templateFile);
         List<ParsedBlock> sourceBlocks = sourceAnalyzer.analyze(sourceFile);
         List<StyleMapping> mappings = styleMapper.map(sourceBlocks, templateRoles);
 
-        Path outputPath = renderedDocumentBuilder.buildPreviewDocument(sourceBlocks, mappings);
+        // 3. 실제 hwpx 생성
+        Path outputPath = composeHwpxBuilder.build(sourceBlocks, mappings, styleSet);
 
         return ComposeRenderResult.of(
-                "렌더링 미리보기 파일 생성 완료",
+                "스타일 적용 결과 hwpx 생성 완료",
                 outputPath.getFileName().toString(),
                 outputPath.toAbsolutePath().toString(),
                 mappings
