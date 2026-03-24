@@ -4,7 +4,6 @@ import com.khwajeong.hwpx_saas.compose.model.ExtractedStyle;
 import com.khwajeong.hwpx_saas.compose.model.TemplateClonePlan;
 import com.khwajeong.hwpx_saas.compose.model.TemplateStyleSet;
 import org.springframework.stereotype.Service;
-import org.springframework.web.multipart.MultipartFile;
 import org.w3c.dom.*;
 import org.xml.sax.InputSource;
 
@@ -26,19 +25,16 @@ import java.util.zip.ZipOutputStream;
 public class TemplateCloneRenderer {
 
     public Path render(
-            MultipartFile templateFile,
+            Path templatePath,
             TemplateClonePlan plan,
             TemplateStyleSet styleSet
     ) throws Exception {
 
         Files.createDirectories(Path.of("generated-compose"));
 
-        Path tempTemplate = Files.createTempFile("compose-template-", ".hwpx");
-        templateFile.transferTo(tempTemplate.toFile());
-
         Path output = Path.of("generated-compose", "cloned_" + System.currentTimeMillis() + ".hwpx");
 
-        try (ZipFile zipFile = new ZipFile(tempTemplate.toFile());
+        try (ZipFile zipFile = new ZipFile(templatePath.toFile());
              ZipOutputStream zos = new ZipOutputStream(Files.newOutputStream(output))) {
 
             Enumeration<? extends ZipEntry> entries = zipFile.entries();
@@ -59,8 +55,6 @@ public class TemplateCloneRenderer {
 
                 zos.closeEntry();
             }
-        } finally {
-            Files.deleteIfExists(tempTemplate);
         }
 
         return output;

@@ -7,11 +7,13 @@ import org.springframework.web.multipart.MultipartFile;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.nio.file.Path;
 
 @Service
 public class TemplateAnalyzer {
 
-    public List<TemplateStyleRole> analyze(MultipartFile templateFile) {
+    //public List<TemplateStyleRole> analyze(MultipartFile templateFile) {
+    public List<TemplateStyleRole> analyze(Path templatePath) {
         // TODO:
         // 실제 HWP/HWPX 스타일 추출 연결 전까지는
         // 업로드한 템플릿 문서 구조를 기준으로 role set을 고정 샘플로 둔다.

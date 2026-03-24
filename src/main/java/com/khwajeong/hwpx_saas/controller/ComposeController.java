@@ -7,6 +7,9 @@ import org.springframework.http.MediaType;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.multipart.MultipartFile;
 
+import java.nio.file.Files;
+import java.nio.file.Path;
+
 @RestController
 @RequestMapping("/api/v1/compose")
 public class ComposeController {
@@ -26,8 +29,16 @@ public class ComposeController {
             @RequestPart("templateFile") MultipartFile templateFile,
             @RequestPart("sourceFile") MultipartFile sourceFile,
             @RequestPart(value = "prompt", required = false) String prompt
-    ) {
-        return composeService.composeDebug(templateFile, sourceFile, prompt);
+    ) throws Exception {
+        Path templatePath = saveTempFile(templateFile);
+        Path sourcePath = saveTempFile(sourceFile);
+
+        try {
+            return composeService.composeDebug(templatePath, sourcePath, prompt);
+        } finally {
+            Files.deleteIfExists(templatePath);
+            Files.deleteIfExists(sourcePath);
+        }
     }
 
     @PostMapping(
@@ -40,6 +51,36 @@ public class ComposeController {
             @RequestPart("sourceFile") MultipartFile sourceFile,
             @RequestPart(value = "prompt", required = false) String prompt
     ) throws Exception {
-        return composeService.composeRender(templateFile, sourceFile, prompt);
+        Path templatePath = saveTempFile(templateFile);
+        Path sourcePath = saveTempFile(sourceFile);
+
+        try {
+            return composeService.composeRender(templatePath, sourcePath, prompt);
+        } finally {
+            Files.deleteIfExists(templatePath);
+            Files.deleteIfExists(sourcePath);
+        }
+    }
+
+    private Path saveTempFile(MultipartFile file) throws Exception {
+        String original = file.getOriginalFilename();
+        String ext = getExtension(original);
+
+        Path temp = Files.createTempFile("upload-", ext);
+        file.transferTo(temp.toFile());
+        return temp;
+    }
+
+    private String getExtension(String filename) {
+        if (filename == null || filename.isBlank()) {
+            return ".tmp";
+        }
+
+        int idx = filename.lastIndexOf('.');
+        if (idx < 0 || idx == filename.length() - 1) {
+            return ".tmp";
+        }
+
+        return filename.substring(idx);
     }
 }

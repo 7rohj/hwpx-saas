@@ -8,6 +8,7 @@ import org.springframework.web.multipart.MultipartFile;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.regex.Pattern;
+import java.nio.file.Path;
 
 @Service
 public class SourceAnalyzer {
@@ -25,7 +26,7 @@ public class SourceAnalyzer {
     private static final Pattern DECORATION_PATTERN =
             Pattern.compile("^\\d{2}\\s+.+$");
 
-    public List<ParsedBlock> analyze(MultipartFile sourceFile) {
+    public List<ParsedBlock> analyze(Path sourceFile) {
         // TODO:
         // 실제 HWP/HWPX 본문 추출 연결 전까지는 샘플 라인으로 검증
         List<String> lines = List.of(

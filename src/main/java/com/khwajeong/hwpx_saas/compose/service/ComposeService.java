@@ -7,7 +7,6 @@ import com.khwajeong.hwpx_saas.compose.model.StyleMapping;
 import com.khwajeong.hwpx_saas.compose.model.TemplateStyleRole;
 import com.khwajeong.hwpx_saas.compose.model.TemplateStyleSet;
 import org.springframework.stereotype.Service;
-import org.springframework.web.multipart.MultipartFile;
 
 import java.nio.file.Path;
 import java.util.List;
@@ -39,12 +38,12 @@ public class ComposeService {
     }
 
     public ComposeDebugResponse composeDebug(
-            MultipartFile templateFile,
-            MultipartFile sourceFile,
+            Path templatePath,
+            Path sourcePath,
             String prompt
-    ) {
-        List<TemplateStyleRole> templateRoles = templateAnalyzer.analyze(templateFile);
-        List<ParsedBlock> sourceBlocks = sourceAnalyzer.analyze(sourceFile);
+    ) throws Exception {
+        List<TemplateStyleRole> templateRoles = templateAnalyzer.analyze(templatePath);
+        List<ParsedBlock> sourceBlocks = sourceAnalyzer.analyze(sourcePath);
         List<StyleMapping> mappings = styleMapper.map(sourceBlocks, templateRoles);
 
         return ComposeDebugResponse.of(
@@ -56,18 +55,18 @@ public class ComposeService {
     }
 
     public ComposeRenderResult composeRender(
-            MultipartFile templateFile,
-            MultipartFile sourceFile,
+            Path templatePath,
+            Path sourcePath,
             String prompt
     ) throws Exception {
-        TemplateStyleSet styleSet = templateStyleExtractor.extract(templateFile);
+        TemplateStyleSet styleSet = templateStyleExtractor.extract(templatePath);
 
-        List<TemplateStyleRole> templateRoles = templateAnalyzer.analyze(templateFile);
-        List<ParsedBlock> sourceBlocks = sourceAnalyzer.analyze(sourceFile);
+        List<TemplateStyleRole> templateRoles = templateAnalyzer.analyze(templatePath);
+        List<ParsedBlock> sourceBlocks = sourceAnalyzer.analyze(sourcePath);
         List<StyleMapping> mappings = styleMapper.map(sourceBlocks, templateRoles);
 
         var plan = templateClonePlanBuilder.build(sourceBlocks, mappings, styleSet);
-        Path outputPath = templateCloneRenderer.render(templateFile, plan, styleSet);
+        Path outputPath = templateCloneRenderer.render(templatePath, plan, styleSet);
 
         return ComposeRenderResult.of(
                 "사용자 템플릿 복제 기반 hwpx 생성 완료",
