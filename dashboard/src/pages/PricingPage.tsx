@@ -9,34 +9,41 @@ type PricingPageProps = {
 
 const plans = [
   {
-    name: "Starter",
+    name: "Free",
     price: "₩0",
     period: "/month",
-    description: "가볍게 시작하는 개인 테스트용 플랜",
+    description: "가볍게 체험해보는 무료 플랜",
     features: [
-      "기본 대시보드 접근",
-      "API Key 발급",
-      "템플릿 업로드",
-      "문서 생성 테스트",
-      "기본 사용 로그 조회",
+      "10 크레딧 제공",
+      "속도 제한",
     ],
-    cta: "현재 플랜",
+    cta: "무료로 시작하기",
     highlighted: false,
   },
   {
+    name: "Starter",
+    price: "₩7,900",
+    period: "/month",
+    description: "가볍게 시작하는 개인 테스트용 플랜",
+    features: [
+      "300 크레딧 제공",
+      "안정적인 생성 속도"
+
+    ],
+    cta: "현재 플랜",
+    highlighted: true,
+  },
+  {
     name: "Pro",
-    price: "₩9,900",
+    price: "₩27,900",
     period: "/month",
     description: "실사용과 반복 자동화를 위한 추천 플랜",
     features: [
-      "Starter의 모든 기능",
-      "더 많은 월간 문서 생성량",
-      "고급 템플릿 관리",
-      "우선 처리 및 안정적 사용",
-      "추후 결제/청구 기능 연동 예정",
+      "1,200 크레딧 제공",
+      "빠른 생성 속도",
     ],
     cta: "업그레이드 예정",
-    highlighted: true,
+    highlighted: false,
   },
   {
     name: "Business",
@@ -44,11 +51,7 @@ const plans = [
     period: "",
     description: "팀 단위 운영과 대량 문서 자동화를 위한 플랜",
     features: [
-      "팀/조직 단위 확장",
-      "대용량 문서 생성",
-      "별도 한도/정책 협의",
-      "전용 지원",
-      "커스텀 계약 가능",
+      "이메일로 연락부탁드립니다."
     ],
     cta: "문의 예정",
     highlighted: false,
@@ -116,7 +119,7 @@ export default function PricingPage({ onNavigate, onLogout }: PricingPageProps) 
             </div>
           </section>
 
-          <section className="grid gap-6 xl:grid-cols-3">
+          <section className="grid gap-6 xl:grid-cols-2 xl:grid-cols-4">
             {plans.map((plan) => (
               <div
                 key={plan.name}
@@ -127,19 +130,20 @@ export default function PricingPage({ onNavigate, onLogout }: PricingPageProps) 
                 }`}
               >
                 <div className="p-6">
-                  <div className="flex items-start justify-between gap-3">
-                    <div>
-                      <h2 className="text-2xl font-semibold text-[#162033]">{plan.name}</h2>
-                      <p className="mt-2 text-sm text-[#63708a]">{plan.description}</p>
-                    </div>
+                  <div className="flex items-center justify-between gap-3">
+                    <h2 className="text-2xl font-semibold text-[#162033]">{plan.name}</h2>
 
                     {plan.highlighted ? (
-                      <span className="inline-flex items-center gap-1 rounded-full bg-[#1f69ef] px-3 py-1 text-xs font-semibold text-white">
+                      <span className="inline-flex shrink-0 items-center gap-1 rounded-full bg-[#1f69ef] px-3 py-1 text-xs font-semibold text-white">
                         <Sparkles className="h-3.5 w-3.5" />
                         Recommended
                       </span>
                     ) : null}
                   </div>
+
+                  <p className="mt-2 text-sm text-[#63708a] whitespace-nowrap">
+                    {plan.description}
+                  </p>
 
                   <div className="mt-6 flex items-end gap-1">
                     <span className="text-4xl font-bold tracking-tight text-[#162033]">

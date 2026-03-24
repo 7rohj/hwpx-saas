@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react"
-import Dashboard from "./pages/Dashboard"
 import DashboardLoadingPage from "./pages/DashboardLoadingPage"
+import Dashboard from "./pages/Dashboard"
+import StudioPage from "./pages/StudioPage"
 import LandingPage from "./pages/LandingPage"
 import ApiKeysPage from "./pages/ApiKeysPage"
 import UsageLogsPage from "./pages/UsageLogsPage"
@@ -16,6 +17,7 @@ export type PageType =
   | "landing"
   | "dashboard-loading"
   | "dashboard"
+  | "studio"
   | "apikeys"
   | "usage"
   | "pricing"
@@ -37,7 +39,7 @@ export default function App() {
     if (currentPage !== "dashboard-loading") return
 
     const timer = window.setTimeout(() => {
-      setCurrentPage("dashboard")
+      setCurrentPage("studio") // 로그인 후 진입 studio ; not dashboard
     }, 3200)
 
     return () => window.clearTimeout(timer)
@@ -45,7 +47,7 @@ export default function App() {
 
   function handleLoginSuccess() {
     setIsLoggedIn(true)
-    setCurrentPage("dashboard-loading")
+    setCurrentPage("dashboard-loading") // 바로 studio 진입?
   }
 
   function handleAdminLoginSuccess() {
@@ -65,7 +67,6 @@ export default function App() {
     setCurrentPage("landing")
   }
 
-  
   if (currentPage === "admin-login") {
     return (
       <AdminLoginPage
@@ -75,14 +76,8 @@ export default function App() {
     )
   }
 
-  
   if (currentPage === "admin") {
-    return (
-      <AdminPage
-        onNavigate={setCurrentPage}
-        onLogout={handleLogout}
-      />
-    )
+    return <AdminPage onNavigate={setCurrentPage} onLogout={handleLogout} />
   }
 
   if (!isLoggedIn) {
@@ -125,6 +120,15 @@ export default function App() {
   if (currentPage === "dashboard") {
     return (
       <Dashboard
+        onNavigate={setCurrentPage}
+        onLogout={handleLogout}
+      />
+    )
+  }
+
+  if (currentPage === "studio") {
+    return (
+      <StudioPage
         onNavigate={setCurrentPage}
         onLogout={handleLogout}
       />
