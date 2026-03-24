@@ -5,20 +5,20 @@ public class ParsedBlock {
     public enum BlockType {
         HEADING,
         PARAGRAPH,
-        TABLE
+        BULLET,
+        TABLE,
+        TABLE_ROW,
+        CODE
     }
 
     private String id;
     private BlockType type;
     private String text;
 
-    private Integer fontSize;
-    private Boolean bold;
-    private Integer spaceBefore;
-    private Integer spaceAfter;
-
     private Integer headingScore;
     private Integer levelGuess;
+
+    private boolean ignored;
 
     public ParsedBlock() {
     }
@@ -56,42 +56,6 @@ public class ParsedBlock {
         return this;
     }
 
-    public Integer getFontSize() {
-        return fontSize;
-    }
-
-    public ParsedBlock setFontSize(Integer fontSize) {
-        this.fontSize = fontSize;
-        return this;
-    }
-
-    public Boolean getBold() {
-        return bold;
-    }
-
-    public ParsedBlock setBold(Boolean bold) {
-        this.bold = bold;
-        return this;
-    }
-
-    public Integer getSpaceBefore() {
-        return spaceBefore;
-    }
-
-    public ParsedBlock setSpaceBefore(Integer spaceBefore) {
-        this.spaceBefore = spaceBefore;
-        return this;
-    }
-
-    public Integer getSpaceAfter() {
-        return spaceAfter;
-    }
-
-    public ParsedBlock setSpaceAfter(Integer spaceAfter) {
-        this.spaceAfter = spaceAfter;
-        return this;
-    }
-
     public Integer getHeadingScore() {
         return headingScore;
     }
@@ -108,5 +72,25 @@ public class ParsedBlock {
     public ParsedBlock setLevelGuess(Integer levelGuess) {
         this.levelGuess = levelGuess;
         return this;
+    }
+
+    public boolean isIgnored() {
+        return ignored;
+    }
+
+    public ParsedBlock setIgnored(boolean ignored) {
+        this.ignored = ignored;
+        return this;
+    }
+
+    @Override
+    public String toString() {
+        return "ParsedBlock{" +
+                "id='" + id + '\'' +
+                ", type=" + type +
+                ", text='" + text + '\'' +
+                ", headingScore=" + headingScore +
+                ", levelGuess=" + levelGuess +
+                '}';
     }
 }

@@ -1,0 +1,24 @@
+[CHAPTER_TITLE]
+2. 사회경제지표 분석
+
+[SECTION_TITLE]
+2.1 사회경제지표 분석 기준
+
+[SUBSECTION_TITLE]
+A3-1-2.1-01
+
+[SUBSECTION_TITLE]
+사회경제지표 정리 및 분석의 기준
+
+[BODY]
+사회경제지표 분석은 장래 교통수요예측을 위한 기초자료이다.
+
+[SECTION_TITLE]
+2.2 사회경제지표 현황
+
+[TABLE_HEADER]
+인구수 / 종사자수 / 학생수
+
+[TABLE_BODY]
+(직접영향권) 연평균 1.78% 증가
+
