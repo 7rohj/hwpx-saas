@@ -6,3 +6,6 @@ app:
     bucket-name: ${R2_BUCKET_NAME}
     access-key-id: ${R2_ACCESS_KEY_ID}
     secret-access-key: ${R2_SECRET_ACCESS_KEY}
+
+  compose:
+    upload-dir : uploads/compose

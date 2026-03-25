@@ -1,78 +1,172 @@
 package com.khwajeong.hwpx_saas.compose.service;
 
-import com.khwajeong.hwpx_saas.compose.dto.ComposeDebugResponse;
-import com.khwajeong.hwpx_saas.compose.dto.ComposeRenderResult;
-import com.khwajeong.hwpx_saas.compose.model.ParsedBlock;
-import com.khwajeong.hwpx_saas.compose.model.StyleMapping;
-import com.khwajeong.hwpx_saas.compose.model.TemplateStyleRole;
-import com.khwajeong.hwpx_saas.compose.model.TemplateStyleSet;
+import com.khwajeong.hwpx_saas.compose.dto.ComposeApplyRequest;
+import com.khwajeong.hwpx_saas.compose.dto.ComposeApplyResponse;
+import com.khwajeong.hwpx_saas.compose.dto.ParagraphNodeDto;
+import com.khwajeong.hwpx_saas.compose.dto.StyleProfileDto;
+import com.khwajeong.hwpx_saas.compose.model.ParagraphNode;
+import com.khwajeong.hwpx_saas.compose.model.StyleProfile;
 import org.springframework.stereotype.Service;
 
+import com.khwajeong.hwpx_saas.compose.dto.ComposePreviewResponse;
+import org.springframework.web.multipart.MultipartFile;
 import java.nio.file.Path;
+
+import java.io.File;
+import java.util.ArrayList;
 import java.util.List;
 
 @Service
 public class ComposeService {
 
-    private final TemplateAnalyzer templateAnalyzer;
-    private final SourceAnalyzer sourceAnalyzer;
-    private final StyleMapper styleMapper;
-    private final TemplateStyleExtractor templateStyleExtractor;
-    private final TemplateClonePlanBuilder templateClonePlanBuilder;
-    private final TemplateCloneRenderer templateCloneRenderer;
+    private final Heading1Classifier heading1Classifier;
+    private final HwpxParagraphExtractor extractor;
+    private final ComposeFileStorageService composeFileStorageService;
+    private final ComposeSessionService composeSessionService;
 
     public ComposeService(
-            TemplateAnalyzer templateAnalyzer,
-            SourceAnalyzer sourceAnalyzer,
-            StyleMapper styleMapper,
-            TemplateStyleExtractor templateStyleExtractor,
-            TemplateClonePlanBuilder templateClonePlanBuilder,
-            TemplateCloneRenderer templateCloneRenderer
+            Heading1Classifier heading1Classifier,
+            ComposeFileStorageService composeFileStorageService,
+            ComposeSessionService composeSessionService,
+            HwpxParagraphExtractor extractor
     ) {
-        this.templateAnalyzer = templateAnalyzer;
-        this.sourceAnalyzer = sourceAnalyzer;
-        this.styleMapper = styleMapper;
-        this.templateStyleExtractor = templateStyleExtractor;
-        this.templateClonePlanBuilder = templateClonePlanBuilder;
-        this.templateCloneRenderer = templateCloneRenderer;
+        this.heading1Classifier = heading1Classifier;
+        this.composeFileStorageService = composeFileStorageService;
+        this.composeSessionService = composeSessionService;
+        this.extractor = extractor;
     }
 
-    public ComposeDebugResponse composeDebug(
-            Path templatePath,
-            Path sourcePath,
-            String prompt
-    ) throws Exception {
-        List<TemplateStyleRole> templateRoles = templateAnalyzer.analyze(templatePath);
-        List<ParsedBlock> sourceBlocks = sourceAnalyzer.analyze(sourcePath);
-        List<StyleMapping> mappings = styleMapper.map(sourceBlocks, templateRoles);
+    public ComposeApplyResponse applyHeading1Style(ComposeApplyRequest request) {
+        validate(request);
 
-        return ComposeDebugResponse.of(
-                "템플릿 역할 추출 / 원본문서 구조 분석 / 스타일 매핑 완료",
-                templateRoles,
-                sourceBlocks,
-                mappings
-        );
+        StyleProfile templateStyle = toStyleProfile(request.getTemplateHeading1Style());
+        ParagraphNode sourceSample = toParagraphNode(request.getSourceHeading1Sample());
+
+        List<String> matchedIds = new ArrayList<>();
+        List<ParagraphNodeDto> result = new ArrayList<>();
+
+        for (ParagraphNodeDto dto : request.getSourceParagraphs()) {
+            ParagraphNode node = toParagraphNode(dto);
+
+            if (heading1Classifier.isHeading1(node, sourceSample)) {
+                matchedIds.add(node.getParagraphId());
+                applyStyle(node, templateStyle);
+            }
+
+            result.add(toDto(node));
+        }
+
+        return new ComposeApplyResponse(matchedIds, result);
     }
 
-    public ComposeRenderResult composeRender(
-            Path templatePath,
-            Path sourcePath,
-            String prompt
-    ) throws Exception {
-        TemplateStyleSet styleSet = templateStyleExtractor.extract(templatePath);
+    private void validate(ComposeApplyRequest request) {
+        if (request == null) {
+            throw new IllegalArgumentException("request is null");
+        }
+        if (request.getTemplateHeading1Style() == null) {
+            throw new IllegalArgumentException("templateHeading1Style is required");
+        }
+        if (request.getSourceHeading1Sample() == null) {
+            throw new IllegalArgumentException("sourceHeading1Sample is required");
+        }
+        if (request.getSourceParagraphs() == null || request.getSourceParagraphs().isEmpty()) {
+            throw new IllegalArgumentException("sourceParagraphs is required");
+        }
+    }
 
-        List<TemplateStyleRole> templateRoles = templateAnalyzer.analyze(templatePath);
-        List<ParsedBlock> sourceBlocks = sourceAnalyzer.analyze(sourcePath);
-        List<StyleMapping> mappings = styleMapper.map(sourceBlocks, templateRoles);
+    private void applyStyle(ParagraphNode node, StyleProfile style) {
+        node.setFontSize(style.getFontSize());
+        node.setBold(style.getBold());
+        node.setColor(style.getColor());
+        node.setAlign(style.getAlign());
+        node.setSpaceBefore(style.getSpaceBefore());
+        node.setSpaceAfter(style.getSpaceAfter());
+        node.setLineSpacing(style.getLineSpacing());
+    }
 
-        var plan = templateClonePlanBuilder.build(sourceBlocks, mappings, styleSet);
-        Path outputPath = templateCloneRenderer.render(templatePath, plan, styleSet);
+    private StyleProfile toStyleProfile(StyleProfileDto dto) {
+        StyleProfile style = new StyleProfile();
+        style.setFontSize(dto.getFontSize());
+        style.setBold(dto.getBold());
+        style.setColor(dto.getColor());
+        style.setAlign(dto.getAlign());
+        style.setSpaceBefore(dto.getSpaceBefore());
+        style.setSpaceAfter(dto.getSpaceAfter());
+        style.setLineSpacing(dto.getLineSpacing());
+        return style;
+    }
 
-        return ComposeRenderResult.of(
-                "사용자 템플릿 복제 기반 hwpx 생성 완료",
-                outputPath.getFileName().toString(),
-                outputPath.toAbsolutePath().toString(),
-                mappings
-        );
+    private ParagraphNode toParagraphNode(ParagraphNodeDto dto) {
+        ParagraphNode node = new ParagraphNode();
+        node.setParagraphId(dto.getParagraphId());
+        node.setPage(dto.getPage());
+        node.setText(dto.getText());
+        node.setFontSize(dto.getFontSize());
+        node.setBold(dto.getBold());
+        node.setColor(dto.getColor());
+        node.setAlign(dto.getAlign());
+        node.setSpaceBefore(dto.getSpaceBefore());
+        node.setSpaceAfter(dto.getSpaceAfter());
+        node.setLineSpacing(dto.getLineSpacing());
+        node.setSingleLine(dto.getSingleLine());
+        return node;
+    }
+
+    private ParagraphNodeDto toDto(ParagraphNode node) {
+        ParagraphNodeDto dto = new ParagraphNodeDto();
+        dto.setParagraphId(node.getParagraphId());
+        dto.setPage(node.getPage());
+        dto.setText(node.getText());
+        dto.setFontSize(node.getFontSize());
+        dto.setBold(node.getBold());
+        dto.setColor(node.getColor());
+        dto.setAlign(node.getAlign());
+        dto.setSpaceBefore(node.getSpaceBefore());
+        dto.setSpaceAfter(node.getSpaceAfter());
+        dto.setLineSpacing(node.getLineSpacing());
+        dto.setSingleLine(node.getSingleLine());
+        return dto;
+    }
+
+    public List<ParagraphNodeDto> extractFromHwpx(File file) {
+        List<HwpxParagraphExtractor.SimpleParagraph> list = extractor.extract(file);
+
+        List<ParagraphNodeDto> result = new ArrayList<>();
+
+        for (HwpxParagraphExtractor.SimpleParagraph sp : list) {
+            ParagraphNodeDto dto = new ParagraphNodeDto();
+            dto.setParagraphId(sp.getParagraphId());
+            dto.setText(sp.getText());
+            dto.setSingleLine(sp.isSingleLine());
+
+            // 기본값 (나중에 스타일 읽기 추가)
+            dto.setFontSize(12);
+            dto.setBold(false);
+            dto.setAlign("left");
+            dto.setSpaceBefore(0);
+            dto.setSpaceAfter(0);
+            dto.setLineSpacing(160);
+
+            result.add(dto);
+        }
+
+        return result;
+    }
+
+    public ComposePreviewResponse createPreviewSession(
+            MultipartFile templateFile,
+            MultipartFile sourceFile
+    ) {
+        Path templatePath = composeFileStorageService.save(templateFile, "template");
+        Path sourcePath = composeFileStorageService.save(sourceFile, "source");
+
+        ComposePreviewResponse response = new ComposePreviewResponse();
+        response.setSessionId(composeSessionService.createSessionId());
+        response.setTemplateOriginalFilename(templateFile.getOriginalFilename());
+        response.setSourceOriginalFilename(sourceFile.getOriginalFilename());
+        response.setTemplateSavedPath(templatePath.toString());
+        response.setSourceSavedPath(sourcePath.toString());
+
+        return response;
     }
 }
