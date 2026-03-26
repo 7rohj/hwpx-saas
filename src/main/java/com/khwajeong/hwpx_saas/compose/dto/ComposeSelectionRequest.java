@@ -11,6 +11,13 @@ public class ComposeSelectionRequest {
     private String label;
     private String ocrText;
 
+    // =========================
+    // 추가:
+    // 사용자가 직접 선택한 paragraphId
+    // OCR 텍스트보다 이 값을 우선 사용하도록 바꿀 예정
+    // =========================
+    private String paragraphId;
+
     public String getSessionId() {
         return sessionId;
     }
@@ -81,5 +88,17 @@ public class ComposeSelectionRequest {
 
     public void setOcrText(String ocrText) {
         this.ocrText = ocrText;
+    }
+
+    // =========================
+    // 추가:
+    // paragraphId getter / setter
+    // =========================
+    public String getParagraphId() {
+        return paragraphId;
+    }
+
+    public void setParagraphId(String paragraphId) {
+        this.paragraphId = paragraphId;
     }
 }

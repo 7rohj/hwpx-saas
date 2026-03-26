@@ -11,6 +11,12 @@ public class ComposeSelectionResponse {
     private String label;
     private String ocrText;
 
+    // =========================
+    // 추가:
+    // 저장된 paragraphId 응답에 포함
+    // =========================
+    private String paragraphId;
+
     public String getSessionId() {
         return sessionId;
     }
@@ -81,5 +87,17 @@ public class ComposeSelectionResponse {
 
     public void setOcrText(String ocrText) {
         this.ocrText = ocrText;
+    }
+
+    // =========================
+    // 추가:
+    // paragraphId getter / setter
+    // =========================
+    public String getParagraphId() {
+        return paragraphId;
+    }
+
+    public void setParagraphId(String paragraphId) {
+        this.paragraphId = paragraphId;
     }
 }

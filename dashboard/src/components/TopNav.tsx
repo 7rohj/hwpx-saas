@@ -14,6 +14,7 @@ export default function TopNav({
   const menu = [
     ["홈화면", "landing"],
     ["대시보드", "dashboard"],
+    ["(테스트)스튜디오", "composeStudio"],
     ["스튜디오", "studio"],
     ["API Keys", "apikeys"],
     ["사용량 로그", "usage"],

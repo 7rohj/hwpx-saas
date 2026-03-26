@@ -7,15 +7,10 @@ import com.khwajeong.hwpx_saas.compose.dto.ComposeRunApplyResponse;
 import com.khwajeong.hwpx_saas.compose.dto.ParagraphNodeDto;
 import com.khwajeong.hwpx_saas.compose.dto.StyleProfileDto;
 import com.khwajeong.hwpx_saas.compose.model.ComposeSelection;
-import com.khwajeong.hwpx_saas.core.ExportService;
 import org.springframework.stereotype.Service;
 
-import java.nio.file.Files;
 import java.nio.file.Path;
-import java.util.ArrayList;
-import java.util.HashMap;
 import java.util.List;
-import java.util.Map;
 
 @Service
 public class ComposeApplyRunnerService {
@@ -23,24 +18,21 @@ public class ComposeApplyRunnerService {
     private final ComposeSelectionService composeSelectionService;
     private final ComposeService composeService;
     private final ComposeSessionService composeSessionService;
-    private final TextMatchService textMatchService;
     private final HwpxStyleExtractor hwpxStyleExtractor;
-    private final ExportService exportService;
+    private final ComposeHwpxWriterService composeHwpxWriterService;
 
     public ComposeApplyRunnerService(
             ComposeSelectionService composeSelectionService,
             ComposeService composeService,
             ComposeSessionService composeSessionService,
-            TextMatchService textMatchService,
             HwpxStyleExtractor hwpxStyleExtractor,
-            ExportService exportService
+            ComposeHwpxWriterService composeHwpxWriterService
     ) {
         this.composeSelectionService = composeSelectionService;
         this.composeService = composeService;
         this.composeSessionService = composeSessionService;
-        this.textMatchService = textMatchService;
         this.hwpxStyleExtractor = hwpxStyleExtractor;
-        this.exportService = exportService;
+        this.composeHwpxWriterService = composeHwpxWriterService;
     }
 
     public ComposeRunApplyResponse run(ComposeRunApplyRequest request) {
@@ -92,18 +84,16 @@ public class ComposeApplyRunnerService {
                 throw new IllegalArgumentException("source paragraphs not extracted");
             }
 
-            String templateOcrText = templateSelection.getOcrText();
-            String sourceOcrText = sourceSelection.getOcrText();
-
+            // =========================
+            // 핵심 변경:
+            // OCR 텍스트 매칭 대신 paragraphId 직접 사용
+            // =========================
             ParagraphNodeDto templateSample =
-                    textMatchService.findBestMatch(templateParagraphs, templateOcrText);
+                    findByParagraphId(templateParagraphs, templateSelection.getParagraphId());
 
             ParagraphNodeDto sourceSample =
-                    textMatchService.findBestMatch(sourceParagraphs, sourceOcrText);
+                    findByParagraphId(sourceParagraphs, sourceSelection.getParagraphId());
 
-            // =========================
-            // 템플릿 문단의 실제 스타일 추출
-            // =========================
             StyleProfileDto templateStyle =
                     hwpxStyleExtractor.extractStyle(
                             new HwpxStyleExtractor.FileWrapper(session.getTemplatePath().toFile()),
@@ -111,12 +101,6 @@ public class ComposeApplyRunnerService {
                             templateSample.getCharPrIdRef()
                     );
 
-            // =========================
-            // 추가:
-            // fontPolicy 반영
-            // - original : 그대로
-            // - safe     : fallback 폰트로 치환
-            // =========================
             String normalizedFontPolicy = normalizeFontPolicy(request.getFontPolicy());
             templateStyle.setFontFamily(
                     resolveFontFamilyByPolicy(templateStyle.getFontFamily(), normalizedFontPolicy)
@@ -129,18 +113,12 @@ public class ComposeApplyRunnerService {
 
             ComposeApplyResponse applyResponse = composeService.applyHeading1Style(applyRequest);
 
-            // =========================
-            // render 요청 생성
-            // =========================
-            Map<String, Object> renderRequest = buildRenderRequest(applyResponse);
-
-            byte[] resultBytes = exportService.renderHwpx(
-                    Files.readAllBytes(session.getTemplatePath()),
-                    renderRequest
+            Path outputPath = composeHwpxWriterService.writeStyledCopy(
+                    session.getSourcePath(),
+                    templateSample.getParaPrIdRef(),
+                    templateSample.getCharPrIdRef(),
+                    applyResponse.getMatchedParagraphIds()
             );
-
-            Path outputPath = Files.createTempFile("compose-output-", ".hwpx");
-            Files.write(outputPath, resultBytes);
 
             String fileId = outputPath.getFileName().toString();
 
@@ -150,7 +128,7 @@ public class ComposeApplyRunnerService {
             response.setTemplateSelectionSummary(
                     "template page=" + templateSelection.getPage()
                             + ", label=" + templateSelection.getLabel()
-                            + ", ocrText=" + templateOcrText
+                            + ", paragraphId=" + templateSelection.getParagraphId()
                             + ", matchedParagraphId=" + templateSample.getParagraphId()
                             + ", matchedText=" + templateSample.getText()
                             + ", fontFamily=" + templateStyle.getFontFamily()
@@ -159,15 +137,13 @@ public class ComposeApplyRunnerService {
             response.setSourceSelectionSummary(
                     "source page=" + sourceSelection.getPage()
                             + ", label=" + sourceSelection.getLabel()
-                            + ", ocrText=" + sourceOcrText
+                            + ", paragraphId=" + sourceSelection.getParagraphId()
                             + ", matchedParagraphId=" + sourceSample.getParagraphId()
                             + ", matchedText=" + sourceSample.getText()
             );
             response.setMatchedParagraphIds(applyResponse.getMatchedParagraphIds());
             response.setStyledParagraphs(applyResponse.getStyledParagraphs());
             response.setOutputPath(outputPath.toString());
-
-            // 추가
             response.setFileId(fileId);
             response.setDownloadUrl("/api/v1/compose/files/" + fileId);
 
@@ -176,73 +152,29 @@ public class ComposeApplyRunnerService {
         } catch (Exception e) {
             System.out.println("=== [COMPOSE APPLY ERROR] ===");
             e.printStackTrace();
-            throw new RuntimeException("compose apply/export failed: " + e.getMessage(), e);
+            throw new RuntimeException("compose apply failed: " + e.getMessage(), e);
         }
     }
 
     // =========================
     // 추가:
-    // ExportService 에 넘길 request body 생성
+    // paragraphId 직접 찾기
+    // 이제 textMatchService 대신 이걸 사용
     // =========================
-    private Map<String, Object> buildRenderRequest(ComposeApplyResponse applyResponse) {
-        Map<String, Object> request = new HashMap<>();
-        List<Map<String, Object>> elements = new ArrayList<>();
-
-        if (applyResponse == null || applyResponse.getStyledParagraphs() == null) {
-            request.put("elements", elements);
-            return request;
+    private ParagraphNodeDto findByParagraphId(List<ParagraphNodeDto> paragraphs, String paragraphId) {
+        if (paragraphId == null || paragraphId.isBlank()) {
+            throw new IllegalArgumentException("paragraphId is required");
         }
 
-        for (ParagraphNodeDto p : applyResponse.getStyledParagraphs()) {
-            Map<String, Object> element = new HashMap<>();
-            element.put("placeholder", p.getParagraphId());
-            element.put("type", "text");
-            element.put("content", p.getText());
-
-            Map<String, Object> style = new HashMap<>();
-
-            style.put("font_family", p.getFontFamily());
-
-            if (p.getFontSize() != null) {
-                style.put("font_size", p.getFontSize());
+        for (ParagraphNodeDto p : paragraphs) {
+            if (paragraphId.equals(p.getParagraphId())) {
+                return p;
             }
-            if (p.getBold() != null) {
-                style.put("bold", p.getBold());
-            }
-            if (p.getItalic() != null) {
-                style.put("italic", p.getItalic());
-            }
-            if (p.getUnderline() != null) {
-                style.put("underline", p.getUnderline());
-            }
-            if (p.getColor() != null) {
-                style.put("color", p.getColor());
-            }
-            if (p.getAlign() != null) {
-                style.put("align", p.getAlign());
-            }
-            if (p.getLineSpacing() != null) {
-                style.put("line_spacing", p.getLineSpacing());
-            }
-            if (p.getSpaceBefore() != null) {
-                style.put("space_before", p.getSpaceBefore());
-            }
-            if (p.getSpaceAfter() != null) {
-                style.put("space_after", p.getSpaceAfter());
-            }
-
-            element.put("style", style);
-            elements.add(element);
         }
 
-        request.put("elements", elements);
-        return request;
+        throw new IllegalArgumentException("paragraph not found: " + paragraphId);
     }
 
-    // =========================
-    // 추가:
-    // fontPolicy 정규화
-    // =========================
     private String normalizeFontPolicy(String fontPolicy) {
         if (fontPolicy == null || fontPolicy.isBlank()) {
             return "original";
@@ -255,12 +187,6 @@ public class ComposeApplyRunnerService {
         return "original";
     }
 
-    // =========================
-    // 추가:
-    // 폰트 정책 적용
-    // original: 원본 폰트 그대로
-    // safe    : 안전 폰트로 치환
-    // =========================
     private String resolveFontFamilyByPolicy(String originalFontFamily, String fontPolicy) {
         if (!"safe".equals(fontPolicy)) {
             return originalFontFamily;
@@ -269,11 +195,6 @@ public class ComposeApplyRunnerService {
         return applySafeFallback(originalFontFamily);
     }
 
-    // =========================
-    // 추가:
-    // 안전 폰트 fallback 규칙
-    // - 필요하면 계속 확장 가능
-    // =========================
     private String applySafeFallback(String fontFamily) {
         if (fontFamily == null || fontFamily.isBlank()) {
             return "맑은 고딕";

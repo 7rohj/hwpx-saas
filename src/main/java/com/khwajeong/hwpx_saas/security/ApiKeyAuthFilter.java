@@ -59,6 +59,7 @@ public class ApiKeyAuthFilter extends OncePerRequestFilter {
       if (path.startsWith("/api/v1/compose/apply")) return true;
 
       if (path.startsWith("/api/v1/compose/ocr")) return true;
+      if (path.startsWith("/api/v1/compose/paragraphs")) return true;
 
       return false;
   }

@@ -8,16 +8,30 @@ import org.springframework.stereotype.Service;
 
 import java.util.ArrayList;
 import java.util.List;
-import java.util.Map;
-import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.CopyOnWriteArrayList;
 
 @Service
 public class ComposeSelectionService {
 
-    private final Map<String, List<ComposeSelection>> store = new ConcurrentHashMap<>();
+    // =========================
+    // 현재는 메모리 저장 방식
+    // 추후 DB로 바꿔도 메서드 시그니처는 유지 가능
+    // =========================
+    private final List<ComposeSelection> selections = new CopyOnWriteArrayList<>();
 
     public ComposeSelectionResponse save(ComposeSelectionRequest request) {
-        validate(request);
+        if (request == null) {
+            throw new IllegalArgumentException("request is null");
+        }
+        if (request.getSessionId() == null || request.getSessionId().isBlank()) {
+            throw new IllegalArgumentException("sessionId is required");
+        }
+        if (request.getSide() == null || request.getSide().isBlank()) {
+            throw new IllegalArgumentException("side is required");
+        }
+        if (request.getLabel() == null || request.getLabel().isBlank()) {
+            throw new IllegalArgumentException("label is required");
+        }
 
         ComposeSelection selection = new ComposeSelection();
         selection.setSessionId(request.getSessionId());
@@ -30,52 +44,46 @@ public class ComposeSelectionService {
         selection.setLabel(request.getLabel());
         selection.setOcrText(request.getOcrText());
 
-        store.computeIfAbsent(request.getSessionId(), k -> new ArrayList<>()).add(selection);
+        // =========================
+        // 추가:
+        // paragraphId 저장
+        // 이제 이 값이 apply의 핵심 기준
+        // =========================
+        selection.setParagraphId(request.getParagraphId());
+
+        selections.add(selection);
 
         return toResponse(selection);
     }
 
     public ComposeSelectionsResponse getBySessionId(String sessionId) {
-        List<ComposeSelection> selections = store.getOrDefault(sessionId, List.of());
+        if (sessionId == null || sessionId.isBlank()) {
+            throw new IllegalArgumentException("sessionId is required");
+        }
 
-        List<ComposeSelectionResponse> items = new ArrayList<>();
+        List<ComposeSelectionResponse> result = new ArrayList<>();
         for (ComposeSelection selection : selections) {
-            items.add(toResponse(selection));
+            if (sessionId.equals(selection.getSessionId())) {
+                result.add(toResponse(selection));
+            }
         }
 
         ComposeSelectionsResponse response = new ComposeSelectionsResponse();
         response.setSessionId(sessionId);
-        response.setSelections(items);
+        response.setSelections(result);
+
         return response;
     }
 
-    private void validate(ComposeSelectionRequest request) {
-        if (request == null) {
-            throw new IllegalArgumentException("request is null");
+    public ComposeSelection findFirstBySessionIdAndSideAndLabel(String sessionId, String side, String label) {
+        for (ComposeSelection selection : selections) {
+            if (equalsSafe(sessionId, selection.getSessionId())
+                    && equalsSafe(side, selection.getSide())
+                    && equalsSafe(label, selection.getLabel())) {
+                return selection;
+            }
         }
-        if (request.getSessionId() == null || request.getSessionId().isBlank()) {
-            throw new IllegalArgumentException("sessionId is required");
-        }
-        if (request.getSide() == null || request.getSide().isBlank()) {
-            throw new IllegalArgumentException("side is required");
-        }
-        if (!"template".equalsIgnoreCase(request.getSide()) &&
-            !"source".equalsIgnoreCase(request.getSide())) {
-            throw new IllegalArgumentException("side must be template or source");
-        }
-        if (request.getPage() == null || request.getPage() < 1) {
-            throw new IllegalArgumentException("page must be >= 1");
-        }
-        if (request.getX() == null || request.getY() == null ||
-            request.getWidth() == null || request.getHeight() == null) {
-            throw new IllegalArgumentException("x, y, width, height are required");
-        }
-        if (request.getWidth() <= 0 || request.getHeight() <= 0) {
-            throw new IllegalArgumentException("width and height must be > 0");
-        }
-        if (request.getLabel() == null || request.getLabel().isBlank()) {
-            throw new IllegalArgumentException("label is required");
-        }
+        return null;
     }
 
     private ComposeSelectionResponse toResponse(ComposeSelection selection) {
@@ -89,24 +97,20 @@ public class ComposeSelectionService {
         response.setHeight(selection.getHeight());
         response.setLabel(selection.getLabel());
         response.setOcrText(selection.getOcrText());
+
+        // =========================
+        // 추가:
+        // paragraphId 응답 포함
+        // =========================
+        response.setParagraphId(selection.getParagraphId());
+
         return response;
     }
 
-    public ComposeSelection findFirstBySessionIdAndSideAndLabel(
-            String sessionId,
-            String side,
-            String label
-    ) {
-        List<ComposeSelection> selections = store.getOrDefault(sessionId, List.of());
-
-        for (ComposeSelection selection : selections) {
-            if (sessionId.equals(selection.getSessionId())
-                    && side.equalsIgnoreCase(selection.getSide())
-                    && label.equalsIgnoreCase(selection.getLabel())) {
-                return selection;
-            }
+    private boolean equalsSafe(String a, String b) {
+        if (a == null) {
+            return b == null;
         }
-
-        return null;
+        return a.equals(b);
     }
 }

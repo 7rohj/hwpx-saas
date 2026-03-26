@@ -2,6 +2,7 @@ import { useEffect, useState } from "react"
 import DashboardLoadingPage from "./pages/DashboardLoadingPage"
 import Dashboard from "./pages/Dashboard"
 import StudioPage from "./pages/StudioPage"
+import ComposeStudioPage from "./pages/ComposeStudioPage"
 import LandingPage from "./pages/LandingPage"
 import ApiKeysPage from "./pages/ApiKeysPage"
 import UsageLogsPage from "./pages/UsageLogsPage"
@@ -17,6 +18,7 @@ export type PageType =
   | "landing"
   | "dashboard-loading"
   | "dashboard"
+  | "composeStudio"
   | "studio"
   | "apikeys"
   | "usage"
@@ -129,6 +131,15 @@ export default function App() {
   if (currentPage === "studio") {
     return (
       <StudioPage
+        onNavigate={setCurrentPage}
+        onLogout={handleLogout}
+      />
+    )
+  }
+
+  if (currentPage === "composeStudio") {
+    return (
+      <ComposeStudioPage
         onNavigate={setCurrentPage}
         onLogout={handleLogout}
       />

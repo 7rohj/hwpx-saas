@@ -20,6 +20,7 @@ import com.khwajeong.hwpx_saas.compose.dto.ComposeRunApplyResponse;
 import com.khwajeong.hwpx_saas.compose.service.ComposeApplyRunnerService;
 import com.khwajeong.hwpx_saas.compose.service.ImageCropService;
 import com.khwajeong.hwpx_saas.compose.service.OcrService;
+import com.khwajeong.hwpx_saas.compose.service.ComposeSessionService;
 
 import org.springframework.http.MediaType;
 
@@ -32,19 +33,22 @@ public class ComposeController {
     private final ComposeApplyRunnerService composeApplyRunnerService;
     private final ImageCropService imageCropService;
     private final OcrService ocrService;
+    private final ComposeSessionService composeSessionService;
 
     public ComposeController(
             ComposeService composeService,
             ComposeSelectionService composeSelectionService,
             ComposeApplyRunnerService composeApplyRunnerService,
             ImageCropService imageCropService,
-            OcrService ocrService
+            OcrService ocrService,
+            ComposeSessionService composeSessionService
     ) {
         this.composeService = composeService;
         this.composeSelectionService = composeSelectionService;
         this.composeApplyRunnerService = composeApplyRunnerService;
         this.imageCropService = imageCropService;
         this.ocrService = ocrService;
+        this.composeSessionService = composeSessionService;
     }
 
     @PostMapping("/heading1/apply")
@@ -122,5 +126,34 @@ public class ComposeController {
         return ResponseEntity.ok(Map.of(
             "text", text
         ));
+    }
+
+    @GetMapping("/paragraphs/{sessionId}")
+    public ResponseEntity<?> getParagraphs(
+            @PathVariable String sessionId,
+            @RequestParam String side,
+            @RequestParam int page
+    ) {
+        var session = composeSessionService.get(sessionId);
+
+        if (session == null) {
+            throw new IllegalArgumentException("session not found");
+        }
+
+        File file = side.equals("template")
+                ? session.getTemplatePath().toFile()
+                : session.getSourcePath().toFile();
+
+        var paragraphs = composeService.extractFromHwpx(file);
+
+        // 페이지 필터
+        /*
+        var result = paragraphs.stream()
+                .filter(p -> p.getPage() != null && p.getPage() == page)
+                .toList();
+                */
+        var result = paragraphs;
+
+        return ResponseEntity.ok(result);
     }
 }

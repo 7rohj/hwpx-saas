@@ -11,6 +11,8 @@ public class ComposeSelection {
     private String label;  // heading1 | heading2 | heading3 | table | figure | body
     private String ocrText;
 
+    private String paragraphId;
+
     public String getSessionId() {
         return sessionId;
     }
@@ -81,6 +83,18 @@ public class ComposeSelection {
 
     public void setOcrText(String ocrText) {
         this.ocrText = ocrText;
+    }
+
+    // =========================
+    // 추가:
+    // paragraphId getter / setter
+    // =========================
+    public String getParagraphId() {
+        return paragraphId;
+    }
+
+    public void setParagraphId(String paragraphId) {
+        this.paragraphId = paragraphId;
     }
 
 
