@@ -3,11 +3,16 @@ package com.khwajeong.hwpx_saas.compose.model;
 public class StyleProfile {
     private Integer fontSize;
     private Boolean bold;
+    private Boolean italic;      // 추가: 실제 스타일 적용용
+    private Boolean underline;   // 추가: 실제 스타일 적용용
     private String color;
     private String align;
     private Integer spaceBefore;
     private Integer spaceAfter;
     private Integer lineSpacing;
+
+    // 추가: 실제 글꼴명 적용용
+    private String fontFamily;
 
     public Integer getFontSize() {
         return fontSize;
@@ -23,6 +28,22 @@ public class StyleProfile {
 
     public void setBold(Boolean bold) {
         this.bold = bold;
+    }
+
+    public Boolean getItalic() {
+        return italic;
+    }
+
+    public void setItalic(Boolean italic) {
+        this.italic = italic;
+    }
+
+    public Boolean getUnderline() {
+        return underline;
+    }
+
+    public void setUnderline(Boolean underline) {
+        this.underline = underline;
     }
 
     public String getColor() {
@@ -63,5 +84,13 @@ public class StyleProfile {
 
     public void setLineSpacing(Integer lineSpacing) {
         this.lineSpacing = lineSpacing;
+    }
+
+    public String getFontFamily() {
+        return fontFamily;
+    }
+
+    public void setFontFamily(String fontFamily) {
+        this.fontFamily = fontFamily;
     }
 }

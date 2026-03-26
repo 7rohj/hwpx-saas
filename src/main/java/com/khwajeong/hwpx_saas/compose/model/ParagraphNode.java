@@ -6,12 +6,17 @@ public class ParagraphNode {
     private String text;
     private Integer fontSize;
     private Boolean bold;
+    private Boolean italic;      // 추가: apply 결과 보존용
+    private Boolean underline;   // 추가: apply 결과 보존용
     private String color;
     private String align;
     private Integer spaceBefore;
     private Integer spaceAfter;
     private Integer lineSpacing;
     private Boolean singleLine;
+
+    // 추가: apply 결과 보존용
+    private String fontFamily;
 
     public String getParagraphId() {
         return paragraphId;
@@ -51,6 +56,22 @@ public class ParagraphNode {
 
     public void setBold(Boolean bold) {
         this.bold = bold;
+    }
+
+    public Boolean getItalic() {
+        return italic;
+    }
+
+    public void setItalic(Boolean italic) {
+        this.italic = italic;
+    }
+
+    public Boolean getUnderline() {
+        return underline;
+    }
+
+    public void setUnderline(Boolean underline) {
+        this.underline = underline;
     }
 
     public String getColor() {
@@ -99,5 +120,13 @@ public class ParagraphNode {
 
     public void setSingleLine(Boolean singleLine) {
         this.singleLine = singleLine;
+    }
+
+    public String getFontFamily() {
+        return fontFamily;
+    }
+
+    public void setFontFamily(String fontFamily) {
+        this.fontFamily = fontFamily;
     }
 }

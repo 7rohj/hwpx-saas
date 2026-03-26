@@ -2,17 +2,16 @@ package com.khwajeong.hwpx_saas.compose.service;
 
 import com.khwajeong.hwpx_saas.compose.dto.ComposeApplyRequest;
 import com.khwajeong.hwpx_saas.compose.dto.ComposeApplyResponse;
+import com.khwajeong.hwpx_saas.compose.dto.ComposePreviewResponse;
 import com.khwajeong.hwpx_saas.compose.dto.ParagraphNodeDto;
 import com.khwajeong.hwpx_saas.compose.dto.StyleProfileDto;
 import com.khwajeong.hwpx_saas.compose.model.ParagraphNode;
 import com.khwajeong.hwpx_saas.compose.model.StyleProfile;
 import org.springframework.stereotype.Service;
-
-import com.khwajeong.hwpx_saas.compose.dto.ComposePreviewResponse;
 import org.springframework.web.multipart.MultipartFile;
-import java.nio.file.Path;
 
 import java.io.File;
+import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.List;
 
@@ -23,17 +22,20 @@ public class ComposeService {
     private final HwpxParagraphExtractor extractor;
     private final ComposeFileStorageService composeFileStorageService;
     private final ComposeSessionService composeSessionService;
+    private final HwpxStyleExtractor hwpxStyleExtractor;
 
     public ComposeService(
             Heading1Classifier heading1Classifier,
             ComposeFileStorageService composeFileStorageService,
             ComposeSessionService composeSessionService,
-            HwpxParagraphExtractor extractor
+            HwpxParagraphExtractor extractor,
+            HwpxStyleExtractor hwpxStyleExtractor
     ) {
         this.heading1Classifier = heading1Classifier;
         this.composeFileStorageService = composeFileStorageService;
         this.composeSessionService = composeSessionService;
         this.extractor = extractor;
+        this.hwpxStyleExtractor = hwpxStyleExtractor;
     }
 
     public ComposeApplyResponse applyHeading1Style(ComposeApplyRequest request) {
@@ -77,22 +79,28 @@ public class ComposeService {
     private void applyStyle(ParagraphNode node, StyleProfile style) {
         node.setFontSize(style.getFontSize());
         node.setBold(style.getBold());
+        node.setItalic(style.getItalic());         // 추가: italic 적용
+        node.setUnderline(style.getUnderline());   // 추가: underline 적용
         node.setColor(style.getColor());
         node.setAlign(style.getAlign());
         node.setSpaceBefore(style.getSpaceBefore());
         node.setSpaceAfter(style.getSpaceAfter());
         node.setLineSpacing(style.getLineSpacing());
+        node.setFontFamily(style.getFontFamily()); // 추가: fontFamily 적용
     }
 
     private StyleProfile toStyleProfile(StyleProfileDto dto) {
         StyleProfile style = new StyleProfile();
         style.setFontSize(dto.getFontSize());
         style.setBold(dto.getBold());
+        style.setItalic(dto.getItalic());           // 추가
+        style.setUnderline(dto.getUnderline());     // 추가
         style.setColor(dto.getColor());
         style.setAlign(dto.getAlign());
         style.setSpaceBefore(dto.getSpaceBefore());
         style.setSpaceAfter(dto.getSpaceAfter());
         style.setLineSpacing(dto.getLineSpacing());
+        style.setFontFamily(dto.getFontFamily());   // 추가
         return style;
     }
 
@@ -103,12 +111,15 @@ public class ComposeService {
         node.setText(dto.getText());
         node.setFontSize(dto.getFontSize());
         node.setBold(dto.getBold());
+        node.setItalic(dto.getItalic());            // 추가
+        node.setUnderline(dto.getUnderline());      // 추가
         node.setColor(dto.getColor());
         node.setAlign(dto.getAlign());
         node.setSpaceBefore(dto.getSpaceBefore());
         node.setSpaceAfter(dto.getSpaceAfter());
         node.setLineSpacing(dto.getLineSpacing());
         node.setSingleLine(dto.getSingleLine());
+        node.setFontFamily(dto.getFontFamily());    // 추가
         return node;
     }
 
@@ -119,12 +130,15 @@ public class ComposeService {
         dto.setText(node.getText());
         dto.setFontSize(node.getFontSize());
         dto.setBold(node.getBold());
+        dto.setItalic(node.getItalic());            // 추가
+        dto.setUnderline(node.getUnderline());      // 추가
         dto.setColor(node.getColor());
         dto.setAlign(node.getAlign());
         dto.setSpaceBefore(node.getSpaceBefore());
         dto.setSpaceAfter(node.getSpaceAfter());
         dto.setLineSpacing(node.getLineSpacing());
         dto.setSingleLine(node.getSingleLine());
+        dto.setFontFamily(node.getFontFamily());    // 추가
         return dto;
     }
 
@@ -139,13 +153,26 @@ public class ComposeService {
             dto.setText(sp.getText());
             dto.setSingleLine(sp.isSingleLine());
 
-            // 기본값 (나중에 스타일 읽기 추가)
-            dto.setFontSize(12);
-            dto.setBold(false);
-            dto.setAlign("left");
-            dto.setSpaceBefore(0);
-            dto.setSpaceAfter(0);
-            dto.setLineSpacing(160);
+            dto.setParaPrIdRef(sp.getParaPrIdRef());
+            dto.setCharPrIdRef(sp.getCharPrIdRef());
+
+            // 수정: 실제 스타일값 읽기
+            StyleProfileDto style = hwpxStyleExtractor.extractStyle(
+                    new HwpxStyleExtractor.FileWrapper(file),
+                    sp.getParaPrIdRef(),
+                    sp.getCharPrIdRef()
+            );
+
+            dto.setFontSize(style.getFontSize());
+            dto.setBold(style.getBold());
+            dto.setItalic(style.getItalic());
+            dto.setUnderline(style.getUnderline());
+            dto.setColor(style.getColor());
+            dto.setAlign(style.getAlign());
+            dto.setSpaceBefore(style.getSpaceBefore());
+            dto.setSpaceAfter(style.getSpaceAfter());
+            dto.setLineSpacing(style.getLineSpacing());
+            dto.setFontFamily(style.getFontFamily());   // 추가: 실제 fontFamily 반영
 
             result.add(dto);
         }
@@ -161,8 +188,6 @@ public class ComposeService {
         Path sourcePath = composeFileStorageService.save(sourceFile, "source");
 
         String sessionId = composeSessionService.createSessionId();
-
-        // ⭐ 핵심: 세션에 파일 경로 저장
         composeSessionService.create(sessionId, templatePath, sourcePath);
 
         ComposePreviewResponse response = new ComposePreviewResponse();
