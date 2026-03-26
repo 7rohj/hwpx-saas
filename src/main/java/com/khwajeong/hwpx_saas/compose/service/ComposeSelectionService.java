@@ -28,6 +28,7 @@ public class ComposeSelectionService {
         selection.setWidth(request.getWidth());
         selection.setHeight(request.getHeight());
         selection.setLabel(request.getLabel());
+        selection.setOcrText(request.getOcrText());
 
         store.computeIfAbsent(request.getSessionId(), k -> new ArrayList<>()).add(selection);
 
@@ -87,6 +88,25 @@ public class ComposeSelectionService {
         response.setWidth(selection.getWidth());
         response.setHeight(selection.getHeight());
         response.setLabel(selection.getLabel());
+        response.setOcrText(selection.getOcrText());
         return response;
+    }
+
+    public ComposeSelection findFirstBySessionIdAndSideAndLabel(
+            String sessionId,
+            String side,
+            String label
+    ) {
+        List<ComposeSelection> selections = store.getOrDefault(sessionId, List.of());
+
+        for (ComposeSelection selection : selections) {
+            if (sessionId.equals(selection.getSessionId())
+                    && side.equalsIgnoreCase(selection.getSide())
+                    && label.equalsIgnoreCase(selection.getLabel())) {
+                return selection;
+            }
+        }
+
+        return null;
     }
 }

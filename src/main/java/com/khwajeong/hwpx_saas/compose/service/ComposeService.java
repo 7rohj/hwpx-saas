@@ -160,8 +160,13 @@ public class ComposeService {
         Path templatePath = composeFileStorageService.save(templateFile, "template");
         Path sourcePath = composeFileStorageService.save(sourceFile, "source");
 
+        String sessionId = composeSessionService.createSessionId();
+
+        // ⭐ 핵심: 세션에 파일 경로 저장
+        composeSessionService.create(sessionId, templatePath, sourcePath);
+
         ComposePreviewResponse response = new ComposePreviewResponse();
-        response.setSessionId(composeSessionService.createSessionId());
+        response.setSessionId(sessionId);
         response.setTemplateOriginalFilename(templateFile.getOriginalFilename());
         response.setSourceOriginalFilename(sourceFile.getOriginalFilename());
         response.setTemplateSavedPath(templatePath.toString());

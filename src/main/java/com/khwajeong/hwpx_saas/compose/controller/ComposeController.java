@@ -7,12 +7,20 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.multipart.MultipartFile;
 import java.io.File;
+import java.util.Map;
 
 import com.khwajeong.hwpx_saas.compose.dto.ComposePreviewResponse;
 import com.khwajeong.hwpx_saas.compose.dto.ComposeSelectionRequest;
 import com.khwajeong.hwpx_saas.compose.dto.ComposeSelectionResponse;
 import com.khwajeong.hwpx_saas.compose.dto.ComposeSelectionsResponse;
 import com.khwajeong.hwpx_saas.compose.service.ComposeSelectionService;
+
+import com.khwajeong.hwpx_saas.compose.dto.ComposeRunApplyRequest;
+import com.khwajeong.hwpx_saas.compose.dto.ComposeRunApplyResponse;
+import com.khwajeong.hwpx_saas.compose.service.ComposeApplyRunnerService;
+import com.khwajeong.hwpx_saas.compose.service.ImageCropService;
+import com.khwajeong.hwpx_saas.compose.service.OcrService;
+
 import org.springframework.http.MediaType;
 
 @RestController
@@ -21,13 +29,22 @@ public class ComposeController {
 
     private final ComposeService composeService;
     private final ComposeSelectionService composeSelectionService;
+    private final ComposeApplyRunnerService composeApplyRunnerService;
+    private final ImageCropService imageCropService;
+    private final OcrService ocrService;
 
     public ComposeController(
             ComposeService composeService,
-            ComposeSelectionService composeSelectionService
+            ComposeSelectionService composeSelectionService,
+            ComposeApplyRunnerService composeApplyRunnerService,
+            ImageCropService imageCropService,
+            OcrService ocrService
     ) {
         this.composeService = composeService;
         this.composeSelectionService = composeSelectionService;
+        this.composeApplyRunnerService = composeApplyRunnerService;
+        this.imageCropService = imageCropService;
+        this.ocrService = ocrService;
     }
 
     @PostMapping("/heading1/apply")
@@ -76,5 +93,34 @@ public class ComposeController {
     ) {
         ComposeSelectionsResponse response = composeSelectionService.getBySessionId(sessionId);
         return ResponseEntity.ok(response);
+    }
+
+    @PostMapping("/apply")
+    public ResponseEntity<ComposeRunApplyResponse> apply(
+            @RequestBody ComposeRunApplyRequest request
+    ) {
+        ComposeRunApplyResponse response = composeApplyRunnerService.run(request);
+        return ResponseEntity.ok(response);
+    }
+
+    @PostMapping("/ocr")
+    public ResponseEntity<?> ocr(@RequestBody Map<String, Object> req) {
+
+        String imagePath = (String) req.get("imagePath");
+
+        int x = (int) req.get("x");
+        int y = (int) req.get("y");
+        int w = (int) req.get("width");
+        int h = (int) req.get("height");
+
+        File image = new File(imagePath);
+
+        File cropped = imageCropService.crop(image, x, y, w, h);
+
+        String text = ocrService.read(cropped);
+
+        return ResponseEntity.ok(Map.of(
+            "text", text
+        ));
     }
 }

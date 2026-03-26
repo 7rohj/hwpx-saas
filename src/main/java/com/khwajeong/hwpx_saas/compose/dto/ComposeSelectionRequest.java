@@ -9,6 +9,7 @@ public class ComposeSelectionRequest {
     private Double width;
     private Double height;
     private String label;
+    private String ocrText;
 
     public String getSessionId() {
         return sessionId;
@@ -72,5 +73,13 @@ public class ComposeSelectionRequest {
 
     public void setLabel(String label) {
         this.label = label;
+    }
+
+    public String getOcrText() {
+        return ocrText;
+    }
+
+    public void setOcrText(String ocrText) {
+        this.ocrText = ocrText;
     }
 }
