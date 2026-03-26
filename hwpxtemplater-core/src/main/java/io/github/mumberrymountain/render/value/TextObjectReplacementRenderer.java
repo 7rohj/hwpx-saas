@@ -85,11 +85,11 @@ public class TextObjectReplacementRenderer implements ValueReplacementRenderer {
         String preferredCharBaseId = value.getBaseCharPrId();
             if (preferredCharBaseId != null && !preferredCharBaseId.isBlank()) {
                 linkedRunItem.parent().data().charPrIDRef(preferredCharBaseId);
+            } else { // 260326
+                linkedRunItem.parent().data().charPrIDRef(
+                    rootRenderer.styleRenderer().renderCharStyleAndReturnCharPrId(value)
+                );
             }
-
-            linkedRunItem.parent().data().charPrIDRef(
-                rootRenderer.styleRenderer().renderCharStyleAndReturnCharPrId(value)
-            );
 
             io.github.mumberrymountain.model.table.Align alignEnum =
                     io.github.mumberrymountain.model.table.Align.Left;

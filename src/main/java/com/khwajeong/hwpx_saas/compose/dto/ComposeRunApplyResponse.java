@@ -10,6 +10,9 @@ public class ComposeRunApplyResponse {
     private List<String> matchedParagraphIds;
     private List<ParagraphNodeDto> styledParagraphs;
 
+    // 추가: 생성된 결과 hwpx 파일 경로
+    private String outputPath;
+
     public String getSessionId() {
         return sessionId;
     }
@@ -56,5 +59,13 @@ public class ComposeRunApplyResponse {
 
     public void setStyledParagraphs(List<ParagraphNodeDto> styledParagraphs) {
         this.styledParagraphs = styledParagraphs;
+    }
+
+    public String getOutputPath() {
+        return outputPath;
+    }
+
+    public void setOutputPath(String outputPath) {
+        this.outputPath = outputPath;
     }
 }
