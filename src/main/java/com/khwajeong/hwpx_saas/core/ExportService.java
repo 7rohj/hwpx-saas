@@ -57,15 +57,23 @@ public class ExportService {
       System.out.println("[WHICH] Table model = " +
           io.github.mumberrymountain.model.table.Table.class.getProtectionDomain().getCodeSource().getLocation());
 
-      ByteArrayOutputStream baos = new ByteArrayOutputStream();
-      HWPXTemplater.builder()
-          .config("delim.start", "{{")
-          .config("delim.end", "}}")
-          .parse(tmp.toString())
-          .render(renderData)
-          .write(baos);
+      try {
+        ByteArrayOutputStream baos = new ByteArrayOutputStream();
+        HWPXTemplater.builder()
+            .config("delim.start", "{{")
+            .config("delim.end", "}}")
+            .parse(tmp.toString())
+            .render(renderData)
+            .write(baos);
 
-      return baos.toByteArray();
+        return baos.toByteArray();
+
+      } catch (Exception e) {
+        System.out.println("=== [EXPORT ERROR] renderHwpx(byte[]) 실패 ===");
+        e.printStackTrace();
+        throw e;
+      }
+
     } finally {
       Files.deleteIfExists(tmp);
     }
@@ -94,16 +102,24 @@ public class ExportService {
 
       System.out.println("[WHICH] Table model = " +
           io.github.mumberrymountain.model.table.Table.class.getProtectionDomain().getCodeSource().getLocation());
-        
-      ByteArrayOutputStream baos = new ByteArrayOutputStream();
-      HWPXTemplater.builder()
-          .config("delim.start", "{{")
-          .config("delim.end", "}}")
-          .parse(tmp.toString())
-          .render(renderData)
-          .write(baos);
 
-      return baos.toByteArray();
+      try {
+        ByteArrayOutputStream baos = new ByteArrayOutputStream();
+        HWPXTemplater.builder()
+            .config("delim.start", "{{")
+            .config("delim.end", "}}")
+            .parse(tmp.toString())
+            .render(renderData)
+            .write(baos);
+
+        return baos.toByteArray();
+
+      } catch (Exception e) {
+        System.out.println("=== [EXPORT ERROR] renderHwpx(MultipartFile) 실패 ===");
+        e.printStackTrace();
+        throw e;
+      }
+
     } finally {
       Files.deleteIfExists(tmp);
     }

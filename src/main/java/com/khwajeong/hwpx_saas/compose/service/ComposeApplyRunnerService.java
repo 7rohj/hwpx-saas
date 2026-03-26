@@ -142,6 +142,8 @@ public class ComposeApplyRunnerService {
             Path outputPath = Files.createTempFile("compose-output-", ".hwpx");
             Files.write(outputPath, resultBytes);
 
+            String fileId = outputPath.getFileName().toString();
+
             ComposeRunApplyResponse response = new ComposeRunApplyResponse();
             response.setSessionId(request.getSessionId());
             response.setLabel(request.getLabel());
@@ -165,10 +167,16 @@ public class ComposeApplyRunnerService {
             response.setStyledParagraphs(applyResponse.getStyledParagraphs());
             response.setOutputPath(outputPath.toString());
 
+            // 추가
+            response.setFileId(fileId);
+            response.setDownloadUrl("/api/v1/compose/files/" + fileId);
+
             return response;
 
         } catch (Exception e) {
-            throw new RuntimeException("compose apply/export failed", e);
+            System.out.println("=== [COMPOSE APPLY ERROR] ===");
+            e.printStackTrace();
+            throw new RuntimeException("compose apply/export failed: " + e.getMessage(), e);
         }
     }
 
