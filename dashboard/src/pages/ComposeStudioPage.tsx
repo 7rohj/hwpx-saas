@@ -1,6 +1,9 @@
 import type { PageType } from "../App"
+import type { OverlayBox } from "../components/ComposePageOverlay"
 import TopNav from "../components/TopNav"
-import ComposePageOverlay, { type OverlayBox } from "../components/ComposePageOverlay"
+import ComposePageCanvasPreview from "../components/ComposePageCanvasPreview"
+import ComposePageImageStage from "../components/ComposePageImageStage"
+import ComposePageParagraphLayer from "../components/ComposePageParagraphLayer"
 import { useEffect, useMemo, useState } from "react"
 import {
   FileUp,
@@ -41,6 +44,10 @@ type ParagraphItem = {
   paraPrIdRef?: string | null
   charPrIdRef?: string | null
   fontFamily?: string | null
+  x?: number | null
+  y?: number | null
+  width?: number | null
+  height?: number | null
 }
 
 const API_BASE_URL = import.meta.env.VITE_API_BASE_URL ?? "http://localhost:8080"
@@ -60,6 +67,33 @@ function fakePageCount(paragraphs: ParagraphItem[]) {
 
   if (pages.length === 0) return 1
   return Math.max(...pages)
+}
+
+function createAutoBox(index: number, paragraphId: string, label: string): OverlayBox {
+  const row = index % 8
+  const col = Math.floor(index / 8)
+
+  const baseX = 36 + col * 260
+  const baseY = 40 + row * 58
+
+  return {
+    id: `${paragraphId}-box`,
+    x: baseX,
+    y: baseY,
+    width: 220,
+    height: 42,
+    label,
+    paragraphId,
+  }
+}
+
+function findBoxByParagraphId(boxes: OverlayBox[], paragraphId: string) {
+  return boxes.find((box) => box.paragraphId === paragraphId) ?? null
+}
+
+function findParagraphById(paragraphs: ParagraphItem[], paragraphId?: string) {
+  if (!paragraphId) return null
+  return paragraphs.find((p) => p.paragraphId === paragraphId) ?? null
 }
 
 export default function ComposeStudioPage({
@@ -95,6 +129,10 @@ export default function ComposeStudioPage({
   const [sourceBoxes, setSourceBoxes] = useState<OverlayBox[]>([])
   const [selectedBoxId, setSelectedBoxId] = useState<string | null>(null)
 
+  const [templatePageImageUrl, setTemplatePageImageUrl] = useState<string | null>(null)
+  const [sourcePageImageUrl, setSourcePageImageUrl] = useState<string | null>(null)
+
+  const currentPageImageUrl = activeSide === "template" ? templatePageImageUrl : sourcePageImageUrl
   const currentParagraphs = activeSide === "template" ? templateParagraphs : sourceParagraphs
   const currentSelectedId =
     activeSide === "template" ? selectedTemplateParagraphId : selectedSourceParagraphId
@@ -114,6 +152,24 @@ export default function ComposeStudioPage({
     setCurrentPage(1)
     setSelectedBoxId(null)
   }, [activeSide])
+
+  useEffect(() => {
+  if (!selectedBoxId) return
+
+  if (activeSide === "template") {
+    setTemplateBoxes((prev) =>
+      prev.map((box) =>
+        box.id === selectedBoxId ? { ...box, label: templateRole } : box
+      )
+    )
+  } else {
+    setSourceBoxes((prev) =>
+      prev.map((box) =>
+        box.id === selectedBoxId ? { ...box, label: sourceRole } : box
+      )
+    )
+  }
+}, [templateRole, sourceRole, activeSide, selectedBoxId])
 
   async function handlePreviewUpload() {
     if (!templateFile || !sourceFile) {
@@ -183,6 +239,11 @@ export default function ComposeStudioPage({
       // 박스 임시 초기화
       setTemplateBoxes([])
       setSourceBoxes([])
+
+      await Promise.all([
+        loadPageImage(previewData.sessionId, "template", 1),
+        loadPageImage(previewData.sessionId, "source", 1),
+      ])
     } catch (err) {
       console.error(err)
       setError(err instanceof Error ? err.message : "업로드 중 오류가 발생했습니다.")
@@ -242,6 +303,33 @@ export default function ComposeStudioPage({
     }
   }
 
+  // 260327 추가
+  async function loadPageImage(targetSessionId: string, side: "template" | "source", page: number) {
+    const apiKey = localStorage.getItem("apiKey") ?? ""
+
+    const res = await fetch(
+        `${API_BASE_URL}/api/v1/compose/page-image/${targetSessionId}?side=${side}&page=${page}`,
+        {
+        headers: {
+            "X-API-Key": apiKey,
+        },
+        }
+    )
+
+    if (!res.ok) {
+        throw new Error(`${side} page image 조회 실패`)
+    }
+
+    const blob = await res.blob()
+    const url = URL.createObjectURL(blob)
+
+    if (side === "template") {
+        setTemplatePageImageUrl(url)
+    } else {
+        setSourcePageImageUrl(url)
+    }
+    }
+
   async function handleApply() {
     if (!sessionId) {
       alert("먼저 preview 업로드를 해주세요.")
@@ -286,19 +374,19 @@ export default function ComposeStudioPage({
 
   function createOverlayBox(box: Omit<OverlayBox, "id">) {
     const newBox: OverlayBox = {
-      id: `${activeSide}-box-${Date.now()}`,
-      ...box,
-      label: currentRole,
+        id: `${activeSide}-box-${Date.now()}`,
+        ...box,
+        label: currentRole,
     }
 
     if (activeSide === "template") {
-      setTemplateBoxes((prev) => [...prev, newBox])
+        setTemplateBoxes((prev) => [...prev, newBox])
     } else {
-      setSourceBoxes((prev) => [...prev, newBox])
+        setSourceBoxes((prev) => [...prev, newBox])
     }
 
     setSelectedBoxId(newBox.id)
-  }
+    }
 
   return (
     <>
@@ -436,11 +524,58 @@ export default function ComposeStudioPage({
                 드래그해서 임시 박스를 만들어 UX를 먼저 확인할 수 있어요
               </div>
 
-              <ComposePageOverlay
+              <ComposePageParagraphLayer
+                paragraphs={visibleParagraphs}
+                selectedParagraphId={currentSelectedId || null}
                 boxes={currentBoxes}
                 selectedBoxId={selectedBoxId}
-                onSelectBox={setSelectedBoxId}
-                onCreateBox={createOverlayBox}
+                onSelectParagraph={(paragraphId) => {
+                  const existingBox = currentBoxes.find((box) => box.paragraphId === paragraphId)
+
+                  if (activeSide === "template") {
+                    setSelectedTemplateParagraphId(paragraphId)
+                  } else {
+                    setSelectedSourceParagraphId(paragraphId)
+                  }
+
+                  if (existingBox) {
+                    setSelectedBoxId(existingBox.id)
+                    return
+                  }
+
+                  const paragraph = visibleParagraphs.find((p) => p.paragraphId === paragraphId)
+                  if (!paragraph) return
+
+                  const autoBox = {
+                    id: `${paragraphId}-box`,
+                    x: paragraph.x ?? 40,
+                    y: paragraph.y ?? 40,
+                    width: paragraph.width ?? 420,
+                    height: paragraph.height ?? 34,
+                    label: currentRole,
+                    paragraphId,
+                  }
+
+                  if (activeSide === "template") {
+                    setTemplateBoxes((prev) => [...prev, autoBox])
+                  } else {
+                    setSourceBoxes((prev) => [...prev, autoBox])
+                  }
+
+                  setSelectedBoxId(autoBox.id)
+                }}
+                onSelectBox={(boxId) => {
+                  setSelectedBoxId(boxId)
+
+                  const clickedBox = currentBoxes.find((box) => box.id === boxId)
+                  if (!clickedBox?.paragraphId) return
+
+                  if (activeSide === "template") {
+                    setSelectedTemplateParagraphId(clickedBox.paragraphId)
+                  } else {
+                    setSelectedSourceParagraphId(clickedBox.paragraphId)
+                  }
+                }}
               />
             </div>
 
@@ -483,10 +618,39 @@ export default function ComposeStudioPage({
                       <button
                         key={p.paragraphId}
                         type="button"
+                        
                         onClick={() => {
-                          if (activeSide === "template") setSelectedTemplateParagraphId(p.paragraphId)
-                          else setSelectedSourceParagraphId(p.paragraphId)
-                        }}
+                            const currentBoxesForSide = activeSide === "template" ? templateBoxes : sourceBoxes
+                            const existingBox = findBoxByParagraphId(currentBoxesForSide, p.paragraphId)
+
+                            if (activeSide === "template") {
+                                setSelectedTemplateParagraphId(p.paragraphId)
+                            } else {
+                                setSelectedSourceParagraphId(p.paragraphId)
+                            }
+
+                            // 이미 박스가 있으면 그 박스를 선택만 함
+                            if (existingBox) {
+                                setSelectedBoxId(existingBox.id)
+                                return
+                            }
+
+                            // 없으면 문단 클릭 시 자동 박스 생성
+                            const paragraphIndex = visibleParagraphs.findIndex(
+                                (item) => item.paragraphId === p.paragraphId
+                            )
+
+                            const autoBox = createAutoBox(paragraphIndex, p.paragraphId, currentRole)
+
+                            if (activeSide === "template") {
+                                setTemplateBoxes((prev) => [...prev, autoBox])
+                            } else {
+                                setSourceBoxes((prev) => [...prev, autoBox])
+                            }
+
+                            setSelectedBoxId(autoBox.id)
+                            }}
+
                         className={`w-full rounded-[22px] border p-4 text-left transition ${
                           selected
                             ? "border-[#1f69ef] bg-[#eef4ff] shadow-[0_12px_30px_rgba(31,105,239,0.10)]"
@@ -525,6 +689,22 @@ export default function ComposeStudioPage({
                   {savedMessage}
                 </div>
               ) : null}
+
+            <div className="mt-4 rounded-2xl border border-[#e5ecff] bg-[#fafcff] px-4 py-3 text-sm text-[#4b5875]">
+                <div>
+                    현재 side: <span className="font-semibold">{activeSide}</span>
+                </div>
+                <div>
+                    현재 role: <span className="font-semibold">{currentRole}</span>
+                </div>
+                <div>
+                    현재 paragraph: <span className="font-semibold">{currentSelectedId || "-"}</span>
+                </div>
+                <div>
+                    현재 overlay box: <span className="font-semibold">{selectedBoxId || "-"}</span>
+                </div>
+            </div>
+
             </div>
           </section>
 

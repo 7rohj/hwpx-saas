@@ -174,6 +174,57 @@ public class ComposeService {
             dto.setLineSpacing(style.getLineSpacing());
             dto.setFontFamily(style.getFontFamily());   // 추가: 실제 fontFamily 반영
 
+            // 추가:
+            // 임시 좌표 생성 로직
+            // 지금은 paragraph 순서 기반으로 페이지에 세로 배치
+            // 추가: 스타일 기반 레이아웃 계산
+            int index = result.size();
+
+            int baseLeft = 56;
+            int baseWidth = 420;
+
+            // 기본값
+            int fontSize = dto.getFontSize() != null ? dto.getFontSize() : 12;
+            boolean bold = Boolean.TRUE.equals(dto.getBold());
+
+            // 제목 판단 (간단 rule)
+            boolean isHeading = fontSize >= 14 || bold;
+
+            // 줄 높이 계산
+            int lineHeight = (int) (fontSize * 1.6);
+
+            // 문단 간 간격
+            int spacingBefore = isHeading ? 18 : 6;
+            int spacingAfter = isHeading ? 10 : 4;
+
+            // 누적 y 계산
+            int prevBottom = 0;
+            if (!result.isEmpty()) {
+                var prev = result.get(result.size() - 1);
+                prevBottom = (int)((prev.getY() != null ? prev.getY() : 0)
+                    + (prev.getHeight() != null ? prev.getHeight() : 34));
+            }
+
+            // 현재 y 위치
+            int top = prevBottom + spacingBefore;
+
+            // 페이지 넘김 처리
+            int pageHeightLimit = 680;
+            int currentPage = (top / pageHeightLimit) + 1;
+            int normalizedTop = top % pageHeightLimit;
+
+            // height 계산 (멀티라인 고려)
+            int textLength = dto.getText() != null ? dto.getText().length() : 0;
+            int estimatedLines = Math.max(1, textLength / 20);
+            int height = estimatedLines * lineHeight + spacingAfter;
+
+            // 적용
+            dto.setPage(currentPage);
+            dto.setX((double) baseLeft);
+            dto.setY((double) normalizedTop);
+            dto.setWidth((double) baseWidth);
+            dto.setHeight((double) height);
+
             result.add(dto);
         }
 

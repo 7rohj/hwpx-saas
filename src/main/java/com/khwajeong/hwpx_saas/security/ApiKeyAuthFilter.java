@@ -50,16 +50,16 @@ public class ApiKeyAuthFilter extends OncePerRequestFilter {
 
       if (path.startsWith("/api/v1/compose/debug")) return true;
       if (path.startsWith("/api/v1/compose/render")) return true;
-
       if (path.startsWith("/api/v1/compose/heading1/apply")) return true;
       if (path.startsWith("/api/v1/compose/extract")) return true;
       if (path.startsWith("/api/v1/compose/preview")) return true;
       if (path.startsWith("/api/v1/compose/selections")) return true;
       if (path.startsWith("/api/v1/compose/selections/{sessionId}")) return true;
       if (path.startsWith("/api/v1/compose/apply")) return true;
-
       if (path.startsWith("/api/v1/compose/ocr")) return true;
       if (path.startsWith("/api/v1/compose/paragraphs")) return true;
+
+      if (path.startsWith("/api/v1/compose/page-image")) return true;
 
       return false;
   }

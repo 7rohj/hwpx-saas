@@ -7,6 +7,10 @@ export type OverlayBox = {
   width: number
   height: number
   label?: string
+
+  // 추가:
+  // 어떤 paragraph와 연결된 박스인지 저장
+  paragraphId?: string
 }
 
 type ComposePageOverlayProps = {
@@ -78,6 +82,7 @@ export default function ComposePageOverlay({
         width: draftBox.width,
         height: draftBox.height,
         label: "",
+        paragraphId: undefined,
       })
     }
 
@@ -126,7 +131,9 @@ export default function ComposePageOverlay({
             }}
           >
             <span className="absolute -top-7 left-0 rounded-md bg-white px-2 py-1 text-[11px] font-semibold text-slate-700 shadow">
-              {box.label?.trim() ? box.label : box.id}
+              {box.label?.trim()
+                ? `${box.label}${box.paragraphId ? ` · ${box.paragraphId}` : ""}`
+                : box.paragraphId ?? box.id}
             </span>
           </button>
         )

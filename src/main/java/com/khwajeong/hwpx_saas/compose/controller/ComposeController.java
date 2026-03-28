@@ -8,6 +8,8 @@ import org.springframework.web.bind.annotation.*;
 import org.springframework.web.multipart.MultipartFile;
 import java.io.File;
 import java.util.Map;
+import java.nio.file.Path;
+import java.nio.file.Files;
 
 import com.khwajeong.hwpx_saas.compose.dto.ComposePreviewResponse;
 import com.khwajeong.hwpx_saas.compose.dto.ComposeSelectionRequest;
@@ -21,8 +23,10 @@ import com.khwajeong.hwpx_saas.compose.service.ComposeApplyRunnerService;
 import com.khwajeong.hwpx_saas.compose.service.ImageCropService;
 import com.khwajeong.hwpx_saas.compose.service.OcrService;
 import com.khwajeong.hwpx_saas.compose.service.ComposeSessionService;
+import com.khwajeong.hwpx_saas.compose.service.ComposePageRenderService;
 
 import org.springframework.http.MediaType;
+import org.springframework.http.HttpHeaders;
 
 @RestController
 @RequestMapping("/api/v1/compose")
@@ -34,6 +38,7 @@ public class ComposeController {
     private final ImageCropService imageCropService;
     private final OcrService ocrService;
     private final ComposeSessionService composeSessionService;
+    private final ComposePageRenderService composePageRenderService;
 
     public ComposeController(
             ComposeService composeService,
@@ -41,7 +46,8 @@ public class ComposeController {
             ComposeApplyRunnerService composeApplyRunnerService,
             ImageCropService imageCropService,
             OcrService ocrService,
-            ComposeSessionService composeSessionService
+            ComposeSessionService composeSessionService,
+            ComposePageRenderService composePageRenderService
     ) {
         this.composeService = composeService;
         this.composeSelectionService = composeSelectionService;
@@ -49,6 +55,7 @@ public class ComposeController {
         this.imageCropService = imageCropService;
         this.ocrService = ocrService;
         this.composeSessionService = composeSessionService;
+        this.composePageRenderService = composePageRenderService;
     }
 
     @PostMapping("/heading1/apply")
@@ -155,5 +162,28 @@ public class ComposeController {
         var result = paragraphs;
 
         return ResponseEntity.ok(result);
+    }
+
+    @GetMapping("/page-image/{sessionId}")
+    public ResponseEntity<byte[]> getPageImage(
+            @PathVariable String sessionId,
+            @RequestParam String side,
+            @RequestParam int page
+    ) throws Exception {
+        var session = composeSessionService.get(sessionId);
+
+        if (session == null) {
+            throw new IllegalArgumentException("session not found");
+        }
+
+        Path hwpxPath = side.equals("template")
+                ? session.getTemplatePath()
+                : session.getSourcePath();
+
+        byte[] imageBytes = composePageRenderService.renderPageImage(hwpxPath, page);
+
+        return ResponseEntity.ok()
+                .header(HttpHeaders.CONTENT_TYPE, MediaType.IMAGE_PNG_VALUE)
+                .body(imageBytes);
     }
 }
