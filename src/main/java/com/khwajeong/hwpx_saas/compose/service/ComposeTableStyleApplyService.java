@@ -46,16 +46,13 @@ public class ComposeTableStyleApplyService {
         try (ZipFile zipFile = new ZipFile(sourceHwpxPath.toFile());
              ZipOutputStream zos = new ZipOutputStream(Files.newOutputStream(outputPath))) {
 
-            Map<String, byte[]> updatedEntries = new HashMap<>();
-
-            // 1) 먼저 header xml 들을 로딩해서 style 등록
+            Map<String, byte[]> updatedEntries = new LinkedHashMap<>();
             Map<String, Document> headerDocs = loadHeaderDocs(zipFile);
+
+            // header마다 새 style id 등록
             Map<String, RegisteredPair> registeredByHeader = registerStylesToHeaders(headerDocs, style);
 
-            // 2) section xml 수정
             Enumeration<? extends ZipEntry> entries = zipFile.entries();
-            int sectionIndex = 0;
-
             while (entries.hasMoreElements()) {
                 ZipEntry entry = entries.nextElement();
 
@@ -70,36 +67,32 @@ public class ComposeTableStyleApplyService {
                 }
 
                 if (entry.getName().startsWith("Contents/section") && entry.getName().endsWith(".xml")) {
-                    String sectionName = entry.getName();
-                    String headerName = toHeaderName(sectionName);
+                    String headerName = toHeaderName(entry.getName());
                     RegisteredPair pair = registeredByHeader.get(headerName);
 
+                    if (pair == null && registeredByHeader.containsKey("Contents/header0.xml")) {
+                        pair = registeredByHeader.get("Contents/header0.xml");
+                    }
+
                     if (pair != null) {
-                        bytes = applyTableStyleToSectionXml(bytes, sourceTableId, style, pair);
+                        bytes = applyTableStyleToSectionXml(bytes, sourceTableId, pair);
                     }
                 }
 
                 updatedEntries.put(entry.getName(), bytes);
-                sectionIndex++;
             }
 
-            // 3) 업데이트된 header xml 반영
+            // 수정된 header xml 반영
             for (Map.Entry<String, Document> e : headerDocs.entrySet()) {
                 updatedEntries.put(e.getKey(), documentToBytes(e.getValue()));
             }
 
-            // 4) zip 재작성
             for (Map.Entry<String, byte[]> e : updatedEntries.entrySet()) {
-                String name = e.getKey();
-                byte[] bytes = e.getValue();
-
-                ZipEntry newEntry = new ZipEntry(name);
+                ZipEntry newEntry = new ZipEntry(e.getKey());
                 zos.putNextEntry(newEntry);
-
-                if (!name.endsWith("/") && bytes != null && bytes.length > 0) {
-                    zos.write(bytes);
+                if (e.getValue() != null && e.getValue().length > 0) {
+                    zos.write(e.getValue());
                 }
-
                 zos.closeEntry();
             }
         }
@@ -108,7 +101,7 @@ public class ComposeTableStyleApplyService {
     }
 
     private Map<String, Document> loadHeaderDocs(ZipFile zipFile) throws Exception {
-        Map<String, Document> result = new HashMap<>();
+        Map<String, Document> result = new LinkedHashMap<>();
 
         Enumeration<? extends ZipEntry> entries = zipFile.entries();
         while (entries.hasMoreElements()) {
@@ -132,7 +125,7 @@ public class ComposeTableStyleApplyService {
             Map<String, Document> headerDocs,
             ExtractedTableStyle style
     ) {
-        Map<String, RegisteredPair> result = new HashMap<>();
+        Map<String, RegisteredPair> result = new LinkedHashMap<>();
 
         for (Map.Entry<String, Document> e : headerDocs.entrySet()) {
             Document doc = e.getValue();
@@ -168,8 +161,7 @@ public class ComposeTableStyleApplyService {
     private byte[] applyTableStyleToSectionXml(
             byte[] sectionXmlBytes,
             String sourceTableId,
-            ExtractedTableStyle style,
-            RegisteredPair registeredPair
+            RegisteredPair pair
     ) throws Exception {
         Document doc = DocumentBuilderFactory.newInstance()
                 .newDocumentBuilder()
@@ -189,7 +181,7 @@ public class ComposeTableStyleApplyService {
                 continue;
             }
 
-            applyStyleToTable(tblEl, registeredPair);
+            applyStyleToTable(tblEl, pair);
         }
 
         return documentToBytes(doc);
@@ -236,9 +228,7 @@ public class ComposeTableStyleApplyService {
     }
 
     private String toHeaderName(String sectionName) {
-        String headerName = sectionName
-                .replace("Contents/section", "Contents/header");
-
+        String headerName = sectionName.replace("Contents/section", "Contents/header");
         if (headerName.equals(sectionName)) {
             return "Contents/header0.xml";
         }

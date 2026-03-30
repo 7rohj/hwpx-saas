@@ -1,16 +1,13 @@
 package com.khwajeong.hwpx_saas.compose.service;
 
-import com.khwajeong.hwpx_saas.compose.dto.ComposeApplyRequest;
-import com.khwajeong.hwpx_saas.compose.dto.ComposeApplyResponse;
-import com.khwajeong.hwpx_saas.compose.dto.ComposeRunApplyRequest;
-import com.khwajeong.hwpx_saas.compose.dto.ComposeRunApplyResponse;
-import com.khwajeong.hwpx_saas.compose.dto.ParagraphNodeDto;
-import com.khwajeong.hwpx_saas.compose.dto.StyleProfileDto;
+import com.khwajeong.hwpx_saas.compose.dto.*;
 import com.khwajeong.hwpx_saas.compose.model.ComposeSelection;
+import com.khwajeong.hwpx_saas.compose.model.ExtractedTableStyle;
 import org.springframework.stereotype.Service;
 
 import java.nio.file.Path;
-import java.util.List;
+import java.util.*;
+import java.util.stream.Collectors;
 
 @Service
 public class ComposeApplyRunnerService {
@@ -19,20 +16,26 @@ public class ComposeApplyRunnerService {
     private final ComposeService composeService;
     private final ComposeSessionService composeSessionService;
     private final HwpxStyleExtractor hwpxStyleExtractor;
-    private final ComposeHwpxWriterService composeHwpxWriterService;
+    private final ComposeTextStyleApplyService composeTextStyleApplyService;
+    private final HwpxTableExtractor hwpxTableExtractor;
+    private final ComposeTableStyleApplyService composeTableStyleApplyService;
 
     public ComposeApplyRunnerService(
             ComposeSelectionService composeSelectionService,
             ComposeService composeService,
             ComposeSessionService composeSessionService,
             HwpxStyleExtractor hwpxStyleExtractor,
-            ComposeHwpxWriterService composeHwpxWriterService
+            ComposeTextStyleApplyService composeTextStyleApplyService,
+            HwpxTableExtractor hwpxTableExtractor,
+            ComposeTableStyleApplyService composeTableStyleApplyService
     ) {
         this.composeSelectionService = composeSelectionService;
         this.composeService = composeService;
         this.composeSessionService = composeSessionService;
         this.hwpxStyleExtractor = hwpxStyleExtractor;
-        this.composeHwpxWriterService = composeHwpxWriterService;
+        this.composeTextStyleApplyService = composeTextStyleApplyService;
+        this.hwpxTableExtractor = hwpxTableExtractor;
+        this.composeTableStyleApplyService = composeTableStyleApplyService;
     }
 
     public ComposeRunApplyResponse run(ComposeRunApplyRequest request) {
@@ -71,83 +74,12 @@ public class ComposeApplyRunnerService {
                 throw new IllegalArgumentException("source selection not found for label: " + request.getLabel());
             }
 
-            List<ParagraphNodeDto> templateParagraphs =
-                    composeService.extractFromHwpx(session.getTemplatePath().toFile());
-
-            List<ParagraphNodeDto> sourceParagraphs =
-                    composeService.extractFromHwpx(session.getSourcePath().toFile());
-
-            if (templateParagraphs == null || templateParagraphs.isEmpty()) {
-                throw new IllegalArgumentException("template paragraphs not extracted");
-            }
-            if (sourceParagraphs == null || sourceParagraphs.isEmpty()) {
-                throw new IllegalArgumentException("source paragraphs not extracted");
+            if ("table".equalsIgnoreCase(templateSelection.getBlockType())
+                    || "table".equalsIgnoreCase(sourceSelection.getBlockType())) {
+                return runTableApply(request, session, templateSelection, sourceSelection, session.getSourcePath());
             }
 
-            // =========================
-            // 핵심 변경:
-            // OCR 텍스트 매칭 대신 paragraphId 직접 사용
-            // =========================
-            ParagraphNodeDto templateSample =
-                    findByParagraphId(templateParagraphs, templateSelection.getParagraphId());
-
-            ParagraphNodeDto sourceSample =
-                    findByParagraphId(sourceParagraphs, sourceSelection.getParagraphId());
-
-            StyleProfileDto templateStyle =
-                    hwpxStyleExtractor.extractStyle(
-                            new HwpxStyleExtractor.FileWrapper(session.getTemplatePath().toFile()),
-                            templateSample.getParaPrIdRef(),
-                            templateSample.getCharPrIdRef()
-                    );
-
-            String normalizedFontPolicy = normalizeFontPolicy(request.getFontPolicy());
-            templateStyle.setFontFamily(
-                    resolveFontFamilyByPolicy(templateStyle.getFontFamily(), normalizedFontPolicy)
-            );
-
-            ComposeApplyRequest applyRequest = new ComposeApplyRequest();
-            applyRequest.setTemplateHeading1Style(templateStyle);
-            applyRequest.setSourceHeading1Sample(sourceSample);
-            applyRequest.setSourceParagraphs(sourceParagraphs);
-
-            ComposeApplyResponse applyResponse = composeService.applyHeading1Style(applyRequest);
-
-            Path outputPath = composeHwpxWriterService.writeStyledCopy(
-                    session.getSourcePath(),
-                    templateSample.getParaPrIdRef(),
-                    templateSample.getCharPrIdRef(),
-                    applyResponse.getMatchedParagraphIds()
-            );
-
-            String fileId = outputPath.getFileName().toString();
-
-            ComposeRunApplyResponse response = new ComposeRunApplyResponse();
-            response.setSessionId(request.getSessionId());
-            response.setLabel(request.getLabel());
-            response.setTemplateSelectionSummary(
-                    "template page=" + templateSelection.getPage()
-                            + ", label=" + templateSelection.getLabel()
-                            + ", paragraphId=" + templateSelection.getParagraphId()
-                            + ", matchedParagraphId=" + templateSample.getParagraphId()
-                            + ", matchedText=" + templateSample.getText()
-                            + ", fontFamily=" + templateStyle.getFontFamily()
-                            + ", fontPolicy=" + normalizedFontPolicy
-            );
-            response.setSourceSelectionSummary(
-                    "source page=" + sourceSelection.getPage()
-                            + ", label=" + sourceSelection.getLabel()
-                            + ", paragraphId=" + sourceSelection.getParagraphId()
-                            + ", matchedParagraphId=" + sourceSample.getParagraphId()
-                            + ", matchedText=" + sourceSample.getText()
-            );
-            response.setMatchedParagraphIds(applyResponse.getMatchedParagraphIds());
-            response.setStyledParagraphs(applyResponse.getStyledParagraphs());
-            response.setOutputPath(outputPath.toString());
-            response.setFileId(fileId);
-            response.setDownloadUrl("/api/v1/compose/files/" + fileId);
-
-            return response;
+            return runParagraphApply(request, session, templateSelection, sourceSelection, session.getSourcePath());
 
         } catch (Exception e) {
             System.out.println("=== [COMPOSE APPLY ERROR] ===");
@@ -156,11 +88,300 @@ public class ComposeApplyRunnerService {
         }
     }
 
-    // =========================
-    // 추가:
-    // paragraphId 직접 찾기
-    // 이제 textMatchService 대신 이걸 사용
-    // =========================
+    public ComposeRunApplyResponse runAll(ComposeRunApplyAllRequest request) {
+        try {
+            if (request == null) {
+                throw new IllegalArgumentException("request is null");
+            }
+            if (request.getSessionId() == null || request.getSessionId().isBlank()) {
+                throw new IllegalArgumentException("sessionId is required");
+            }
+
+            ComposeSessionService.SessionData session =
+                    composeSessionService.get(request.getSessionId());
+
+            if (session == null) {
+                throw new IllegalArgumentException("session not found: " + request.getSessionId());
+            }
+
+            ComposeSelectionsResponse selectionsResponse =
+                    composeSelectionService.getBySessionId(request.getSessionId());
+
+            List<ComposeSelectionResponse> allSelections =
+                    selectionsResponse.getSelections() == null
+                            ? List.of()
+                            : selectionsResponse.getSelections();
+
+            if (allSelections.isEmpty()) {
+                throw new IllegalArgumentException("no selections found in this session");
+            }
+
+            Map<String, ComposeSelectionResponse> templateMap = allSelections.stream()
+                    .filter(s -> "template".equalsIgnoreCase(s.getSide()))
+                    .collect(Collectors.toMap(
+                            ComposeSelectionResponse::getLabel,
+                            s -> s,
+                            (a, b) -> a,
+                            LinkedHashMap::new
+                    ));
+
+            Map<String, ComposeSelectionResponse> sourceMap = allSelections.stream()
+                    .filter(s -> "source".equalsIgnoreCase(s.getSide()))
+                    .collect(Collectors.toMap(
+                            ComposeSelectionResponse::getLabel,
+                            s -> s,
+                            (a, b) -> a,
+                            LinkedHashMap::new
+                    ));
+
+            List<String> applyOrder = List.of(
+                    "heading1",
+                    "heading2",
+                    "heading3",
+                    "body",
+                    "caption",
+                    "table"
+            );
+
+            Path workingSourcePath = session.getSourcePath();
+            List<String> appliedLabels = new ArrayList<>();
+            List<String> appliedTargets = new ArrayList<>();
+
+            for (String label : applyOrder) {
+                ComposeSelectionResponse templateSel = templateMap.get(label);
+                ComposeSelectionResponse sourceSel = sourceMap.get(label);
+
+                if (templateSel == null || sourceSel == null) {
+                    continue;
+                }
+
+                if ("table".equalsIgnoreCase(templateSel.getBlockType())
+                        || "table".equalsIgnoreCase(sourceSel.getBlockType())) {
+
+                    ComposeRunApplyRequest singleRequest = new ComposeRunApplyRequest();
+                    singleRequest.setSessionId(request.getSessionId());
+                    singleRequest.setLabel(label);
+                    singleRequest.setFontPolicy(request.getFontPolicy());
+
+                    ComposeSelection templateModel = toModel(templateSel);
+                    ComposeSelection sourceModel = toModel(sourceSel);
+
+                    ComposeRunApplyResponse singleResponse = runTableApply(
+                            singleRequest,
+                            session,
+                            templateModel,
+                            sourceModel,
+                            workingSourcePath
+                    );
+
+                    workingSourcePath = Path.of(singleResponse.getOutputPath());
+                    appliedLabels.add(label);
+                    appliedTargets.add("table:" + sourceSel.getTableId());
+                    continue;
+                }
+
+                ComposeRunApplyRequest singleRequest = new ComposeRunApplyRequest();
+                singleRequest.setSessionId(request.getSessionId());
+                singleRequest.setLabel(label);
+                singleRequest.setFontPolicy(request.getFontPolicy());
+
+                ComposeSelection templateModel = toModel(templateSel);
+                ComposeSelection sourceModel = toModel(sourceSel);
+
+                ComposeRunApplyResponse singleResponse = runParagraphApply(
+                        singleRequest,
+                        session,
+                        templateModel,
+                        sourceModel,
+                        workingSourcePath
+                );
+
+                workingSourcePath = Path.of(singleResponse.getOutputPath());
+                appliedLabels.add(label);
+                appliedTargets.add("paragraph:" + sourceSel.getParagraphId());
+            }
+
+            if (appliedLabels.isEmpty()) {
+                throw new IllegalArgumentException("no applicable label pairs found");
+            }
+
+            ComposeRunApplyResponse finalResponse = new ComposeRunApplyResponse();
+            finalResponse.setSessionId(request.getSessionId());
+            finalResponse.setLabel(String.join(",", appliedLabels));
+            finalResponse.setTemplateSelectionSummary("template applied labels = " + appliedLabels);
+            finalResponse.setSourceSelectionSummary("source applied targets = " + appliedTargets);
+            finalResponse.setMatchedParagraphIds(List.of());
+            finalResponse.setStyledParagraphs(List.of());
+            finalResponse.setOutputPath(workingSourcePath.toString());
+            finalResponse.setFileId(workingSourcePath.getFileName().toString());
+            finalResponse.setDownloadUrl("/api/v1/compose/files/" + workingSourcePath.getFileName());
+
+            return finalResponse;
+
+        } catch (Exception e) {
+            System.out.println("=== [COMPOSE APPLY-ALL ERROR] ===");
+            e.printStackTrace();
+            throw new RuntimeException("compose apply-all failed: " + e.getMessage(), e);
+        }
+    }
+
+    private ComposeRunApplyResponse runParagraphApply(
+            ComposeRunApplyRequest request,
+            ComposeSessionService.SessionData session,
+            ComposeSelection templateSelection,
+            ComposeSelection sourceSelection,
+            Path sourceHwpxPath
+    ) throws Exception {
+        List<ParagraphNodeDto> templateParagraphs =
+                composeService.extractFromHwpx(session.getTemplatePath().toFile());
+
+        List<ParagraphNodeDto> sourceParagraphs =
+                composeService.extractFromHwpx(sourceHwpxPath.toFile());
+
+        if (templateParagraphs == null || templateParagraphs.isEmpty()) {
+            throw new IllegalArgumentException("template paragraphs not extracted");
+        }
+        if (sourceParagraphs == null || sourceParagraphs.isEmpty()) {
+            throw new IllegalArgumentException("source paragraphs not extracted");
+        }
+
+        ParagraphNodeDto templateSample =
+                findByParagraphId(templateParagraphs, templateSelection.getParagraphId());
+
+        ParagraphNodeDto sourceSample =
+                findByParagraphId(sourceParagraphs, sourceSelection.getParagraphId());
+
+        StyleProfileDto templateStyle =
+                hwpxStyleExtractor.extractStyle(
+                        new HwpxStyleExtractor.FileWrapper(session.getTemplatePath().toFile()),
+                        templateSample.getParaPrIdRef(),
+                        templateSample.getCharPrIdRef()
+                );
+
+        String normalizedFontPolicy = normalizeFontPolicy(request.getFontPolicy());
+        templateStyle.setFontFamily(
+                resolveFontFamilyByPolicy(templateStyle.getFontFamily(), normalizedFontPolicy)
+        );
+
+        ComposeApplyRequest applyRequest = new ComposeApplyRequest();
+        applyRequest.setTemplateHeading1Style(templateStyle);
+        applyRequest.setSourceHeading1Sample(sourceSample);
+        applyRequest.setSourceParagraphs(sourceParagraphs);
+
+        ComposeApplyResponse applyResponse = composeService.applyHeading1Style(applyRequest);
+
+        Path outputPath = composeTextStyleApplyService.applyTextStyleUsingRenderer(
+                sourceHwpxPath,
+                templateStyle,
+                sourceParagraphs,
+                applyResponse.getMatchedParagraphIds()
+        );
+
+        String fileId = outputPath.getFileName().toString();
+
+        ComposeRunApplyResponse response = new ComposeRunApplyResponse();
+        response.setSessionId(request.getSessionId());
+        response.setLabel(request.getLabel());
+        response.setTemplateSelectionSummary(
+                "template page=" + templateSelection.getPage()
+                        + ", label=" + templateSelection.getLabel()
+                        + ", paragraphId=" + templateSelection.getParagraphId()
+                        + ", blockType=" + templateSelection.getBlockType()
+        );
+        response.setSourceSelectionSummary(
+                "source page=" + sourceSelection.getPage()
+                        + ", label=" + sourceSelection.getLabel()
+                        + ", paragraphId=" + sourceSelection.getParagraphId()
+                        + ", blockType=" + sourceSelection.getBlockType()
+        );
+        response.setMatchedParagraphIds(applyResponse.getMatchedParagraphIds());
+        response.setStyledParagraphs(applyResponse.getStyledParagraphs());
+        response.setOutputPath(outputPath.toString());
+        response.setFileId(fileId);
+        response.setDownloadUrl("/api/v1/compose/files/" + fileId);
+
+        return response;
+    }
+
+    private ComposeRunApplyResponse runTableApply(
+            ComposeRunApplyRequest request,
+            ComposeSessionService.SessionData session,
+            ComposeSelection templateSelection,
+            ComposeSelection sourceSelection,
+            Path sourceHwpxPath
+    ) throws Exception {
+        if (templateSelection.getTableId() == null || templateSelection.getTableId().isBlank()) {
+            throw new IllegalArgumentException("template tableId is required");
+        }
+        if (sourceSelection.getTableId() == null || sourceSelection.getTableId().isBlank()) {
+            throw new IllegalArgumentException("source tableId is required");
+        }
+
+        List<TableNodeDto> templateTables = hwpxTableExtractor.extract(session.getTemplatePath().toFile());
+        List<TableNodeDto> sourceTables = hwpxTableExtractor.extract(sourceHwpxPath.toFile());
+
+        TableNodeDto templateTable = findByTableId(templateTables, templateSelection.getTableId());
+        TableNodeDto sourceTable = findByTableId(sourceTables, sourceSelection.getTableId());
+
+        if (templateTable.getExtractedStyle() == null) {
+            throw new IllegalArgumentException("template extracted table style not found");
+        }
+
+        ExtractedTableStyle style = templateTable.getExtractedStyle();
+
+        Path outputPath = composeTableStyleApplyService.applyTableStyle(
+                sourceHwpxPath,
+                sourceSelection.getTableId(),
+                style
+        );
+
+        String fileId = outputPath.getFileName().toString();
+
+        ComposeRunApplyResponse response = new ComposeRunApplyResponse();
+        response.setSessionId(request.getSessionId());
+        response.setLabel(request.getLabel());
+        response.setTemplateSelectionSummary(
+                "template page=" + templateSelection.getPage()
+                        + ", label=" + templateSelection.getLabel()
+                        + ", blockType=table"
+                        + ", tableId=" + templateSelection.getTableId()
+                        + ", rowCount=" + templateTable.getRowCount()
+                        + ", colCount=" + templateTable.getColCount()
+        );
+        response.setSourceSelectionSummary(
+                "source page=" + sourceSelection.getPage()
+                        + ", label=" + sourceSelection.getLabel()
+                        + ", blockType=table"
+                        + ", tableId=" + sourceSelection.getTableId()
+                        + ", rowCount=" + sourceTable.getRowCount()
+                        + ", colCount=" + sourceTable.getColCount()
+        );
+        response.setMatchedParagraphIds(List.of());
+        response.setStyledParagraphs(List.of());
+        response.setOutputPath(outputPath.toString());
+        response.setFileId(fileId);
+        response.setDownloadUrl("/api/v1/compose/files/" + fileId);
+
+        return response;
+    }
+
+    private ComposeSelection toModel(ComposeSelectionResponse dto) {
+        ComposeSelection model = new ComposeSelection();
+        model.setSessionId(dto.getSessionId());
+        model.setSide(dto.getSide());
+        model.setPage(dto.getPage());
+        model.setX(dto.getX());
+        model.setY(dto.getY());
+        model.setWidth(dto.getWidth());
+        model.setHeight(dto.getHeight());
+        model.setLabel(dto.getLabel());
+        model.setOcrText(dto.getOcrText());
+        model.setParagraphId(dto.getParagraphId());
+        model.setBlockType(dto.getBlockType());
+        model.setTableId(dto.getTableId());
+        return model;
+    }
+
     private ParagraphNodeDto findByParagraphId(List<ParagraphNodeDto> paragraphs, String paragraphId) {
         if (paragraphId == null || paragraphId.isBlank()) {
             throw new IllegalArgumentException("paragraphId is required");
@@ -173,6 +394,20 @@ public class ComposeApplyRunnerService {
         }
 
         throw new IllegalArgumentException("paragraph not found: " + paragraphId);
+    }
+
+    private TableNodeDto findByTableId(List<TableNodeDto> tables, String tableId) {
+        if (tableId == null || tableId.isBlank()) {
+            throw new IllegalArgumentException("tableId is required");
+        }
+
+        for (TableNodeDto t : tables) {
+            if (tableId.equals(t.getTableId())) {
+                return t;
+            }
+        }
+
+        throw new IllegalArgumentException("table not found: " + tableId);
     }
 
     private String normalizeFontPolicy(String fontPolicy) {
@@ -191,7 +426,6 @@ public class ComposeApplyRunnerService {
         if (!"safe".equals(fontPolicy)) {
             return originalFontFamily;
         }
-
         return applySafeFallback(originalFontFamily);
     }
 

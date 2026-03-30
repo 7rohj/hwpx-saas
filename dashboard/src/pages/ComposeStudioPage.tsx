@@ -445,13 +445,15 @@ export default function ComposeStudioPage({
       setApplying(true)
       setApplyResult(null)
 
+      // 수정:
+      // 이제 currentRole 하나가 아니라
+      // session에 저장된 selection 전체를 누적 적용
       const body = {
         sessionId,
-        label: currentRole,
         fontPolicy: "original",
       }
 
-      const res = await fetch(`${API_BASE_URL}/api/v1/compose/apply`, {
+      const res = await fetch(`${API_BASE_URL}/api/v1/compose/apply-all`, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
@@ -461,15 +463,15 @@ export default function ComposeStudioPage({
       })
 
       if (!res.ok) {
-        throw new Error("apply 실패")
+        throw new Error("apply-all 실패")
       }
 
       const data = await res.json()
       setApplyResult(data)
-      alert("apply 완료!")
+      alert("apply-all 완료!")
     } catch (err) {
       console.error(err)
-      alert(err instanceof Error ? err.message : "apply 실패")
+      alert(err instanceof Error ? err.message : "apply-all 실패")
     } finally {
       setApplying(false)
     }
@@ -505,10 +507,10 @@ export default function ComposeStudioPage({
                   Compose Studio
                 </div>
                 <h1 className="text-3xl font-bold tracking-tight text-[#162033] sm:text-4xl">
-                  가상 페이지 렌더링 + 문단/표 선택
+                  템플릿 서식 자동 적용
                 </h1>
                 <p className="mt-2 text-sm text-[#63708a] sm:text-base">
-                  HWPX를 직접 파싱해 문단과 표를 가상 페이지 위에 표시하는 단계입니다.
+                  10초만에 원하는 스타일의 문서로 자동 제작
                 </p>
               </div>
 

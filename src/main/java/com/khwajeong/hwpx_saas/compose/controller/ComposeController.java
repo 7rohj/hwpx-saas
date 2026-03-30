@@ -8,6 +8,7 @@ import com.khwajeong.hwpx_saas.compose.dto.ComposeRunApplyResponse;
 import com.khwajeong.hwpx_saas.compose.dto.ComposeSelectionRequest;
 import com.khwajeong.hwpx_saas.compose.dto.ComposeSelectionResponse;
 import com.khwajeong.hwpx_saas.compose.dto.ComposeSelectionsResponse;
+import com.khwajeong.hwpx_saas.compose.dto.ComposeRunApplyAllRequest;
 import com.khwajeong.hwpx_saas.compose.service.ComposeApplyRunnerService;
 import com.khwajeong.hwpx_saas.compose.service.ComposeDocumentViewService;
 import com.khwajeong.hwpx_saas.compose.service.ComposeSelectionService;
@@ -113,6 +114,14 @@ public class ComposeController {
             @RequestBody ComposeRunApplyRequest request
     ) {
         ComposeRunApplyResponse response = composeApplyRunnerService.run(request);
+        return ResponseEntity.ok(response);
+    }
+
+    @PostMapping("/apply-all")
+    public ResponseEntity<ComposeRunApplyResponse> applyAll(
+            @RequestBody ComposeRunApplyAllRequest request
+    ) {
+        ComposeRunApplyResponse response = composeApplyRunnerService.runAll(request);
         return ResponseEntity.ok(response);
     }
 

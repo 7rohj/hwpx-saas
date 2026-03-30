@@ -21,7 +21,8 @@ export default function ComposePageImageStage({
         <img
           src={imageUrl}
           alt="page preview"
-          className="absolute inset-0 h-full w-full object-contain"
+          className="absolute inset-0 h-full w-full object-contain pointer-events-none select-none"
+          draggable={false}
         />
       ) : (
         <div className="absolute inset-0 flex items-center justify-center text-sm text-[#63708a]">
@@ -29,7 +30,7 @@ export default function ComposePageImageStage({
         </div>
       )}
 
-      <div className="absolute inset-0">
+      <div className="absolute inset-0 z-50">
         <ComposePageOverlay
           boxes={boxes}
           selectedBoxId={selectedBoxId}

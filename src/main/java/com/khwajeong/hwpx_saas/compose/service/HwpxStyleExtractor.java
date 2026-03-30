@@ -18,9 +18,9 @@ public class HwpxStyleExtractor {
     public StyleProfileDto extractStyle(FileWrapper fileWrapper, String paraPrIdRef, String charPrIdRef) {
         try (ZipFile zipFile = new ZipFile(fileWrapper.getFile())) {
 
-            ZipEntry entry = zipFile.getEntry("Contents/header.xml");
+            ZipEntry entry = findFirstHeaderEntry(zipFile);
             if (entry == null) {
-                throw new RuntimeException("header.xml not found");
+                throw new RuntimeException("header xml not found");
             }
 
             try (InputStream in = zipFile.getInputStream(entry)) {
@@ -38,52 +38,46 @@ public class HwpxStyleExtractor {
                     charMap = buildMap(doc, "hp:charPr");
                 }
 
-                Map<String, Element> fontMap = buildFontMap(doc);
-
                 StyleProfileDto style = new StyleProfileDto();
 
-                // 문단 스타일
                 Element paraPr = paraMap.get(paraPrIdRef);
                 if (paraPr != null) {
-                    style.setAlign(readAnyAttr(paraPr, "align", "textAlign", "horizontalAlign"));
-                    style.setSpaceBefore(parseInt(readAnyAttr(paraPr, "spaceBefore", "marginTop", "before"), 0));
-                    style.setSpaceAfter(parseInt(readAnyAttr(paraPr, "spaceAfter", "marginBottom", "after"), 0));
-                    style.setLineSpacing(parseInt(readAnyAttr(paraPr, "lineSpacing", "lineSpacingPercent"), 160));
+                    style.setAlign(extractAlign(paraPr));
+                    style.setSpaceBefore(extractSpaceBefore(paraPr));
+                    style.setSpaceAfter(extractSpaceAfter(paraPr));
+                    style.setLineSpacing(extractLineSpacing(paraPr));
                 }
 
-                // 문자 스타일
                 Element charPr = charMap.get(charPrIdRef);
                 if (charPr != null) {
                     style.setFontSize(convertHeightToPt(readAnyAttr(charPr, "height", "fontSize")));
-                    style.setBold(parseBoolean(readAnyAttr(charPr, "bold"), false));
-                    style.setItalic(parseBoolean(readAnyAttr(charPr, "italic"), false));
+                    style.setBold(extractBold(charPr));
+                    style.setItalic(extractItalic(charPr));
 
                     String underlineRaw = readAnyAttr(charPr, "underline", "underLine");
+                    if (underlineRaw == null || underlineRaw.isBlank()) {
+                        underlineRaw = hasChild(charPr, "hh:underline") || hasChild(charPr, "hp:underline") ? "true" : null;
+                    }
                     style.setUnderline(parseUnderline(underlineRaw));
 
                     style.setColor(normalizeColor(readAnyAttr(charPr, "textColor", "color")));
 
-                    // =========================
-                    // 수정 1: 먼저 기존 속성 방식 시도
-                    // =========================
-                    String faceNameIdRef = readAnyAttr(
-                            charPr,
-                            "faceNameIdRef",
-                            "faceNameRef",
-                            "faceNameIds",
-                            "fontRef"
-                    );
-
-                    // =========================
-                    // 수정 2: 속성에 없으면 자식 노드에서 폰트 참조 찾기
-                    // - 실제 로그상 charPr attr에 faceNameIdRef가 없었음
-                    // - HWPX 구조에 따라 child element로 들어갈 수 있음
-                    // =========================
-                    if (faceNameIdRef == null || faceNameIdRef.isBlank()) {
-                        faceNameIdRef = extractFontRefFromChildren(charPr);
+                    String hangulFontId = extractFontRefByLang(charPr, "hangul");
+                    if (hangulFontId == null || hangulFontId.isBlank()) {
+                        hangulFontId = extractFontRefByLang(charPr, "latin");
+                    }
+                    if (hangulFontId == null || hangulFontId.isBlank()) {
+                        hangulFontId = extractFontRefFromChildren(charPr);
                     }
 
-                    String resolvedFont = resolveFontName(fontMap, faceNameIdRef);
+                    String resolvedFont = resolveFontName(doc, hangulFontId, "HANGUL");
+                    if (resolvedFont == null || resolvedFont.isBlank()) {
+                        resolvedFont = resolveFontName(doc, hangulFontId, "LATIN");
+                    }
+                    if (resolvedFont == null || resolvedFont.isBlank()) {
+                        resolvedFont = resolveFontNameGlobal(doc, hangulFontId);
+                    }
+
                     style.setFontFamily(resolvedFont);
                 }
 
@@ -114,56 +108,48 @@ public class HwpxStyleExtractor {
         return map;
     }
 
-    private Map<String, Element> buildFontMap(Document doc) {
-        Map<String, Element> map = new HashMap<>();
-
-        addFontNodesToMap(doc, map, "hh:font");
-        addFontNodesToMap(doc, map, "hp:font");
-        addFontNodesToMap(doc, map, "hh:faceName");
-        addFontNodesToMap(doc, map, "hp:faceName");
-
-        return map;
+    private ZipEntry findFirstHeaderEntry(ZipFile zipFile) {
+        return zipFile.stream()
+                .filter(e -> !e.isDirectory())
+                .filter(e -> e.getName().startsWith("Contents/header"))
+                .filter(e -> e.getName().endsWith(".xml"))
+                .sorted((a, b) -> a.getName().compareToIgnoreCase(b.getName()))
+                .findFirst()
+                .orElse(null);
     }
 
-    private void addFontNodesToMap(Document doc, Map<String, Element> map, String tagName) {
-        NodeList list = doc.getElementsByTagName(tagName);
+    private String resolveFontName(Document doc, String fontId, String lang) {
+        if (fontId == null || fontId.isBlank()) {
+            return null;
+        }
 
-        for (int i = 0; i < list.getLength(); i++) {
-            Node node = list.item(i);
-            if (!(node instanceof Element el)) {
+        NodeList fontfaceList = doc.getElementsByTagName("hh:fontface");
+        for (int i = 0; i < fontfaceList.getLength(); i++) {
+            Node node = fontfaceList.item(i);
+            if (!(node instanceof Element fontfaceEl)) {
                 continue;
             }
 
-            String id = readAnyAttr(el, "id");
-            if (id != null && !id.isBlank()) {
-                map.put(id, el);
+            String currentLang = readAnyAttr(fontfaceEl, "lang");
+            if (currentLang == null || !currentLang.equalsIgnoreCase(lang)) {
+                continue;
             }
-        }
-    }
 
-    private String resolveFontName(Map<String, Element> fontMap, String faceNameIdRef) {
-        if (faceNameIdRef == null || faceNameIdRef.isBlank()) {
-            return null;
-        }
+            NodeList children = fontfaceEl.getChildNodes();
+            for (int j = 0; j < children.getLength(); j++) {
+                Node child = children.item(j);
+                if (!(child instanceof Element childEl)) {
+                    continue;
+                }
 
-        Element fontEl = fontMap.get(faceNameIdRef);
-        if (fontEl == null) {
-            return null;
-        }
+                String nodeName = childEl.getNodeName();
+                if (!"hh:font".equalsIgnoreCase(nodeName) && !"hp:font".equalsIgnoreCase(nodeName)) {
+                    continue;
+                }
 
-        // =========================
-        // 수정 3: 로그상 font 노드의 실제 속성명은 "face" 였음
-        // 기존엔 faceName/fontName/name만 봐서 null이 났음
-        // =========================
-        String fontName = readAnyAttr(fontEl, "face", "faceName", "fontName", "name");
-
-        // 하위 노드에 이름이 있을 수도 있음
-        if (fontName == null || fontName.isBlank()) {
-            NodeList children = fontEl.getChildNodes();
-            for (int i = 0; i < children.getLength(); i++) {
-                Node child = children.item(i);
-                if (child instanceof Element childEl) {
-                    fontName = readAnyAttr(childEl, "face", "faceName", "fontName", "name");
+                String id = readAnyAttr(childEl, "id");
+                if (fontId.equals(id)) {
+                    String fontName = readAnyAttr(childEl, "face", "faceName", "fontName", "name");
                     if (fontName != null && !fontName.isBlank()) {
                         return fontName;
                     }
@@ -171,14 +157,248 @@ public class HwpxStyleExtractor {
             }
         }
 
-        return fontName;
+        return null;
     }
 
-    // =========================
-    // 수정 4: charPr 자식 노드에서 폰트 참조 ID 추출
-    // - hangul 우선
-    // - 없으면 latin/hanja/japanese/other 순으로 fallback
-    // =========================
+    private String resolveFontNameGlobal(Document doc, String fontId) {
+        if (fontId == null || fontId.isBlank()) {
+            return null;
+        }
+
+        String[] tags = {"hh:font", "hp:font", "hh:faceName", "hp:faceName"};
+        for (String tag : tags) {
+            NodeList list = doc.getElementsByTagName(tag);
+            for (int i = 0; i < list.getLength(); i++) {
+                Node node = list.item(i);
+                if (!(node instanceof Element el)) {
+                    continue;
+                }
+
+                String id = readAnyAttr(el, "id");
+                if (!fontId.equals(id)) {
+                    continue;
+                }
+
+                String fontName = readAnyAttr(el, "face", "faceName", "fontName", "name");
+                if (fontName != null && !fontName.isBlank()) {
+                    return fontName;
+                }
+            }
+        }
+
+        return null;
+    }
+
+    private String extractFontRefByLang(Element charPr, String langAttrName) {
+        if (charPr == null) {
+            return null;
+        }
+
+        NodeList children = charPr.getChildNodes();
+        for (int i = 0; i < children.getLength(); i++) {
+            Node node = children.item(i);
+            if (!(node instanceof Element childEl)) {
+                continue;
+            }
+
+            String nodeName = childEl.getNodeName();
+            String localName = childEl.getLocalName();
+
+            boolean looksLikeFontRef =
+                    "fontRef".equalsIgnoreCase(nodeName) ||
+                    "fontRef".equalsIgnoreCase(localName) ||
+                    nodeName.toLowerCase().contains("fontref") ||
+                    (localName != null && localName.toLowerCase().contains("fontref"));
+
+            if (!looksLikeFontRef) {
+                continue;
+            }
+
+            String ref = readAnyAttr(childEl, langAttrName);
+            if (ref != null && !ref.isBlank()) {
+                return ref;
+            }
+        }
+
+        return null;
+    }
+
+    private String resolveNodeAttr(Element parent, String childTag, String attrName) {
+        if (parent == null) return null;
+
+        NodeList children = parent.getChildNodes();
+        for (int i = 0; i < children.getLength(); i++) {
+            Node node = children.item(i);
+            if (!(node instanceof Element childEl)) {
+                continue;
+            }
+
+            String nodeName = childEl.getNodeName();
+            String localName = childEl.getLocalName();
+
+            if (childTag.equalsIgnoreCase(nodeName) || childTag.equalsIgnoreCase(localName)) {
+                String value = readAnyAttr(childEl, attrName);
+                if (value != null && !value.isBlank()) {
+                    return value;
+                }
+            }
+        }
+
+        return null;
+    }
+
+    private int extractLineSpacing(Element paraPr) {
+        String fromAttr = readAnyAttr(paraPr, "lineSpacing", "lineSpacingPercent");
+        if (fromAttr != null && !fromAttr.isBlank()) {
+            return parseInt(fromAttr, 160);
+        }
+
+        NodeList children = paraPr.getChildNodes();
+        for (int i = 0; i < children.getLength(); i++) {
+            Node node = children.item(i);
+            if (!(node instanceof Element childEl)) {
+                continue;
+            }
+
+            String nodeName = childEl.getNodeName();
+            String localName = childEl.getLocalName();
+
+            if ("lineSpacing".equalsIgnoreCase(nodeName) || "lineSpacing".equalsIgnoreCase(localName)
+                    || "hh:lineSpacing".equalsIgnoreCase(nodeName) || "hp:lineSpacing".equalsIgnoreCase(nodeName)) {
+                String value = readAnyAttr(childEl, "value");
+                return parseInt(value, 160);
+            }
+        }
+
+        return 160;
+    }
+
+    private String extractAlign(Element paraPr) {
+        String fromAttr = readAnyAttr(paraPr, "align", "textAlign", "horizontalAlign");
+        if (fromAttr != null && !fromAttr.isBlank()) {
+            return fromAttr;
+        }
+
+        NodeList children = paraPr.getChildNodes();
+        for (int i = 0; i < children.getLength(); i++) {
+            Node node = children.item(i);
+            if (!(node instanceof Element childEl)) {
+                continue;
+            }
+
+            String nodeName = childEl.getNodeName();
+            String localName = childEl.getLocalName();
+
+            if ("align".equalsIgnoreCase(nodeName) || "align".equalsIgnoreCase(localName)
+                    || "hh:align".equalsIgnoreCase(nodeName) || "hp:align".equalsIgnoreCase(nodeName)) {
+                String horizontal = readAnyAttr(childEl, "horizontal");
+                if (horizontal != null && !horizontal.isBlank()) {
+                    return horizontal;
+                }
+            }
+        }
+
+        return null;
+    }
+
+    private int extractSpaceBefore(Element paraPr) {
+        return extractMarginValue(paraPr, "prev", 0);
+    }
+
+    private int extractSpaceAfter(Element paraPr) {
+        return extractMarginValue(paraPr, "next", 0);
+    }
+
+    private int extractMarginValue(Element paraPr, String target, int def) {
+        String fromAttr = readAnyAttr(
+                paraPr,
+                "spaceBefore",
+                "marginTop",
+                "before",
+                "spaceAfter",
+                "marginBottom",
+                "after"
+        );
+        if (fromAttr != null && !fromAttr.isBlank()) {
+            return parseInt(fromAttr, def);
+        }
+
+        NodeList children = paraPr.getChildNodes();
+        for (int i = 0; i < children.getLength(); i++) {
+            Node node = children.item(i);
+            if (!(node instanceof Element childEl)) {
+                continue;
+            }
+
+            String nodeName = childEl.getNodeName();
+            String localName = childEl.getLocalName();
+
+            boolean isMargin =
+                    "margin".equalsIgnoreCase(nodeName) ||
+                    "margin".equalsIgnoreCase(localName) ||
+                    "hh:margin".equalsIgnoreCase(nodeName) ||
+                    "hp:margin".equalsIgnoreCase(nodeName);
+
+            if (!isMargin) {
+                continue;
+            }
+
+            NodeList marginChildren = childEl.getChildNodes();
+            for (int j = 0; j < marginChildren.getLength(); j++) {
+                Node marginNode = marginChildren.item(j);
+                if (!(marginNode instanceof Element marginEl)) {
+                    continue;
+                }
+
+                String mNodeName = marginEl.getNodeName();
+                String mLocalName = marginEl.getLocalName();
+
+                if (target.equalsIgnoreCase(mNodeName) || target.equalsIgnoreCase(mLocalName)) {
+                    String value = readAnyAttr(marginEl, "value");
+                    return parseInt(value, def);
+                }
+            }
+        }
+
+        return def;
+    }
+
+    private boolean extractBold(Element charPr) {
+        String raw = readAnyAttr(charPr, "bold");
+        if (raw != null) {
+            return parseBoolean(raw, false);
+        }
+        return hasChild(charPr, "hh:bold") || hasChild(charPr, "hp:bold");
+    }
+
+    private boolean extractItalic(Element charPr) {
+        String raw = readAnyAttr(charPr, "italic");
+        if (raw != null) {
+            return parseBoolean(raw, false);
+        }
+        return hasChild(charPr, "hh:italic") || hasChild(charPr, "hp:italic");
+    }
+
+    private boolean hasChild(Element parent, String childTagName) {
+        if (parent == null) return false;
+
+        NodeList children = parent.getChildNodes();
+        for (int i = 0; i < children.getLength(); i++) {
+            Node node = children.item(i);
+            if (!(node instanceof Element el)) {
+                continue;
+            }
+
+            String nodeName = el.getNodeName();
+            String localName = el.getLocalName();
+            if (childTagName.equalsIgnoreCase(nodeName) || childTagName.equalsIgnoreCase(localName)) {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
     private String extractFontRefFromChildren(Element charPr) {
         NodeList children = charPr.getChildNodes();
 
