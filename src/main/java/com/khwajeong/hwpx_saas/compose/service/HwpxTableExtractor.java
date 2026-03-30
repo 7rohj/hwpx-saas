@@ -2,6 +2,7 @@ package com.khwajeong.hwpx_saas.compose.service;
 
 import com.khwajeong.hwpx_saas.compose.dto.StyleProfileDto;
 import com.khwajeong.hwpx_saas.compose.dto.TableNodeDto;
+import com.khwajeong.hwpx_saas.compose.model.ExtractedTableStyle;
 import org.springframework.stereotype.Service;
 import org.w3c.dom.*;
 import org.xml.sax.InputSource;
@@ -10,7 +11,6 @@ import javax.xml.parsers.DocumentBuilderFactory;
 import java.io.ByteArrayInputStream;
 import java.io.File;
 import java.io.InputStream;
-import java.nio.file.Files;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.zip.ZipEntry;
@@ -61,14 +61,13 @@ public class HwpxTableExtractor {
                     TableNodeDto dto = new TableNodeDto();
                     dto.setTableId("t" + tableIndex);
 
-                    // 행 추출
-                    List<Element> rowElements = getDirectOrNestedElements(tblEl, "hp:tr");
+                    List<Element> rowElements = getElements(tblEl, "hp:tr");
                     List<List<String>> cellTexts = new ArrayList<>();
 
                     int maxColCount = 0;
 
                     for (Element rowEl : rowElements) {
-                        List<Element> cellElements = getDirectOrNestedElements(rowEl, "hp:tc");
+                        List<Element> cellElements = getElements(rowEl, "hp:tc");
                         List<String> rowTexts = new ArrayList<>();
 
                         for (Element cellEl : cellElements) {
@@ -84,32 +83,30 @@ public class HwpxTableExtractor {
                     dto.setColCount(maxColCount);
                     dto.setCellTexts(cellTexts);
 
-                    // 대표 스타일 추출 (첫 번째 셀 기준)
-                    CellStyleRef firstCellStyleRef = findFirstCellStyleRef(tblEl);
-                    if (firstCellStyleRef != null
-                            && firstCellStyleRef.getParaPrIdRef() != null
-                            && firstCellStyleRef.getCharPrIdRef() != null) {
+                    // 추가:
+                    // 헤더/바디 구분 스타일 추출
+                    ExtractedTableStyle extractedStyle = extractTableStyle(hwpxFile, tblEl);
+                    dto.setExtractedStyle(extractedStyle);
 
-                        StyleProfileDto style = hwpxStyleExtractor.extractStyle(
-                                new HwpxStyleExtractor.FileWrapper(hwpxFile),
-                                firstCellStyleRef.getParaPrIdRef(),
-                                firstCellStyleRef.getCharPrIdRef()
-                        );
+                    // 기존 대표 스타일도 유지
+                    if (extractedStyle != null) {
+                        if (extractedStyle.getHeaderTextStyle() != null) {
+                            dto.setFontFamily(extractedStyle.getHeaderTextStyle().getFontFamily());
+                            dto.setFontSize(extractedStyle.getHeaderTextStyle().getFontSize());
+                            dto.setBold(extractedStyle.getHeaderTextStyle().getBold());
+                            dto.setItalic(extractedStyle.getHeaderTextStyle().getItalic());
+                            dto.setFontColor(extractedStyle.getHeaderTextStyle().getFontColor());
+                        }
+                        dto.setBackgroundColor(extractedStyle.getHeaderBackgroundColor());
 
-                        dto.setFontFamily(style.getFontFamily());
-                        dto.setFontSize(style.getFontSize());
-                        dto.setBold(style.getBold());
-                        dto.setItalic(style.getItalic());
-                        dto.setFontColor(style.getColor());
+                        if (extractedStyle.getBodyOuterBorder() != null) {
+                            dto.setBorderColor(extractedStyle.getBodyOuterBorder().getColor());
+                            dto.setBorderWidth(extractedStyle.getBodyOuterBorder().getWidth());
+                        }
                     }
 
-                    // 배경색/테두리 MVP는 일단 약식
-                    // 실제 hwpx table/cell border-fill을 정밀 분석하기 전까지 기본값 또는 null
-                    dto.setBorderColor("#cbd5e1");
-                    dto.setBorderWidth(1);
-                    dto.setBackgroundColor(findRoughBackgroundColor(tblEl));
-
-                    // 임시 좌표 계산
+                    // 추가:
+                    // 임시 좌표 생성
                     int rowCount = dto.getRowCount() != null ? dto.getRowCount() : 1;
                     int colCount = dto.getColCount() != null ? dto.getColCount() : 1;
 
@@ -142,6 +139,118 @@ public class HwpxTableExtractor {
         return result;
     }
 
+    // 추가:
+    // template 표에서 헤더/바디 스타일 세트 추출
+    private ExtractedTableStyle extractTableStyle(File hwpxFile, Element tblEl) {
+        ExtractedTableStyle style = new ExtractedTableStyle();
+
+        List<Element> rows = getElements(tblEl, "hp:tr");
+
+        Element headerCell = findFirstCellOfRow(rows, 0);
+        Element bodyCell = findFirstCellOfRow(rows, 1);
+
+        // body가 없으면 header 다음 fallback
+        if (bodyCell == null) {
+            bodyCell = headerCell;
+        }
+
+        // 추가:
+        // 텍스트 스타일 추출
+        style.setHeaderTextStyle(extractCellTextStyle(hwpxFile, headerCell));
+        style.setBodyTextStyle(extractCellTextStyle(hwpxFile, bodyCell));
+
+        // 추가:
+        // 배경색 추출 (지금은 약식, 다음 단계에서 borderFill 정밀 파싱 가능)
+        style.setHeaderBackgroundColor(findRoughBackgroundColor(headerCell, "#f1f5f9"));
+        style.setBodyBackgroundColor(findRoughBackgroundColor(bodyCell, "#ffffff"));
+
+        // 추가:
+        // 헤더/바디 외곽선 / 내부선 스타일 분리
+        style.setHeaderOuterBorder(extractRoughBorderStyle(headerCell, true, "#334155", 1, "solid"));
+        style.setHeaderInnerBorder(extractRoughBorderStyle(headerCell, false, "#94a3b8", 1, "solid"));
+
+        style.setBodyOuterBorder(extractRoughBorderStyle(bodyCell, true, "#64748b", 1, "solid"));
+        style.setBodyInnerBorder(extractRoughBorderStyle(bodyCell, false, "#cbd5e1", 1, "solid"));
+
+        return style;
+    }
+
+    private ExtractedTableStyle.CellTextStyle extractCellTextStyle(File hwpxFile, Element cellEl) {
+        if (cellEl == null) {
+            return null;
+        }
+
+        List<Element> paraList = getElements(cellEl, "hp:p");
+        for (Element paraEl : paraList) {
+            String paraPrIdRef = readAnyAttr(paraEl, "paraPrIDRef", "paraPrIdRef");
+
+            List<Element> runList = getElements(paraEl, "hp:run");
+            for (Element runEl : runList) {
+                String charPrIdRef = readAnyAttr(runEl, "charPrIDRef", "charPrIdRef");
+
+                if (paraPrIdRef != null && !paraPrIdRef.isBlank()
+                        && charPrIdRef != null && !charPrIdRef.isBlank()) {
+
+                    StyleProfileDto profile = hwpxStyleExtractor.extractStyle(
+                            new HwpxStyleExtractor.FileWrapper(hwpxFile),
+                            paraPrIdRef,
+                            charPrIdRef
+                    );
+
+                    ExtractedTableStyle.CellTextStyle textStyle = new ExtractedTableStyle.CellTextStyle();
+                    textStyle.setFontFamily(profile.getFontFamily());
+                    textStyle.setFontSize(profile.getFontSize());
+                    textStyle.setBold(profile.getBold());
+                    textStyle.setItalic(profile.getItalic());
+                    textStyle.setUnderline(profile.getUnderline());
+                    textStyle.setFontColor(profile.getColor());
+                    textStyle.setAlign(profile.getAlign());
+                    return textStyle;
+                }
+            }
+        }
+
+        return null;
+    }
+
+    // 추가:
+    // 현재는 borderFill 정밀 파싱 전이라 fallback 기반으로 채움
+    // 다음 단계에서 cell/table의 borderFillIDRef를 읽어 진짜 값으로 교체 가능
+    private ExtractedTableStyle.BorderStyle extractRoughBorderStyle(
+            Element cellEl,
+            boolean outer,
+            String defaultColor,
+            Integer defaultWidth,
+            String defaultLineStyle
+    ) {
+        ExtractedTableStyle.BorderStyle borderStyle = new ExtractedTableStyle.BorderStyle();
+        borderStyle.setColor(defaultColor);
+        borderStyle.setWidth(defaultWidth);
+        borderStyle.setLineStyle(defaultLineStyle);
+
+        if (cellEl == null) {
+            return borderStyle;
+        }
+
+        // 다음 단계 확장 포인트:
+        // borderFillIDRef / fillIDRef 같은 실제 HWPX 속성 읽어서 반영 가능
+        return borderStyle;
+    }
+
+    private Element findFirstCellOfRow(List<Element> rows, int rowIndex) {
+        if (rows == null || rowIndex < 0 || rowIndex >= rows.size()) {
+            return null;
+        }
+
+        Element rowEl = rows.get(rowIndex);
+        List<Element> cellElements = getElements(rowEl, "hp:tc");
+        if (cellElements.isEmpty()) {
+            return null;
+        }
+
+        return cellElements.get(0);
+    }
+
     private List<ZipEntry> findSectionEntries(ZipFile zipFile) {
         List<ZipEntry> result = new ArrayList<>();
 
@@ -155,17 +264,19 @@ public class HwpxTableExtractor {
         return result;
     }
 
-    private List<Element> getDirectOrNestedElements(Element root, String tagName) {
+    private List<Element> getElements(Element root, String tagName) {
         List<Element> result = new ArrayList<>();
-        NodeList list = root.getElementsByTagName(tagName);
+        if (root == null) {
+            return result;
+        }
 
+        NodeList list = root.getElementsByTagName(tagName);
         for (int i = 0; i < list.getLength(); i++) {
             Node node = list.item(i);
             if (node instanceof Element el) {
                 result.add(el);
             }
         }
-
         return result;
     }
 
@@ -187,52 +298,14 @@ public class HwpxTableExtractor {
         return sb.toString().trim();
     }
 
-    private CellStyleRef findFirstCellStyleRef(Element tblEl) {
-        NodeList cellList = tblEl.getElementsByTagName("hp:tc");
-
-        for (int i = 0; i < cellList.getLength(); i++) {
-            Node cellNode = cellList.item(i);
-            if (!(cellNode instanceof Element cellEl)) {
-                continue;
-            }
-
-            NodeList paraList = cellEl.getElementsByTagName("hp:p");
-            for (int p = 0; p < paraList.getLength(); p++) {
-                Node paraNode = paraList.item(p);
-                if (!(paraNode instanceof Element paraEl)) {
-                    continue;
-                }
-
-                String paraPrIdRef = readAnyAttr(paraEl, "paraPrIDRef", "paraPrIdRef");
-
-                NodeList runList = paraEl.getElementsByTagName("hp:run");
-                String charPrIdRef = null;
-
-                for (int r = 0; r < runList.getLength(); r++) {
-                    Node runNode = runList.item(r);
-                    if (runNode instanceof Element runEl) {
-                        charPrIdRef = readAnyAttr(runEl, "charPrIDRef", "charPrIdRef");
-                        if (charPrIdRef != null && !charPrIdRef.isBlank()) {
-                            break;
-                        }
-                    }
-                }
-
-                if (paraPrIdRef != null && !paraPrIdRef.isBlank()
-                        && charPrIdRef != null && !charPrIdRef.isBlank()) {
-                    return new CellStyleRef(paraPrIdRef, charPrIdRef);
-                }
-            }
+    private String findRoughBackgroundColor(Element cellEl, String defaultColor) {
+        if (cellEl == null) {
+            return defaultColor;
         }
 
-        return null;
-    }
-
-    private String findRoughBackgroundColor(Element tblEl) {
-        // MVP:
-        // 실제 borderFill / fillBrush 정밀 분석 대신 null 또는 기본색 반환
-        // 다음 단계에서 cell/row 단위 배경색 분석 확장 예정
-        return "#ffffff";
+        // 다음 단계 확장 포인트:
+        // 실제 fillBrush / borderFill 파싱
+        return defaultColor;
     }
 
     private String readAnyAttr(Element el, String... names) {
@@ -262,23 +335,5 @@ public class HwpxTableExtractor {
         }
 
         return null;
-    }
-
-    private static class CellStyleRef {
-        private final String paraPrIdRef;
-        private final String charPrIdRef;
-
-        public CellStyleRef(String paraPrIdRef, String charPrIdRef) {
-            this.paraPrIdRef = paraPrIdRef;
-            this.charPrIdRef = charPrIdRef;
-        }
-
-        public String getParaPrIdRef() {
-            return paraPrIdRef;
-        }
-
-        public String getCharPrIdRef() {
-            return charPrIdRef;
-        }
     }
 }

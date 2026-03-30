@@ -1,5 +1,7 @@
 package com.khwajeong.hwpx_saas.compose.dto;
 
+import com.khwajeong.hwpx_saas.compose.model.ExtractedTableStyle;
+
 import java.util.List;
 
 public class TableNodeDto {
@@ -9,10 +11,9 @@ public class TableNodeDto {
     private Integer rowCount;
     private Integer colCount;
 
-    // 셀 텍스트 2차원 배열
     private List<List<String>> cellTexts;
 
-    // 대표 스타일 (MVP)
+    // 기존 대표 스타일 필드
     private String borderColor;
     private Integer borderWidth;
     private String backgroundColor;
@@ -23,11 +24,14 @@ public class TableNodeDto {
     private Boolean italic;
     private String fontColor;
 
-    // 임시 좌표
     private Double x;
     private Double y;
     private Double width;
     private Double height;
+
+    // 추가:
+    // 헤더/바디 구분 포함한 추출 스타일 세트
+    private ExtractedTableStyle extractedStyle;
 
     public String getTableId() {
         return tableId;
@@ -163,5 +167,15 @@ public class TableNodeDto {
 
     public void setHeight(Double height) {
         this.height = height;
+    }
+
+    // 추가:
+    // extractedStyle getter / setter
+    public ExtractedTableStyle getExtractedStyle() {
+        return extractedStyle;
+    }
+
+    public void setExtractedStyle(ExtractedTableStyle extractedStyle) {
+        this.extractedStyle = extractedStyle;
     }
 }

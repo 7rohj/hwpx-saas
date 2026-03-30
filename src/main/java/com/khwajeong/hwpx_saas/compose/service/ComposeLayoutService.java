@@ -1,0 +1,248 @@
+package com.khwajeong.hwpx_saas.compose.service;
+
+import com.khwajeong.hwpx_saas.compose.dto.PageLayoutBlockDto;
+import com.khwajeong.hwpx_saas.compose.dto.ParagraphNodeDto;
+import com.khwajeong.hwpx_saas.compose.dto.TableNodeDto;
+import org.springframework.stereotype.Service;
+
+import java.util.ArrayList;
+import java.util.Comparator;
+import java.util.List;
+
+@Service
+public class ComposeLayoutService {
+
+    // 추가:
+    // 가상 페이지 기본 레이아웃 상수
+    private static final int PAGE_HEIGHT_LIMIT = 680;
+    private static final int PAGE_TOP_PADDING = 36;
+    private static final int PAGE_LEFT_PADDING = 56;
+    private static final int CONTENT_WIDTH = 420;
+
+    // 추가:
+    // 문단 + 표를 하나의 순서 리스트로 만들어 공통 레이아웃 계산
+    public List<PageLayoutBlockDto> buildLayout(
+            List<ParagraphNodeDto> paragraphs,
+            List<TableNodeDto> tables
+    ) {
+        List<PageLayoutBlockDto> blocks = new ArrayList<>();
+
+        if (paragraphs != null) {
+            for (int i = 0; i < paragraphs.size(); i++) {
+                ParagraphNodeDto p = paragraphs.get(i);
+
+                PageLayoutBlockDto block = new PageLayoutBlockDto();
+                block.setBlockType("paragraph");
+                block.setParagraphId(p.getParagraphId());
+                block.setOrderIndex(extractNumericOrder(p.getParagraphId(), i));
+                block.setEstimatedFontSize(p.getFontSize() != null ? p.getFontSize() : 12);
+                block.setHeadingLike(isHeadingLike(p));
+                block.setTextLength(p.getText() == null ? 0 : p.getText().length());
+
+                blocks.add(block);
+            }
+        }
+
+        if (tables != null) {
+            for (int i = 0; i < tables.size(); i++) {
+                TableNodeDto t = tables.get(i);
+
+                PageLayoutBlockDto block = new PageLayoutBlockDto();
+                block.setBlockType("table");
+                block.setTableId(t.getTableId());
+                block.setOrderIndex(extractNumericOrder(t.getTableId(), 100000 + i));
+                block.setEstimatedRows(t.getRowCount() != null ? t.getRowCount() : 1);
+                block.setEstimatedCols(t.getColCount() != null ? t.getColCount() : 1);
+
+                blocks.add(block);
+            }
+        }
+
+        // 추가:
+        // 문서 내 순서대로 정렬
+        blocks.sort(Comparator.comparing(
+                b -> b.getOrderIndex() == null ? Integer.MAX_VALUE : b.getOrderIndex()
+        ));
+
+        // 추가:
+        // 실제 page / x / y / width / height 배치
+        int cursorY = PAGE_TOP_PADDING;
+
+        for (PageLayoutBlockDto block : blocks) {
+            int height = estimateBlockHeight(block);
+            int spacingBefore = estimateSpacingBefore(block);
+            int spacingAfter = estimateSpacingAfter(block);
+
+            cursorY += spacingBefore;
+
+            int page = (cursorY / PAGE_HEIGHT_LIMIT) + 1;
+            int normalizedTop = cursorY % PAGE_HEIGHT_LIMIT;
+
+            // 추가:
+            // 페이지 끝을 넘어가면 다음 페이지로 넘김
+            if (normalizedTop + height > PAGE_HEIGHT_LIMIT - PAGE_TOP_PADDING) {
+                cursorY = page * PAGE_HEIGHT_LIMIT + PAGE_TOP_PADDING;
+                page = (cursorY / PAGE_HEIGHT_LIMIT) + 1;
+                normalizedTop = cursorY % PAGE_HEIGHT_LIMIT;
+            }
+
+            block.setPage(page);
+            block.setX((double) PAGE_LEFT_PADDING);
+            block.setY((double) normalizedTop);
+            block.setWidth((double) estimateBlockWidth(block));
+            block.setHeight((double) height);
+
+            cursorY += height + spacingAfter;
+        }
+
+        return blocks;
+    }
+
+    // 추가:
+    // 계산된 공통 레이아웃을 paragraph에 반영
+    public void applyLayoutToParagraphs(
+            List<ParagraphNodeDto> paragraphs,
+            List<PageLayoutBlockDto> layoutBlocks
+    ) {
+        if (paragraphs == null || layoutBlocks == null) return;
+
+        for (ParagraphNodeDto p : paragraphs) {
+            PageLayoutBlockDto matched = findParagraphBlock(layoutBlocks, p.getParagraphId());
+            if (matched == null) continue;
+
+            p.setPage(matched.getPage());
+            p.setX(matched.getX());
+            p.setY(matched.getY());
+            p.setWidth(matched.getWidth());
+            p.setHeight(matched.getHeight());
+        }
+    }
+
+    // 추가:
+    // 계산된 공통 레이아웃을 table에 반영
+    public void applyLayoutToTables(
+            List<TableNodeDto> tables,
+            List<PageLayoutBlockDto> layoutBlocks
+    ) {
+        if (tables == null || layoutBlocks == null) return;
+
+        for (TableNodeDto t : tables) {
+            PageLayoutBlockDto matched = findTableBlock(layoutBlocks, t.getTableId());
+            if (matched == null) continue;
+
+            t.setPage(matched.getPage());
+            t.setX(matched.getX());
+            t.setY(matched.getY());
+            t.setWidth(matched.getWidth());
+            t.setHeight(matched.getHeight());
+        }
+    }
+
+    private PageLayoutBlockDto findParagraphBlock(List<PageLayoutBlockDto> blocks, String paragraphId) {
+        for (PageLayoutBlockDto b : blocks) {
+            if ("paragraph".equals(b.getBlockType()) && equalsSafe(paragraphId, b.getParagraphId())) {
+                return b;
+            }
+        }
+        return null;
+    }
+
+    private PageLayoutBlockDto findTableBlock(List<PageLayoutBlockDto> blocks, String tableId) {
+        for (PageLayoutBlockDto b : blocks) {
+            if ("table".equals(b.getBlockType()) && equalsSafe(tableId, b.getTableId())) {
+                return b;
+            }
+        }
+        return null;
+    }
+
+    private int estimateBlockWidth(PageLayoutBlockDto block) {
+        if (block == null) return CONTENT_WIDTH;
+
+        if ("table".equals(block.getBlockType())) {
+            int cols = block.getEstimatedCols() != null ? block.getEstimatedCols() : 1;
+            return Math.max(260, Math.min(520, cols * 92));
+        }
+
+        return CONTENT_WIDTH;
+    }
+
+    private int estimateBlockHeight(PageLayoutBlockDto block) {
+        if (block == null) return 34;
+
+        if ("table".equals(block.getBlockType())) {
+            int rows = block.getEstimatedRows() != null ? block.getEstimatedRows() : 1;
+            return Math.max(72, rows * 42 + 12);
+        }
+
+        int fontSize = block.getEstimatedFontSize() != null ? block.getEstimatedFontSize() : 12;
+        int textLength = block.getTextLength() != null ? block.getTextLength() : 0;
+
+        int estimatedLines = Math.max(1, (int) Math.ceil(textLength / 20.0));
+        int lineHeight = (int) Math.round(fontSize * 1.65);
+
+        return Math.max(28, estimatedLines * lineHeight);
+    }
+
+    private int estimateSpacingBefore(PageLayoutBlockDto block) {
+        if (block == null) return 6;
+
+        if ("table".equals(block.getBlockType())) {
+            return 16;
+        }
+
+        if (Boolean.TRUE.equals(block.getHeadingLike())) {
+            return 18;
+        }
+
+        return 6;
+    }
+
+    private int estimateSpacingAfter(PageLayoutBlockDto block) {
+        if (block == null) return 4;
+
+        if ("table".equals(block.getBlockType())) {
+            return 18;
+        }
+
+        if (Boolean.TRUE.equals(block.getHeadingLike())) {
+            return 10;
+        }
+
+        return 4;
+    }
+
+    private boolean isHeadingLike(ParagraphNodeDto p) {
+        if (p == null) return false;
+
+        int fontSize = p.getFontSize() != null ? p.getFontSize() : 12;
+        boolean bold = Boolean.TRUE.equals(p.getBold());
+        String text = p.getText() == null ? "" : p.getText().trim();
+
+        if (fontSize >= 14) return true;
+        if (bold && text.length() <= 30) return true;
+        return text.matches("^\\d+(\\.\\d+)*\\s+.*");
+    }
+
+    private int extractNumericOrder(String rawId, int fallback) {
+        if (rawId == null || rawId.isBlank()) {
+            return fallback;
+        }
+
+        String digits = rawId.replaceAll("\\D+", "");
+        if (digits.isBlank()) {
+            return fallback;
+        }
+
+        try {
+            return Integer.parseInt(digits);
+        } catch (Exception e) {
+            return fallback;
+        }
+    }
+
+    private boolean equalsSafe(String a, String b) {
+        if (a == null) return b == null;
+        return a.equals(b);
+    }
+}

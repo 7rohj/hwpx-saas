@@ -9,6 +9,7 @@ import com.khwajeong.hwpx_saas.compose.dto.ComposeSelectionRequest;
 import com.khwajeong.hwpx_saas.compose.dto.ComposeSelectionResponse;
 import com.khwajeong.hwpx_saas.compose.dto.ComposeSelectionsResponse;
 import com.khwajeong.hwpx_saas.compose.service.ComposeApplyRunnerService;
+import com.khwajeong.hwpx_saas.compose.service.ComposeDocumentViewService;
 import com.khwajeong.hwpx_saas.compose.service.ComposeSelectionService;
 import com.khwajeong.hwpx_saas.compose.service.ComposeService;
 import com.khwajeong.hwpx_saas.compose.service.ComposeSessionService;
@@ -33,10 +34,11 @@ public class ComposeController {
     private final ImageCropService imageCropService;
     private final OcrService ocrService;
     private final ComposeSessionService composeSessionService;
+    private final HwpxTableExtractor hwpxTableExtractor;
 
     // 추가:
-    // 표 추출 서비스 주입
-    private final HwpxTableExtractor hwpxTableExtractor;
+    // 문단 + 표 + 공통 레이아웃을 한 번에 내려주는 통합 서비스
+    private final ComposeDocumentViewService composeDocumentViewService;
 
     public ComposeController(
             ComposeService composeService,
@@ -45,7 +47,8 @@ public class ComposeController {
             ImageCropService imageCropService,
             OcrService ocrService,
             ComposeSessionService composeSessionService,
-            HwpxTableExtractor hwpxTableExtractor
+            HwpxTableExtractor hwpxTableExtractor,
+            ComposeDocumentViewService composeDocumentViewService
     ) {
         this.composeService = composeService;
         this.composeSelectionService = composeSelectionService;
@@ -54,6 +57,7 @@ public class ComposeController {
         this.ocrService = ocrService;
         this.composeSessionService = composeSessionService;
         this.hwpxTableExtractor = hwpxTableExtractor;
+        this.composeDocumentViewService = composeDocumentViewService;
     }
 
     @PostMapping("/heading1/apply")
@@ -66,7 +70,7 @@ public class ComposeController {
 
     @PostMapping(
             value = "/extract",
-            consumes = "multipart/form-data"
+            consumes = MediaType.MULTIPART_FORM_DATA_VALUE
     )
     public ResponseEntity<?> extract(@RequestParam("file") MultipartFile file) throws Exception {
         File temp = File.createTempFile("upload-", ".hwpx");
@@ -148,7 +152,6 @@ public class ComposeController {
 
         var paragraphs = composeService.extractFromHwpx(file);
 
-        // 현재는 페이지값이 null일 수 있어서 느슨하게 필터
         var result = paragraphs.stream()
                 .filter(p -> p.getPage() == null || p.getPage() == page)
                 .toList();
@@ -156,8 +159,6 @@ public class ComposeController {
         return ResponseEntity.ok(result);
     }
 
-    // 추가:
-    // 표 목록 조회 API
     @GetMapping("/tables/{sessionId}")
     public ResponseEntity<?> getTables(
             @PathVariable String sessionId,
@@ -179,6 +180,29 @@ public class ComposeController {
         var result = tables.stream()
                 .filter(t -> t.getPage() == null || t.getPage() == page)
                 .toList();
+
+        return ResponseEntity.ok(result);
+    }
+
+    // 추가:
+    // 문단 + 표 + 공통 레이아웃을 한 번에 가져오는 통합 API
+    @GetMapping("/document/{sessionId}")
+    public ResponseEntity<ComposeDocumentViewService.DocumentViewResult> getDocument(
+            @PathVariable String sessionId,
+            @RequestParam String side
+    ) {
+        var session = composeSessionService.get(sessionId);
+
+        if (session == null) {
+            throw new IllegalArgumentException("session not found");
+        }
+
+        File file = side.equals("template")
+                ? session.getTemplatePath().toFile()
+                : session.getSourcePath().toFile();
+
+        ComposeDocumentViewService.DocumentViewResult result =
+                composeDocumentViewService.build(file);
 
         return ResponseEntity.ok(result);
     }

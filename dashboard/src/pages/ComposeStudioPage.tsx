@@ -76,6 +76,26 @@ type TableItem = {
   height?: number | null
 }
 
+type PageBlockItem =
+  | {
+      kind: "paragraph"
+      id: string
+      page: number | null
+      y: number
+      labelText: string
+      fontInfo: string
+      paragraph: ParagraphItem
+    }
+  | {
+      kind: "table"
+      id: string
+      page: number | null
+      y: number
+      labelText: string
+      fontInfo: string
+      table: TableItem
+    }
+
 const API_BASE_URL = import.meta.env.VITE_API_BASE_URL ?? "http://localhost:8080"
 
 const ROLE_OPTIONS = [
@@ -197,6 +217,40 @@ export default function ComposeStudioPage({
     })
   }, [currentTables, currentPage])
 
+  // 추가:
+  // 우측 패널에서 "페이지 순서대로" 먼저 정렬한 뒤,
+  // 문단/표는 나중에 필터링하기 위한 공통 블록 리스트
+  const orderedPageBlocks = useMemo<PageBlockItem[]>(() => {
+    const paragraphBlocks: PageBlockItem[] = visibleParagraphs.map((p) => ({
+      kind: "paragraph",
+      id: p.paragraphId,
+      page: p.page,
+      y: p.y ?? 0,
+      labelText: p.text || "(빈 문단)",
+      fontInfo: `${p.fontFamily ?? "-"} · ${p.fontSize ?? "-"}pt`,
+      paragraph: p,
+    }))
+
+    const tableBlocks: PageBlockItem[] = visibleTables.map((t) => ({
+      kind: "table",
+      id: t.tableId,
+      page: t.page,
+      y: t.y ?? 0,
+      labelText: t.cellTexts?.[0]?.join(" | ") || "(빈 표)",
+      fontInfo: `${t.rowCount ?? 0}행 × ${t.colCount ?? 0}열`,
+      table: t,
+    }))
+
+    return [...paragraphBlocks, ...tableBlocks].sort((a, b) => a.y - b.y)
+  }, [visibleParagraphs, visibleTables])
+
+  const filteredPanelBlocks = useMemo(() => {
+    return orderedPageBlocks.filter((block) => {
+      if (activePanel === "paragraph") return block.kind === "paragraph"
+      return block.kind === "table"
+    })
+  }, [orderedPageBlocks, activePanel])
+
   useEffect(() => {
     setCurrentPage(1)
     setSelectedBoxId(null)
@@ -238,6 +292,7 @@ export default function ComposeStudioPage({
       formData.append("templateFile", templateFile)
       formData.append("sourceFile", sourceFile)
 
+      // 1) preview 업로드
       const previewRes = await fetch(`${API_BASE_URL}/api/v1/compose/preview`, {
         method: "POST",
         body: formData,
@@ -256,59 +311,57 @@ export default function ComposeStudioPage({
 
       const apiKey = localStorage.getItem("apiKey") ?? ""
 
-      // 추가:
-      // 문단 / 표를 동시에 가져옴
-      const [templateRes, sourceRes, templateTableRes, sourceTableRes] = await Promise.all([
+      // 2) 추가:
+      // 이제 paragraphs / tables 를 따로 부르지 않고,
+      // document API 한 번으로 문단 + 표 + 공통 레이아웃 결과를 같이 받음
+      const [templateRes, sourceRes] = await Promise.all([
         fetch(
-          `${API_BASE_URL}/api/v1/compose/paragraphs/${previewData.sessionId}?side=template&page=1`,
+          `${API_BASE_URL}/api/v1/compose/document/${previewData.sessionId}?side=template`,
           {
             headers: { "X-API-Key": apiKey },
           }
         ),
         fetch(
-          `${API_BASE_URL}/api/v1/compose/paragraphs/${previewData.sessionId}?side=source&page=1`,
-          {
-            headers: { "X-API-Key": apiKey },
-          }
-        ),
-        fetch(
-          `${API_BASE_URL}/api/v1/compose/tables/${previewData.sessionId}?side=template&page=1`,
-          {
-            headers: { "X-API-Key": apiKey },
-          }
-        ),
-        fetch(
-          `${API_BASE_URL}/api/v1/compose/tables/${previewData.sessionId}?side=source&page=1`,
+          `${API_BASE_URL}/api/v1/compose/document/${previewData.sessionId}?side=source`,
           {
             headers: { "X-API-Key": apiKey },
           }
         ),
       ])
 
-      if (!templateRes.ok) throw new Error("template paragraph 조회 실패")
-      if (!sourceRes.ok) throw new Error("source paragraph 조회 실패")
-      if (!templateTableRes.ok) throw new Error("template table 조회 실패")
-      if (!sourceTableRes.ok) throw new Error("source table 조회 실패")
+      if (!templateRes.ok) {
+        throw new Error("template document 조회 실패")
+      }
+      if (!sourceRes.ok) {
+        throw new Error("source document 조회 실패")
+      }
 
-      const templateData: ParagraphItem[] = await templateRes.json()
-      const sourceData: ParagraphItem[] = await sourceRes.json()
-      const templateTableData: TableItem[] = await templateTableRes.json()
-      const sourceTableData: TableItem[] = await sourceTableRes.json()
+      // 3) 추가:
+      // document API 응답 구조:
+      // {
+      //   paragraphs: [...],
+      //   tables: [...]
+      // }
+      const templateData = await templateRes.json()
+      const sourceData = await sourceRes.json()
 
-      setTemplateParagraphs(templateData ?? [])
-      setSourceParagraphs(sourceData ?? [])
-      setTemplateTables(templateTableData ?? [])
-      setSourceTables(sourceTableData ?? [])
+      setTemplateParagraphs(templateData.paragraphs ?? [])
+      setTemplateTables(templateData.tables ?? [])
 
+      setSourceParagraphs(sourceData.paragraphs ?? [])
+      setSourceTables(sourceData.tables ?? [])
+
+      // 4) 선택 상태 초기화
       setSelectedTemplateParagraphId("")
       setSelectedSourceParagraphId("")
       setSelectedTemplateTableId("")
       setSelectedSourceTableId("")
 
-      // 추가:
-      // 박스 초기화
+      // 5) 박스 초기화
       setTemplateBoxes([])
       setSourceBoxes([])
+      setSelectedBoxId(null)
+
     } catch (err) {
       console.error(err)
       setError(err instanceof Error ? err.message : "업로드 중 오류가 발생했습니다.")
@@ -599,6 +652,7 @@ export default function ComposeStudioPage({
 
               <ComposePageParagraphLayer
                 paragraphs={visibleParagraphs}
+                tables={visibleTables}
                 selectedParagraphId={currentSelectedId || null}
                 boxes={currentBoxes}
                 selectedBoxId={selectedBoxId}
@@ -708,47 +762,106 @@ export default function ComposeStudioPage({
 
               {activePanel === "paragraph" ? (
                 <div className="mb-4 max-h-[420px] space-y-3 overflow-y-auto pr-1">
-                  {visibleParagraphs.length === 0 ? (
+                  {filteredPanelBlocks.length === 0 ? (
                     <div className="rounded-2xl border border-dashed border-[#d7e5ff] px-4 py-8 text-center text-sm text-[#63708a]">
-                      현재 페이지에서 문단을 찾지 못했습니다.
+                      현재 페이지에서 {activePanel === "paragraph" ? "문단" : "표"}를 찾지 못했습니다.
                     </div>
                   ) : (
-                    visibleParagraphs.map((p) => {
-                      const selected = currentSelectedId === p.paragraphId
+                    filteredPanelBlocks.map((block) => {
+                      if (block.kind === "paragraph") {
+                        const p = block.paragraph
+                        const selected = currentSelectedId === p.paragraphId
+
+                        return (
+                          <button
+                            key={`p-${p.paragraphId}`}
+                            type="button"
+                            onClick={() => {
+                              const currentBoxesForSide =
+                                activeSide === "template" ? templateBoxes : sourceBoxes
+                              const existingBox = findBoxByParagraphId(currentBoxesForSide, p.paragraphId)
+
+                              if (activeSide === "template") {
+                                setSelectedTemplateParagraphId(p.paragraphId)
+                              } else {
+                                setSelectedSourceParagraphId(p.paragraphId)
+                              }
+
+                              if (existingBox) {
+                                setSelectedBoxId(existingBox.id)
+                                return
+                              }
+
+                              const paragraphIndex = visibleParagraphs.findIndex(
+                                (item) => item.paragraphId === p.paragraphId
+                              )
+
+                              const autoBox = createAutoBox(paragraphIndex, p.paragraphId, currentRole)
+
+                              if (activeSide === "template") {
+                                setTemplateBoxes((prev) => [...prev, autoBox])
+                              } else {
+                                setSourceBoxes((prev) => [...prev, autoBox])
+                              }
+
+                              setSelectedBoxId(autoBox.id)
+                            }}
+                            className={`w-full rounded-[22px] border p-4 text-left transition ${
+                              selected
+                                ? "border-[#1f69ef] bg-[#eef4ff] shadow-[0_12px_30px_rgba(31,105,239,0.10)]"
+                                : "border-[#dbe7ff] bg-white hover:border-[#bcd2ff] hover:bg-[#f8fbff]"
+                            }`}
+                          >
+                            <div className="mb-2 flex items-center justify-between gap-3">
+                              <span className="rounded-full bg-white px-2.5 py-1 text-[11px] font-semibold text-[#1f69ef]">
+                                {p.paragraphId}
+                              </span>
+                              <span className="text-[11px] text-[#7a869f]">{block.fontInfo}</span>
+                            </div>
+
+                            <p className="line-clamp-3 text-sm font-medium text-[#1a2540]">
+                              {block.labelText}
+                            </p>
+                          </button>
+                        )
+                      }
+
+                      const t = block.table
+                      const selected = currentSelectedTableId === t.tableId
 
                       return (
                         <button
-                          key={p.paragraphId}
+                          key={`t-${t.tableId}`}
                           type="button"
                           onClick={() => {
-                            const currentBoxesForSide =
-                              activeSide === "template" ? templateBoxes : sourceBoxes
-                            const existingBox = findBoxByParagraphId(currentBoxesForSide, p.paragraphId)
+                            if (activeSide === "template") {
+                              setSelectedTemplateTableId(t.tableId)
+                            } else {
+                              setSelectedSourceTableId(t.tableId)
+                            }
+
+                            const tableBox: OverlayBox = {
+                              id: `${t.tableId}-box`,
+                              x: t.x ?? 56,
+                              y: t.y ?? 80,
+                              width: t.width ?? 420,
+                              height: t.height ?? 120,
+                              label: "table",
+                            }
 
                             if (activeSide === "template") {
-                              setSelectedTemplateParagraphId(p.paragraphId)
+                              setTemplateBoxes((prev) => {
+                                const exists = prev.find((b) => b.id === tableBox.id)
+                                return exists ? prev : [...prev, tableBox]
+                              })
                             } else {
-                              setSelectedSourceParagraphId(p.paragraphId)
+                              setSourceBoxes((prev) => {
+                                const exists = prev.find((b) => b.id === tableBox.id)
+                                return exists ? prev : [...prev, tableBox]
+                              })
                             }
 
-                            if (existingBox) {
-                              setSelectedBoxId(existingBox.id)
-                              return
-                            }
-
-                            const paragraphIndex = visibleParagraphs.findIndex(
-                              (item) => item.paragraphId === p.paragraphId
-                            )
-
-                            const autoBox = createAutoBox(paragraphIndex, p.paragraphId, currentRole)
-
-                            if (activeSide === "template") {
-                              setTemplateBoxes((prev) => [...prev, autoBox])
-                            } else {
-                              setSourceBoxes((prev) => [...prev, autoBox])
-                            }
-
-                            setSelectedBoxId(autoBox.id)
+                            setSelectedBoxId(tableBox.id)
                           }}
                           className={`w-full rounded-[22px] border p-4 text-left transition ${
                             selected
@@ -758,15 +871,13 @@ export default function ComposeStudioPage({
                         >
                           <div className="mb-2 flex items-center justify-between gap-3">
                             <span className="rounded-full bg-white px-2.5 py-1 text-[11px] font-semibold text-[#1f69ef]">
-                              {p.paragraphId}
+                              {t.tableId}
                             </span>
-                            <span className="text-[11px] text-[#7a869f]">
-                              {p.fontFamily ?? "-"} · {p.fontSize ?? "-"}pt
-                            </span>
+                            <span className="text-[11px] text-[#7a869f]">{block.fontInfo}</span>
                           </div>
 
-                          <p className="line-clamp-3 text-sm font-medium text-[#1a2540]">
-                            {p.text || "(빈 문단)"}
+                          <p className="line-clamp-2 text-sm font-medium text-[#1a2540]">
+                            {block.labelText}
                           </p>
                         </button>
                       )
