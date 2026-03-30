@@ -1,8 +1,6 @@
 import type { PageType } from "../App"
 import type { OverlayBox } from "../components/ComposePageOverlay"
 import TopNav from "../components/TopNav"
-import ComposePageCanvasPreview from "../components/ComposePageCanvasPreview"
-import ComposePageImageStage from "../components/ComposePageImageStage"
 import ComposePageParagraphLayer from "../components/ComposePageParagraphLayer"
 import { useEffect, useMemo, useState } from "react"
 import {
@@ -14,6 +12,8 @@ import {
   Tag,
   Sparkles,
   SquareDashedMousePointer,
+  Table2,
+  AlignLeft,
 } from "lucide-react"
 
 type ComposeStudioPageProps = {
@@ -44,6 +44,32 @@ type ParagraphItem = {
   paraPrIdRef?: string | null
   charPrIdRef?: string | null
   fontFamily?: string | null
+
+  // 추가:
+  // 가상 페이지 렌더링용 좌표
+  x?: number | null
+  y?: number | null
+  width?: number | null
+  height?: number | null
+}
+
+type TableItem = {
+  tableId: string
+  page: number | null
+  rowCount: number | null
+  colCount: number | null
+  cellTexts: string[][]
+  borderColor?: string | null
+  borderWidth?: number | null
+  backgroundColor?: string | null
+  fontFamily?: string | null
+  fontSize?: number | null
+  bold?: boolean | null
+  italic?: boolean | null
+  fontColor?: string | null
+
+  // 추가:
+  // 가상 페이지 렌더링용 좌표
   x?: number | null
   y?: number | null
   width?: number | null
@@ -58,15 +84,17 @@ const ROLE_OPTIONS = [
   { value: "heading3", label: "heading3" },
   { value: "body", label: "body" },
   { value: "caption", label: "caption" },
+  { value: "table", label: "table" },
 ]
 
-function fakePageCount(paragraphs: ParagraphItem[]) {
-  const pages = paragraphs
-    .map((p) => p.page)
-    .filter((v): v is number => typeof v === "number" && !Number.isNaN(v))
+function fakePageCount(paragraphs: ParagraphItem[], tables: TableItem[]) {
+  const pageValues = [
+    ...paragraphs.map((p) => p.page),
+    ...tables.map((t) => t.page),
+  ].filter((v): v is number => typeof v === "number" && !Number.isNaN(v))
 
-  if (pages.length === 0) return 1
-  return Math.max(...pages)
+  if (pageValues.length === 0) return 1
+  return Math.max(...pageValues)
 }
 
 function createAutoBox(index: number, paragraphId: string, label: string): OverlayBox {
@@ -91,11 +119,6 @@ function findBoxByParagraphId(boxes: OverlayBox[], paragraphId: string) {
   return boxes.find((box) => box.paragraphId === paragraphId) ?? null
 }
 
-function findParagraphById(paragraphs: ParagraphItem[], paragraphId?: string) {
-  if (!paragraphId) return null
-  return paragraphs.find((p) => p.paragraphId === paragraphId) ?? null
-}
-
 export default function ComposeStudioPage({
   onNavigate,
   onLogout,
@@ -109,11 +132,25 @@ export default function ComposeStudioPage({
   const [activeSide, setActiveSide] = useState<"template" | "source">("template")
   const [currentPage, setCurrentPage] = useState(1)
 
+  // 추가:
+  // 우측 패널에서 문단 탭 / 표 탭 전환
+  const [activePanel, setActivePanel] = useState<"paragraph" | "table">("paragraph")
+
   const [templateParagraphs, setTemplateParagraphs] = useState<ParagraphItem[]>([])
   const [sourceParagraphs, setSourceParagraphs] = useState<ParagraphItem[]>([])
 
+  // 추가:
+  // 표 목록 state
+  const [templateTables, setTemplateTables] = useState<TableItem[]>([])
+  const [sourceTables, setSourceTables] = useState<TableItem[]>([])
+
   const [selectedTemplateParagraphId, setSelectedTemplateParagraphId] = useState("")
   const [selectedSourceParagraphId, setSelectedSourceParagraphId] = useState("")
+
+  // 추가:
+  // 선택된 표 ID
+  const [selectedTemplateTableId, setSelectedTemplateTableId] = useState("")
+  const [selectedSourceTableId, setSelectedSourceTableId] = useState("")
 
   const [templateRole, setTemplateRole] = useState("heading1")
   const [sourceRole, setSourceRole] = useState("heading1")
@@ -124,22 +161,27 @@ export default function ComposeStudioPage({
   const [applyResult, setApplyResult] = useState<any>(null)
 
   // 추가:
-  // 지금 단계에서는 bbox가 없어서 박스를 프론트에서 임시 생성
+  // overlay 박스 상태
   const [templateBoxes, setTemplateBoxes] = useState<OverlayBox[]>([])
   const [sourceBoxes, setSourceBoxes] = useState<OverlayBox[]>([])
   const [selectedBoxId, setSelectedBoxId] = useState<string | null>(null)
 
-  const [templatePageImageUrl, setTemplatePageImageUrl] = useState<string | null>(null)
-  const [sourcePageImageUrl, setSourcePageImageUrl] = useState<string | null>(null)
-
-  const currentPageImageUrl = activeSide === "template" ? templatePageImageUrl : sourcePageImageUrl
   const currentParagraphs = activeSide === "template" ? templateParagraphs : sourceParagraphs
+  const currentTables = activeSide === "template" ? templateTables : sourceTables
+  const currentBoxes = activeSide === "template" ? templateBoxes : sourceBoxes
+
   const currentSelectedId =
     activeSide === "template" ? selectedTemplateParagraphId : selectedSourceParagraphId
-  const currentRole = activeSide === "template" ? templateRole : sourceRole
-  const currentPageCount = useMemo(() => fakePageCount(currentParagraphs), [currentParagraphs])
 
-  const currentBoxes = activeSide === "template" ? templateBoxes : sourceBoxes
+  const currentSelectedTableId =
+    activeSide === "template" ? selectedTemplateTableId : selectedSourceTableId
+
+  const currentRole = activeSide === "template" ? templateRole : sourceRole
+
+  const currentPageCount = useMemo(
+    () => fakePageCount(currentParagraphs, currentTables),
+    [currentParagraphs, currentTables]
+  )
 
   const visibleParagraphs = useMemo(() => {
     return currentParagraphs.filter((p) => {
@@ -148,28 +190,37 @@ export default function ComposeStudioPage({
     })
   }, [currentParagraphs, currentPage])
 
+  const visibleTables = useMemo(() => {
+    return currentTables.filter((t) => {
+      if (t.page == null) return true
+      return t.page === currentPage
+    })
+  }, [currentTables, currentPage])
+
   useEffect(() => {
     setCurrentPage(1)
     setSelectedBoxId(null)
   }, [activeSide])
 
+  // 추가:
+  // role 바뀌면 선택된 박스 label도 같이 업데이트
   useEffect(() => {
-  if (!selectedBoxId) return
+    if (!selectedBoxId) return
 
-  if (activeSide === "template") {
-    setTemplateBoxes((prev) =>
-      prev.map((box) =>
-        box.id === selectedBoxId ? { ...box, label: templateRole } : box
+    if (activeSide === "template") {
+      setTemplateBoxes((prev) =>
+        prev.map((box) =>
+          box.id === selectedBoxId ? { ...box, label: templateRole } : box
+        )
       )
-    )
-  } else {
-    setSourceBoxes((prev) =>
-      prev.map((box) =>
-        box.id === selectedBoxId ? { ...box, label: sourceRole } : box
+    } else {
+      setSourceBoxes((prev) =>
+        prev.map((box) =>
+          box.id === selectedBoxId ? { ...box, label: sourceRole } : box
+        )
       )
-    )
-  }
-}, [templateRole, sourceRole, activeSide, selectedBoxId])
+    }
+  }, [templateRole, sourceRole, activeSide, selectedBoxId])
 
   async function handlePreviewUpload() {
     if (!templateFile || !sourceFile) {
@@ -205,7 +256,9 @@ export default function ComposeStudioPage({
 
       const apiKey = localStorage.getItem("apiKey") ?? ""
 
-      const [templateRes, sourceRes] = await Promise.all([
+      // 추가:
+      // 문단 / 표를 동시에 가져옴
+      const [templateRes, sourceRes, templateTableRes, sourceTableRes] = await Promise.all([
         fetch(
           `${API_BASE_URL}/api/v1/compose/paragraphs/${previewData.sessionId}?side=template&page=1`,
           {
@@ -218,32 +271,44 @@ export default function ComposeStudioPage({
             headers: { "X-API-Key": apiKey },
           }
         ),
+        fetch(
+          `${API_BASE_URL}/api/v1/compose/tables/${previewData.sessionId}?side=template&page=1`,
+          {
+            headers: { "X-API-Key": apiKey },
+          }
+        ),
+        fetch(
+          `${API_BASE_URL}/api/v1/compose/tables/${previewData.sessionId}?side=source&page=1`,
+          {
+            headers: { "X-API-Key": apiKey },
+          }
+        ),
       ])
 
-      if (!templateRes.ok) {
-        throw new Error("template paragraph 조회 실패")
-      }
-      if (!sourceRes.ok) {
-        throw new Error("source paragraph 조회 실패")
-      }
+      if (!templateRes.ok) throw new Error("template paragraph 조회 실패")
+      if (!sourceRes.ok) throw new Error("source paragraph 조회 실패")
+      if (!templateTableRes.ok) throw new Error("template table 조회 실패")
+      if (!sourceTableRes.ok) throw new Error("source table 조회 실패")
 
       const templateData: ParagraphItem[] = await templateRes.json()
       const sourceData: ParagraphItem[] = await sourceRes.json()
+      const templateTableData: TableItem[] = await templateTableRes.json()
+      const sourceTableData: TableItem[] = await sourceTableRes.json()
 
       setTemplateParagraphs(templateData ?? [])
       setSourceParagraphs(sourceData ?? [])
+      setTemplateTables(templateTableData ?? [])
+      setSourceTables(sourceTableData ?? [])
+
       setSelectedTemplateParagraphId("")
       setSelectedSourceParagraphId("")
+      setSelectedTemplateTableId("")
+      setSelectedSourceTableId("")
 
       // 추가:
-      // 박스 임시 초기화
+      // 박스 초기화
       setTemplateBoxes([])
       setSourceBoxes([])
-
-      await Promise.all([
-        loadPageImage(previewData.sessionId, "template", 1),
-        loadPageImage(previewData.sessionId, "source", 1),
-      ])
     } catch (err) {
       console.error(err)
       setError(err instanceof Error ? err.message : "업로드 중 오류가 발생했습니다.")
@@ -263,21 +328,46 @@ export default function ComposeStudioPage({
     const paragraphId =
       activeSide === "template" ? selectedTemplateParagraphId : selectedSourceParagraphId
 
-    if (!paragraphId) {
-      alert("문단을 먼저 선택해주세요.")
-      return
-    }
+    const tableId =
+      activeSide === "template" ? selectedTemplateTableId : selectedSourceTableId
 
     try {
       setSaving(true)
       setSavedMessage("")
 
-      const body = {
-        sessionId,
-        side: activeSide,
-        page: currentPage,
-        label: currentRole,
-        paragraphId,
+      // 추가:
+      // 현재 패널에 따라 paragraph/table 저장 body 분기
+      const body =
+        activePanel === "table"
+          ? {
+              sessionId,
+              side: activeSide,
+              page: currentPage,
+              label: currentRole,
+              blockType: "table",
+              tableId,
+            }
+          : {
+              sessionId,
+              side: activeSide,
+              page: currentPage,
+              label: currentRole,
+              blockType: "paragraph",
+              paragraphId,
+            }
+
+      // 추가:
+      // 패널별 필수값 체크
+      if (activePanel === "table") {
+        if (!tableId) {
+          alert("표를 먼저 선택해주세요.")
+          return
+        }
+      } else {
+        if (!paragraphId) {
+          alert("문단을 먼저 선택해주세요.")
+          return
+        }
       }
 
       const res = await fetch(`${API_BASE_URL}/api/v1/compose/selections`, {
@@ -294,7 +384,17 @@ export default function ComposeStudioPage({
       }
 
       const data = await res.json()
-      setSavedMessage(`${data.side} · ${data.label} · ${data.paragraphId} 저장 완료`)
+
+      // 추가:
+      // 응답에 paragraphId / tableId 둘 다 올 수 있으니 분기해서 메시지 표시
+      const savedTarget =
+        data.blockType === "table"
+          ? data.tableId
+          : data.paragraphId
+
+      setSavedMessage(
+        `${data.side} · ${data.label} · ${data.blockType} · ${savedTarget} 저장 완료`
+      )
     } catch (err) {
       console.error(err)
       alert(err instanceof Error ? err.message : "선택 저장 실패")
@@ -302,33 +402,6 @@ export default function ComposeStudioPage({
       setSaving(false)
     }
   }
-
-  // 260327 추가
-  async function loadPageImage(targetSessionId: string, side: "template" | "source", page: number) {
-    const apiKey = localStorage.getItem("apiKey") ?? ""
-
-    const res = await fetch(
-        `${API_BASE_URL}/api/v1/compose/page-image/${targetSessionId}?side=${side}&page=${page}`,
-        {
-        headers: {
-            "X-API-Key": apiKey,
-        },
-        }
-    )
-
-    if (!res.ok) {
-        throw new Error(`${side} page image 조회 실패`)
-    }
-
-    const blob = await res.blob()
-    const url = URL.createObjectURL(blob)
-
-    if (side === "template") {
-        setTemplatePageImageUrl(url)
-    } else {
-        setSourcePageImageUrl(url)
-    }
-    }
 
   async function handleApply() {
     if (!sessionId) {
@@ -374,19 +447,19 @@ export default function ComposeStudioPage({
 
   function createOverlayBox(box: Omit<OverlayBox, "id">) {
     const newBox: OverlayBox = {
-        id: `${activeSide}-box-${Date.now()}`,
-        ...box,
-        label: currentRole,
+      id: `${activeSide}-box-${Date.now()}`,
+      ...box,
+      label: currentRole,
     }
 
     if (activeSide === "template") {
-        setTemplateBoxes((prev) => [...prev, newBox])
+      setTemplateBoxes((prev) => [...prev, newBox])
     } else {
-        setSourceBoxes((prev) => [...prev, newBox])
+      setSourceBoxes((prev) => [...prev, newBox])
     }
 
     setSelectedBoxId(newBox.id)
-    }
+  }
 
   return (
     <>
@@ -402,10 +475,10 @@ export default function ComposeStudioPage({
                   Compose Studio
                 </div>
                 <h1 className="text-3xl font-bold tracking-tight text-[#162033] sm:text-4xl">
-                  페이지 오버레이 + 문단 선택
+                  가상 페이지 렌더링 + 문단/표 선택
                 </h1>
                 <p className="mt-2 text-sm text-[#63708a] sm:text-base">
-                  지금은 문단 직접 선택이 메인이고, 오버레이 박스 UX를 같이 붙이는 단계입니다.
+                  HWPX를 직접 파싱해 문단과 표를 가상 페이지 위에 표시하는 단계입니다.
                 </p>
               </div>
 
@@ -521,7 +594,7 @@ export default function ComposeStudioPage({
 
               <div className="mb-3 flex items-center gap-2 text-xs font-semibold text-[#1f69ef]">
                 <SquareDashedMousePointer className="h-4 w-4" />
-                드래그해서 임시 박스를 만들어 UX를 먼저 확인할 수 있어요
+                가상 페이지 위에 문단과 표 박스를 함께 표시합니다
               </div>
 
               <ComposePageParagraphLayer
@@ -582,7 +655,35 @@ export default function ComposeStudioPage({
             <div className="rounded-[32px] border border-[#dbe7ff] bg-white p-6">
               <div className="mb-4 flex items-center gap-2 text-lg font-semibold text-[#162033]">
                 <Tag className="h-5 w-5 text-[#1f69ef]" />
-                문단 선택
+                선택 패널
+              </div>
+
+              {/* 추가:
+                  문단 / 표 탭 전환 */}
+              <div className="mb-4 flex items-center gap-2">
+                <button
+                  onClick={() => setActivePanel("paragraph")}
+                  className={`inline-flex items-center gap-2 rounded-xl px-3 py-2 text-sm ${
+                    activePanel === "paragraph"
+                      ? "bg-[#1f69ef] text-white"
+                      : "border border-[#d7e5ff] bg-white text-slate-700"
+                  }`}
+                >
+                  <AlignLeft className="h-4 w-4" />
+                  문단
+                </button>
+
+                <button
+                  onClick={() => setActivePanel("table")}
+                  className={`inline-flex items-center gap-2 rounded-xl px-3 py-2 text-sm ${
+                    activePanel === "table"
+                      ? "bg-[#1f69ef] text-white"
+                      : "border border-[#d7e5ff] bg-white text-slate-700"
+                  }`}
+                >
+                  <Table2 className="h-4 w-4" />
+                  표
+                </button>
               </div>
 
               <div className="mb-4">
@@ -605,79 +706,150 @@ export default function ComposeStudioPage({
                 </select>
               </div>
 
-              <div className="mb-4 max-h-[420px] space-y-3 overflow-y-auto pr-1">
-                {visibleParagraphs.length === 0 ? (
-                  <div className="rounded-2xl border border-dashed border-[#d7e5ff] px-4 py-8 text-center text-sm text-[#63708a]">
-                    현재 페이지에서 문단을 찾지 못했습니다.
-                  </div>
-                ) : (
-                  visibleParagraphs.map((p) => {
-                    const selected = currentSelectedId === p.paragraphId
+              {activePanel === "paragraph" ? (
+                <div className="mb-4 max-h-[420px] space-y-3 overflow-y-auto pr-1">
+                  {visibleParagraphs.length === 0 ? (
+                    <div className="rounded-2xl border border-dashed border-[#d7e5ff] px-4 py-8 text-center text-sm text-[#63708a]">
+                      현재 페이지에서 문단을 찾지 못했습니다.
+                    </div>
+                  ) : (
+                    visibleParagraphs.map((p) => {
+                      const selected = currentSelectedId === p.paragraphId
 
-                    return (
-                      <button
-                        key={p.paragraphId}
-                        type="button"
-                        
-                        onClick={() => {
-                            const currentBoxesForSide = activeSide === "template" ? templateBoxes : sourceBoxes
+                      return (
+                        <button
+                          key={p.paragraphId}
+                          type="button"
+                          onClick={() => {
+                            const currentBoxesForSide =
+                              activeSide === "template" ? templateBoxes : sourceBoxes
                             const existingBox = findBoxByParagraphId(currentBoxesForSide, p.paragraphId)
 
                             if (activeSide === "template") {
-                                setSelectedTemplateParagraphId(p.paragraphId)
+                              setSelectedTemplateParagraphId(p.paragraphId)
                             } else {
-                                setSelectedSourceParagraphId(p.paragraphId)
+                              setSelectedSourceParagraphId(p.paragraphId)
                             }
 
-                            // 이미 박스가 있으면 그 박스를 선택만 함
                             if (existingBox) {
-                                setSelectedBoxId(existingBox.id)
-                                return
+                              setSelectedBoxId(existingBox.id)
+                              return
                             }
 
-                            // 없으면 문단 클릭 시 자동 박스 생성
                             const paragraphIndex = visibleParagraphs.findIndex(
-                                (item) => item.paragraphId === p.paragraphId
+                              (item) => item.paragraphId === p.paragraphId
                             )
 
                             const autoBox = createAutoBox(paragraphIndex, p.paragraphId, currentRole)
 
                             if (activeSide === "template") {
-                                setTemplateBoxes((prev) => [...prev, autoBox])
+                              setTemplateBoxes((prev) => [...prev, autoBox])
                             } else {
-                                setSourceBoxes((prev) => [...prev, autoBox])
+                              setSourceBoxes((prev) => [...prev, autoBox])
                             }
 
                             setSelectedBoxId(autoBox.id)
-                            }}
+                          }}
+                          className={`w-full rounded-[22px] border p-4 text-left transition ${
+                            selected
+                              ? "border-[#1f69ef] bg-[#eef4ff] shadow-[0_12px_30px_rgba(31,105,239,0.10)]"
+                              : "border-[#dbe7ff] bg-white hover:border-[#bcd2ff] hover:bg-[#f8fbff]"
+                          }`}
+                        >
+                          <div className="mb-2 flex items-center justify-between gap-3">
+                            <span className="rounded-full bg-white px-2.5 py-1 text-[11px] font-semibold text-[#1f69ef]">
+                              {p.paragraphId}
+                            </span>
+                            <span className="text-[11px] text-[#7a869f]">
+                              {p.fontFamily ?? "-"} · {p.fontSize ?? "-"}pt
+                            </span>
+                          </div>
 
-                        className={`w-full rounded-[22px] border p-4 text-left transition ${
-                          selected
-                            ? "border-[#1f69ef] bg-[#eef4ff] shadow-[0_12px_30px_rgba(31,105,239,0.10)]"
-                            : "border-[#dbe7ff] bg-white hover:border-[#bcd2ff] hover:bg-[#f8fbff]"
-                        }`}
-                      >
-                        <div className="mb-2 flex items-center justify-between gap-3">
-                          <span className="rounded-full bg-white px-2.5 py-1 text-[11px] font-semibold text-[#1f69ef]">
-                            {p.paragraphId}
-                          </span>
-                          <span className="text-[11px] text-[#7a869f]">
-                            {p.fontFamily ?? "-"} · {p.fontSize ?? "-"}pt
-                          </span>
-                        </div>
+                          <p className="line-clamp-3 text-sm font-medium text-[#1a2540]">
+                            {p.text || "(빈 문단)"}
+                          </p>
+                        </button>
+                      )
+                    })
+                  )}
+                </div>
+              ) : (
+                <div className="mb-4 max-h-[420px] space-y-3 overflow-y-auto pr-1">
+                  {visibleTables.length === 0 ? (
+                    <div className="rounded-2xl border border-dashed border-[#d7e5ff] px-4 py-8 text-center text-sm text-[#63708a]">
+                      현재 페이지에서 표를 찾지 못했습니다.
+                    </div>
+                  ) : (
+                    visibleTables.map((t) => {
+                      const selected = currentSelectedTableId === t.tableId
+                      const previewRow = t.cellTexts?.[0]?.join(" | ") ?? "(빈 표)"
 
-                        <p className="line-clamp-3 text-sm font-medium text-[#1a2540]">
-                          {p.text || "(빈 문단)"}
-                        </p>
-                      </button>
-                    )
-                  })
-                )}
-              </div>
+                      return (
+                        <button
+                          key={t.tableId}
+                          type="button"
+                          onClick={() => {
+                            if (activeSide === "template") {
+                              setSelectedTemplateTableId(t.tableId)
+                            } else {
+                              setSelectedSourceTableId(t.tableId)
+                            }
+
+                            const tableBox: OverlayBox = {
+                              id: `${t.tableId}-box`,
+                              x: t.x ?? 56,
+                              y: t.y ?? 80,
+                              width: t.width ?? 420,
+                              height: t.height ?? 120,
+                              label: "table",
+                            }
+
+                            if (activeSide === "template") {
+                              setTemplateBoxes((prev) => {
+                                const exists = prev.find((b) => b.id === tableBox.id)
+                                return exists ? prev : [...prev, tableBox]
+                              })
+                            } else {
+                              setSourceBoxes((prev) => {
+                                const exists = prev.find((b) => b.id === tableBox.id)
+                                return exists ? prev : [...prev, tableBox]
+                              })
+                            }
+
+                            setSelectedBoxId(tableBox.id)
+                          }}
+                          className={`w-full rounded-[22px] border p-4 text-left transition ${
+                            selected
+                              ? "border-[#1f69ef] bg-[#eef4ff] shadow-[0_12px_30px_rgba(31,105,239,0.10)]"
+                              : "border-[#dbe7ff] bg-white hover:border-[#bcd2ff] hover:bg-[#f8fbff]"
+                          }`}
+                        >
+                          <div className="mb-2 flex items-center justify-between gap-3">
+                            <span className="rounded-full bg-white px-2.5 py-1 text-[11px] font-semibold text-[#1f69ef]">
+                              {t.tableId}
+                            </span>
+                            <span className="text-[11px] text-[#7a869f]">
+                              {t.rowCount}행 × {t.colCount}열
+                            </span>
+                          </div>
+
+                          <p className="line-clamp-2 text-sm font-medium text-[#1a2540]">
+                            {previewRow}
+                          </p>
+                        </button>
+                      )
+                    })
+                  )}
+                </div>
+              )}
 
               <button
                 onClick={handleSaveSelection}
-                disabled={!currentSelectedId || saving}
+                disabled={
+                  activePanel === "paragraph"
+                    ? !currentSelectedId || saving
+                    : !currentSelectedTableId || saving
+                }
                 className="flex w-full items-center justify-center gap-2 rounded-2xl bg-[#1f69ef] px-4 py-3 text-sm font-semibold text-white shadow-[0_10px_24px_rgba(31,105,239,0.22)] hover:bg-[#1859ca] disabled:cursor-not-allowed disabled:opacity-60"
               >
                 <CheckCircle2 className="h-4 w-4" />
@@ -690,21 +862,26 @@ export default function ComposeStudioPage({
                 </div>
               ) : null}
 
-            <div className="mt-4 rounded-2xl border border-[#e5ecff] bg-[#fafcff] px-4 py-3 text-sm text-[#4b5875]">
+              <div className="mt-4 rounded-2xl border border-[#e5ecff] bg-[#fafcff] px-4 py-3 text-sm text-[#4b5875]">
                 <div>
-                    현재 side: <span className="font-semibold">{activeSide}</span>
+                  현재 side: <span className="font-semibold">{activeSide}</span>
                 </div>
                 <div>
-                    현재 role: <span className="font-semibold">{currentRole}</span>
+                  현재 panel: <span className="font-semibold">{activePanel}</span>
                 </div>
                 <div>
-                    현재 paragraph: <span className="font-semibold">{currentSelectedId || "-"}</span>
+                  현재 role: <span className="font-semibold">{currentRole}</span>
                 </div>
                 <div>
-                    현재 overlay box: <span className="font-semibold">{selectedBoxId || "-"}</span>
+                  현재 paragraph: <span className="font-semibold">{currentSelectedId || "-"}</span>
                 </div>
-            </div>
-
+                <div>
+                  현재 table: <span className="font-semibold">{currentSelectedTableId || "-"}</span>
+                </div>
+                <div>
+                  현재 overlay box: <span className="font-semibold">{selectedBoxId || "-"}</span>
+                </div>
+              </div>
             </div>
           </section>
 

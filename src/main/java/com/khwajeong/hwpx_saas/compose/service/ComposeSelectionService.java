@@ -13,10 +13,7 @@ import java.util.concurrent.CopyOnWriteArrayList;
 @Service
 public class ComposeSelectionService {
 
-    // =========================
     // 현재는 메모리 저장 방식
-    // 추후 DB로 바꿔도 메서드 시그니처는 유지 가능
-    // =========================
     private final List<ComposeSelection> selections = new CopyOnWriteArrayList<>();
 
     public ComposeSelectionResponse save(ComposeSelectionRequest request) {
@@ -33,6 +30,24 @@ public class ComposeSelectionService {
             throw new IllegalArgumentException("label is required");
         }
 
+        // 추가:
+        // blockType 기본값 보정
+        String blockType = normalizeBlockType(request.getBlockType());
+
+        // 추가:
+        // paragraph / table 각각 필수값 검증
+        if ("paragraph".equals(blockType)) {
+            if (request.getParagraphId() == null || request.getParagraphId().isBlank()) {
+                throw new IllegalArgumentException("paragraphId is required when blockType=paragraph");
+            }
+        }
+
+        if ("table".equals(blockType)) {
+            if (request.getTableId() == null || request.getTableId().isBlank()) {
+                throw new IllegalArgumentException("tableId is required when blockType=table");
+            }
+        }
+
         ComposeSelection selection = new ComposeSelection();
         selection.setSessionId(request.getSessionId());
         selection.setSide(request.getSide());
@@ -44,12 +59,14 @@ public class ComposeSelectionService {
         selection.setLabel(request.getLabel());
         selection.setOcrText(request.getOcrText());
 
-        // =========================
-        // 추가:
-        // paragraphId 저장
-        // 이제 이 값이 apply의 핵심 기준
-        // =========================
+        // 기존:
+        // 문단 ID 저장
         selection.setParagraphId(request.getParagraphId());
+
+        // 추가:
+        // blockType / tableId 저장
+        selection.setBlockType(blockType);
+        selection.setTableId(request.getTableId());
 
         selections.add(selection);
 
@@ -71,7 +88,6 @@ public class ComposeSelectionService {
         ComposeSelectionsResponse response = new ComposeSelectionsResponse();
         response.setSessionId(sessionId);
         response.setSelections(result);
-
         return response;
     }
 
@@ -80,6 +96,25 @@ public class ComposeSelectionService {
             if (equalsSafe(sessionId, selection.getSessionId())
                     && equalsSafe(side, selection.getSide())
                     && equalsSafe(label, selection.getLabel())) {
+                return selection;
+            }
+        }
+        return null;
+    }
+
+    // 추가:
+    // blockType까지 같이 찾고 싶을 때 사용할 수 있는 메서드
+    public ComposeSelection findFirstBySessionIdAndSideAndLabelAndBlockType(
+            String sessionId,
+            String side,
+            String label,
+            String blockType
+    ) {
+        for (ComposeSelection selection : selections) {
+            if (equalsSafe(sessionId, selection.getSessionId())
+                    && equalsSafe(side, selection.getSide())
+                    && equalsSafe(label, selection.getLabel())
+                    && equalsSafe(normalizeBlockType(blockType), selection.getBlockType())) {
                 return selection;
             }
         }
@@ -98,13 +133,28 @@ public class ComposeSelectionService {
         response.setLabel(selection.getLabel());
         response.setOcrText(selection.getOcrText());
 
-        // =========================
-        // 추가:
+        // 기존:
         // paragraphId 응답 포함
-        // =========================
         response.setParagraphId(selection.getParagraphId());
 
+        // 추가:
+        // blockType / tableId 응답 포함
+        response.setBlockType(selection.getBlockType());
+        response.setTableId(selection.getTableId());
+
         return response;
+    }
+
+    private String normalizeBlockType(String blockType) {
+        if (blockType == null || blockType.isBlank()) {
+            return "paragraph";
+        }
+
+        String v = blockType.trim().toLowerCase();
+        if ("table".equals(v)) {
+            return "table";
+        }
+        return "paragraph";
     }
 
     private boolean equalsSafe(String a, String b) {

@@ -2,31 +2,26 @@ package com.khwajeong.hwpx_saas.compose.controller;
 
 import com.khwajeong.hwpx_saas.compose.dto.ComposeApplyRequest;
 import com.khwajeong.hwpx_saas.compose.dto.ComposeApplyResponse;
-import com.khwajeong.hwpx_saas.compose.service.ComposeService;
-import org.springframework.http.ResponseEntity;
-import org.springframework.web.bind.annotation.*;
-import org.springframework.web.multipart.MultipartFile;
-import java.io.File;
-import java.util.Map;
-import java.nio.file.Path;
-import java.nio.file.Files;
-
 import com.khwajeong.hwpx_saas.compose.dto.ComposePreviewResponse;
+import com.khwajeong.hwpx_saas.compose.dto.ComposeRunApplyRequest;
+import com.khwajeong.hwpx_saas.compose.dto.ComposeRunApplyResponse;
 import com.khwajeong.hwpx_saas.compose.dto.ComposeSelectionRequest;
 import com.khwajeong.hwpx_saas.compose.dto.ComposeSelectionResponse;
 import com.khwajeong.hwpx_saas.compose.dto.ComposeSelectionsResponse;
-import com.khwajeong.hwpx_saas.compose.service.ComposeSelectionService;
-
-import com.khwajeong.hwpx_saas.compose.dto.ComposeRunApplyRequest;
-import com.khwajeong.hwpx_saas.compose.dto.ComposeRunApplyResponse;
 import com.khwajeong.hwpx_saas.compose.service.ComposeApplyRunnerService;
+import com.khwajeong.hwpx_saas.compose.service.ComposeSelectionService;
+import com.khwajeong.hwpx_saas.compose.service.ComposeService;
+import com.khwajeong.hwpx_saas.compose.service.ComposeSessionService;
+import com.khwajeong.hwpx_saas.compose.service.HwpxTableExtractor;
 import com.khwajeong.hwpx_saas.compose.service.ImageCropService;
 import com.khwajeong.hwpx_saas.compose.service.OcrService;
-import com.khwajeong.hwpx_saas.compose.service.ComposeSessionService;
-import com.khwajeong.hwpx_saas.compose.service.ComposePageRenderService;
-
 import org.springframework.http.MediaType;
-import org.springframework.http.HttpHeaders;
+import org.springframework.http.ResponseEntity;
+import org.springframework.web.bind.annotation.*;
+import org.springframework.web.multipart.MultipartFile;
+
+import java.io.File;
+import java.util.Map;
 
 @RestController
 @RequestMapping("/api/v1/compose")
@@ -38,7 +33,10 @@ public class ComposeController {
     private final ImageCropService imageCropService;
     private final OcrService ocrService;
     private final ComposeSessionService composeSessionService;
-    private final ComposePageRenderService composePageRenderService;
+
+    // 추가:
+    // 표 추출 서비스 주입
+    private final HwpxTableExtractor hwpxTableExtractor;
 
     public ComposeController(
             ComposeService composeService,
@@ -47,7 +45,7 @@ public class ComposeController {
             ImageCropService imageCropService,
             OcrService ocrService,
             ComposeSessionService composeSessionService,
-            ComposePageRenderService composePageRenderService
+            HwpxTableExtractor hwpxTableExtractor
     ) {
         this.composeService = composeService;
         this.composeSelectionService = composeSelectionService;
@@ -55,7 +53,7 @@ public class ComposeController {
         this.imageCropService = imageCropService;
         this.ocrService = ocrService;
         this.composeSessionService = composeSessionService;
-        this.composePageRenderService = composePageRenderService;
+        this.hwpxTableExtractor = hwpxTableExtractor;
     }
 
     @PostMapping("/heading1/apply")
@@ -67,8 +65,8 @@ public class ComposeController {
     }
 
     @PostMapping(
-        value = "/extract",
-        consumes = "multipart/form-data"
+            value = "/extract",
+            consumes = "multipart/form-data"
     )
     public ResponseEntity<?> extract(@RequestParam("file") MultipartFile file) throws Exception {
         File temp = File.createTempFile("upload-", ".hwpx");
@@ -79,8 +77,8 @@ public class ComposeController {
     }
 
     @PostMapping(
-        value = "/preview",
-        consumes = MediaType.MULTIPART_FORM_DATA_VALUE
+            value = "/preview",
+            consumes = MediaType.MULTIPART_FORM_DATA_VALUE
     )
     public ResponseEntity<ComposePreviewResponse> preview(
             @RequestParam("templateFile") MultipartFile templateFile,
@@ -116,7 +114,6 @@ public class ComposeController {
 
     @PostMapping("/ocr")
     public ResponseEntity<?> ocr(@RequestBody Map<String, Object> req) {
-
         String imagePath = (String) req.get("imagePath");
 
         int x = (int) req.get("x");
@@ -125,13 +122,11 @@ public class ComposeController {
         int h = (int) req.get("height");
 
         File image = new File(imagePath);
-
         File cropped = imageCropService.crop(image, x, y, w, h);
-
         String text = ocrService.read(cropped);
 
         return ResponseEntity.ok(Map.of(
-            "text", text
+                "text", text
         ));
     }
 
@@ -153,37 +148,38 @@ public class ComposeController {
 
         var paragraphs = composeService.extractFromHwpx(file);
 
-        // 페이지 필터
-        /*
+        // 현재는 페이지값이 null일 수 있어서 느슨하게 필터
         var result = paragraphs.stream()
-                .filter(p -> p.getPage() != null && p.getPage() == page)
+                .filter(p -> p.getPage() == null || p.getPage() == page)
                 .toList();
-                */
-        var result = paragraphs;
 
         return ResponseEntity.ok(result);
     }
 
-    @GetMapping("/page-image/{sessionId}")
-    public ResponseEntity<byte[]> getPageImage(
+    // 추가:
+    // 표 목록 조회 API
+    @GetMapping("/tables/{sessionId}")
+    public ResponseEntity<?> getTables(
             @PathVariable String sessionId,
             @RequestParam String side,
             @RequestParam int page
-    ) throws Exception {
+    ) {
         var session = composeSessionService.get(sessionId);
 
         if (session == null) {
             throw new IllegalArgumentException("session not found");
         }
 
-        Path hwpxPath = side.equals("template")
-                ? session.getTemplatePath()
-                : session.getSourcePath();
+        File file = side.equals("template")
+                ? session.getTemplatePath().toFile()
+                : session.getSourcePath().toFile();
 
-        byte[] imageBytes = composePageRenderService.renderPageImage(hwpxPath, page);
+        var tables = hwpxTableExtractor.extract(file);
 
-        return ResponseEntity.ok()
-                .header(HttpHeaders.CONTENT_TYPE, MediaType.IMAGE_PNG_VALUE)
-                .body(imageBytes);
+        var result = tables.stream()
+                .filter(t -> t.getPage() == null || t.getPage() == page)
+                .toList();
+
+        return ResponseEntity.ok(result);
     }
 }

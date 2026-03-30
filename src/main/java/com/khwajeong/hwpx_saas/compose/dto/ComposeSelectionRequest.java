@@ -11,12 +11,18 @@ public class ComposeSelectionRequest {
     private String label;
     private String ocrText;
 
-    // =========================
-    // 추가:
-    // 사용자가 직접 선택한 paragraphId
-    // OCR 텍스트보다 이 값을 우선 사용하도록 바꿀 예정
-    // =========================
+    // 기존:
+    // 문단 선택 시 사용
     private String paragraphId;
+
+    // 추가:
+    // selection 대상 타입
+    // paragraph | table
+    private String blockType;
+
+    // 추가:
+    // 표 선택 시 사용
+    private String tableId;
 
     public String getSessionId() {
         return sessionId;
@@ -90,15 +96,31 @@ public class ComposeSelectionRequest {
         this.ocrText = ocrText;
     }
 
-    // =========================
-    // 추가:
-    // paragraphId getter / setter
-    // =========================
     public String getParagraphId() {
         return paragraphId;
     }
 
     public void setParagraphId(String paragraphId) {
         this.paragraphId = paragraphId;
+    }
+
+    // 추가:
+    // blockType getter / setter
+    public String getBlockType() {
+        return blockType;
+    }
+
+    public void setBlockType(String blockType) {
+        this.blockType = blockType;
+    }
+
+    // 추가:
+    // tableId getter / setter
+    public String getTableId() {
+        return tableId;
+    }
+
+    public void setTableId(String tableId) {
+        this.tableId = tableId;
     }
 }

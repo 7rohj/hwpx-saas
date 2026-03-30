@@ -2,16 +2,26 @@ package com.khwajeong.hwpx_saas.compose.model;
 
 public class ComposeSelection {
     private String sessionId;
-    private String side;   // template | source
+    private String side;
     private Integer page;
     private Double x;
     private Double y;
     private Double width;
     private Double height;
-    private String label;  // heading1 | heading2 | heading3 | table | figure | body
+    private String label;
     private String ocrText;
 
+    // 기존:
+    // 문단 선택용
     private String paragraphId;
+
+    // 추가:
+    // paragraph | table
+    private String blockType;
+
+    // 추가:
+    // 표 선택용
+    private String tableId;
 
     public String getSessionId() {
         return sessionId;
@@ -85,10 +95,6 @@ public class ComposeSelection {
         this.ocrText = ocrText;
     }
 
-    // =========================
-    // 추가:
-    // paragraphId getter / setter
-    // =========================
     public String getParagraphId() {
         return paragraphId;
     }
@@ -97,5 +103,23 @@ public class ComposeSelection {
         this.paragraphId = paragraphId;
     }
 
+    // 추가:
+    // blockType getter / setter
+    public String getBlockType() {
+        return blockType;
+    }
 
+    public void setBlockType(String blockType) {
+        this.blockType = blockType;
+    }
+
+    // 추가:
+    // tableId getter / setter
+    public String getTableId() {
+        return tableId;
+    }
+
+    public void setTableId(String tableId) {
+        this.tableId = tableId;
+    }
 }
