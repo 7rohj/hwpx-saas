@@ -20,6 +20,12 @@ import java.util.zip.*;
 @Service
 public class ComposeTableStyleApplyService {
 
+    private final HwpxStyleRegistryService hwpxStyleRegistryService;
+
+    public ComposeTableStyleApplyService(HwpxStyleRegistryService hwpxStyleRegistryService) {
+        this.hwpxStyleRegistryService = hwpxStyleRegistryService;
+    }
+
     public Path applyTableStyle(
             Path sourceHwpxPath,
             String sourceTableId,
@@ -40,14 +46,21 @@ public class ComposeTableStyleApplyService {
         try (ZipFile zipFile = new ZipFile(sourceHwpxPath.toFile());
              ZipOutputStream zos = new ZipOutputStream(Files.newOutputStream(outputPath))) {
 
+            Map<String, byte[]> updatedEntries = new HashMap<>();
+
+            // 1) 먼저 header xml 들을 로딩해서 style 등록
+            Map<String, Document> headerDocs = loadHeaderDocs(zipFile);
+            Map<String, RegisteredPair> registeredByHeader = registerStylesToHeaders(headerDocs, style);
+
+            // 2) section xml 수정
             Enumeration<? extends ZipEntry> entries = zipFile.entries();
+            int sectionIndex = 0;
 
             while (entries.hasMoreElements()) {
                 ZipEntry entry = entries.nextElement();
 
                 if (entry.isDirectory()) {
-                    zos.putNextEntry(new ZipEntry(entry.getName()));
-                    zos.closeEntry();
+                    updatedEntries.put(entry.getName(), new byte[0]);
                     continue;
                 }
 
@@ -56,14 +69,37 @@ public class ComposeTableStyleApplyService {
                     bytes = in.readAllBytes();
                 }
 
-                // section xml 에서 sourceTableId 대상 표를 찾아 스타일 적용
                 if (entry.getName().startsWith("Contents/section") && entry.getName().endsWith(".xml")) {
-                    bytes = applyTableStyleToSectionXml(bytes, sourceTableId, style);
+                    String sectionName = entry.getName();
+                    String headerName = toHeaderName(sectionName);
+                    RegisteredPair pair = registeredByHeader.get(headerName);
+
+                    if (pair != null) {
+                        bytes = applyTableStyleToSectionXml(bytes, sourceTableId, style, pair);
+                    }
                 }
 
-                ZipEntry newEntry = new ZipEntry(entry.getName());
+                updatedEntries.put(entry.getName(), bytes);
+                sectionIndex++;
+            }
+
+            // 3) 업데이트된 header xml 반영
+            for (Map.Entry<String, Document> e : headerDocs.entrySet()) {
+                updatedEntries.put(e.getKey(), documentToBytes(e.getValue()));
+            }
+
+            // 4) zip 재작성
+            for (Map.Entry<String, byte[]> e : updatedEntries.entrySet()) {
+                String name = e.getKey();
+                byte[] bytes = e.getValue();
+
+                ZipEntry newEntry = new ZipEntry(name);
                 zos.putNextEntry(newEntry);
-                zos.write(bytes);
+
+                if (!name.endsWith("/") && bytes != null && bytes.length > 0) {
+                    zos.write(bytes);
+                }
+
                 zos.closeEntry();
             }
         }
@@ -71,27 +107,80 @@ public class ComposeTableStyleApplyService {
         return outputPath;
     }
 
+    private Map<String, Document> loadHeaderDocs(ZipFile zipFile) throws Exception {
+        Map<String, Document> result = new HashMap<>();
+
+        Enumeration<? extends ZipEntry> entries = zipFile.entries();
+        while (entries.hasMoreElements()) {
+            ZipEntry entry = entries.nextElement();
+            if (entry.isDirectory()) continue;
+            if (!entry.getName().startsWith("Contents/header")) continue;
+            if (!entry.getName().endsWith(".xml")) continue;
+
+            try (InputStream in = zipFile.getInputStream(entry)) {
+                Document doc = DocumentBuilderFactory.newInstance()
+                        .newDocumentBuilder()
+                        .parse(in);
+                result.put(entry.getName(), doc);
+            }
+        }
+
+        return result;
+    }
+
+    private Map<String, RegisteredPair> registerStylesToHeaders(
+            Map<String, Document> headerDocs,
+            ExtractedTableStyle style
+    ) {
+        Map<String, RegisteredPair> result = new HashMap<>();
+
+        for (Map.Entry<String, Document> e : headerDocs.entrySet()) {
+            Document doc = e.getValue();
+
+            HwpxStyleRegistryService.RegisteredStyleIds headerIds =
+                    hwpxStyleRegistryService.registerTableCellStyle(
+                            doc,
+                            style.getHeaderTextStyle(),
+                            style.getHeaderOuterBorder(),
+                            style.getHeaderInnerBorder(),
+                            style.getHeaderBackgroundColor()
+                    );
+
+            HwpxStyleRegistryService.RegisteredStyleIds bodyIds =
+                    hwpxStyleRegistryService.registerTableCellStyle(
+                            doc,
+                            style.getBodyTextStyle(),
+                            style.getBodyOuterBorder(),
+                            style.getBodyInnerBorder(),
+                            style.getBodyBackgroundColor()
+                    );
+
+            RegisteredPair pair = new RegisteredPair();
+            pair.headerIds = headerIds;
+            pair.bodyIds = bodyIds;
+
+            result.put(e.getKey(), pair);
+        }
+
+        return result;
+    }
+
     private byte[] applyTableStyleToSectionXml(
             byte[] sectionXmlBytes,
             String sourceTableId,
-            ExtractedTableStyle style
+            ExtractedTableStyle style,
+            RegisteredPair registeredPair
     ) throws Exception {
-        DocumentBuilderFactory factory = DocumentBuilderFactory.newInstance();
-        factory.setNamespaceAware(false);
-
-        Document doc = factory.newDocumentBuilder()
+        Document doc = DocumentBuilderFactory.newInstance()
+                .newDocumentBuilder()
                 .parse(new InputSource(new ByteArrayInputStream(sectionXmlBytes)));
 
         NodeList tblList = doc.getElementsByTagName("hp:tbl");
-
-        // sourceTableId = t0, t1... 이므로 section 안에서 순서대로 매칭
         int tableIndex = 0;
 
         for (int i = 0; i < tblList.getLength(); i++) {
             Node node = tblList.item(i);
-            if (!(node instanceof Element tblEl)) {
-                continue;
-            }
+            if (!(node instanceof Element tblEl)) continue;
 
             String currentTableId = "t" + tableIndex;
             tableIndex++;
@@ -100,13 +189,13 @@ public class ComposeTableStyleApplyService {
                 continue;
             }
 
-            applyStyleToTable(tblEl, style);
+            applyStyleToTable(tblEl, registeredPair);
         }
 
         return documentToBytes(doc);
     }
 
-    private void applyStyleToTable(Element tblEl, ExtractedTableStyle style) {
+    private void applyStyleToTable(Element tblEl, RegisteredPair pair) {
         List<Element> rows = getElements(tblEl, "hp:tr");
 
         for (int rowIndex = 0; rowIndex < rows.size(); rowIndex++) {
@@ -116,99 +205,44 @@ public class ComposeTableStyleApplyService {
             boolean isHeaderRow = rowIndex == 0;
 
             for (Element cellEl : cells) {
-                if (isHeaderRow) {
-                    applyCellStyle(cellEl,
-                            style.getHeaderTextStyle(),
-                            style.getHeaderBackgroundColor(),
-                            style.getHeaderOuterBorder(),
-                            style.getHeaderInnerBorder());
-                } else {
-                    applyCellStyle(cellEl,
-                            style.getBodyTextStyle(),
-                            style.getBodyBackgroundColor(),
-                            style.getBodyOuterBorder(),
-                            style.getBodyInnerBorder());
+                HwpxStyleRegistryService.RegisteredStyleIds ids =
+                        isHeaderRow ? pair.headerIds : pair.bodyIds;
+
+                applyCellRefs(cellEl, ids);
+            }
+        }
+    }
+
+    private void applyCellRefs(Element cellEl, HwpxStyleRegistryService.RegisteredStyleIds ids) {
+        if (cellEl == null || ids == null) return;
+
+        if (ids.getBorderFillId() != null) {
+            cellEl.setAttribute("borderFillIDRef", ids.getBorderFillId());
+        }
+
+        List<Element> paraList = getElements(cellEl, "hp:p");
+        for (Element paraEl : paraList) {
+            if (ids.getParaPrId() != null) {
+                paraEl.setAttribute("paraPrIDRef", ids.getParaPrId());
+            }
+
+            List<Element> runList = getElements(paraEl, "hp:run");
+            for (Element runEl : runList) {
+                if (ids.getCharPrId() != null) {
+                    runEl.setAttribute("charPrIDRef", ids.getCharPrId());
                 }
             }
         }
     }
 
-    private void applyCellStyle(
-            Element cellEl,
-            ExtractedTableStyle.CellTextStyle textStyle,
-            String backgroundColor,
-            ExtractedTableStyle.BorderStyle outerBorder,
-            ExtractedTableStyle.BorderStyle innerBorder
-    ) {
-        if (cellEl == null) return;
+    private String toHeaderName(String sectionName) {
+        String headerName = sectionName
+                .replace("Contents/section", "Contents/header");
 
-        // 1) 셀 배경색: cell 속성에 임시 custom attr로 기록
-        // 실제 HWPX borderFill 구조를 정밀하게 수정하려면 header xml까지 재작성해야 하므로
-        // 이번 단계에서는 section xml 셀에 custom marker를 남김.
-        if (backgroundColor != null) {
-            cellEl.setAttribute("data-bg-color", backgroundColor);
+        if (headerName.equals(sectionName)) {
+            return "Contents/header0.xml";
         }
-
-        // 2) 셀 border style marker
-        if (outerBorder != null) {
-            if (outerBorder.getColor() != null) {
-                cellEl.setAttribute("data-outer-border-color", outerBorder.getColor());
-            }
-            if (outerBorder.getWidth() != null) {
-                cellEl.setAttribute("data-outer-border-width", String.valueOf(outerBorder.getWidth()));
-            }
-            if (outerBorder.getLineStyle() != null) {
-                cellEl.setAttribute("data-outer-border-style", outerBorder.getLineStyle());
-            }
-        }
-
-        if (innerBorder != null) {
-            if (innerBorder.getColor() != null) {
-                cellEl.setAttribute("data-inner-border-color", innerBorder.getColor());
-            }
-            if (innerBorder.getWidth() != null) {
-                cellEl.setAttribute("data-inner-border-width", String.valueOf(innerBorder.getWidth()));
-            }
-            if (innerBorder.getLineStyle() != null) {
-                cellEl.setAttribute("data-inner-border-style", innerBorder.getLineStyle());
-            }
-        }
-
-        // 3) 셀 내부 문단/런 텍스트 스타일 덮어쓰기
-        List<Element> paraList = getElements(cellEl, "hp:p");
-        for (Element paraEl : paraList) {
-            if (textStyle != null && textStyle.getAlign() != null) {
-                paraEl.setAttribute("data-align", textStyle.getAlign());
-            }
-
-            List<Element> runList = getElements(paraEl, "hp:run");
-            for (Element runEl : runList) {
-                applyRunStyle(runEl, textStyle);
-            }
-        }
-    }
-
-    private void applyRunStyle(Element runEl, ExtractedTableStyle.CellTextStyle textStyle) {
-        if (runEl == null || textStyle == null) return;
-
-        if (textStyle.getFontFamily() != null) {
-            runEl.setAttribute("data-font-family", textStyle.getFontFamily());
-        }
-        if (textStyle.getFontSize() != null) {
-            runEl.setAttribute("data-font-size", String.valueOf(textStyle.getFontSize()));
-        }
-        if (textStyle.getBold() != null) {
-            runEl.setAttribute("data-bold", String.valueOf(textStyle.getBold()));
-        }
-        if (textStyle.getItalic() != null) {
-            runEl.setAttribute("data-italic", String.valueOf(textStyle.getItalic()));
-        }
-        if (textStyle.getUnderline() != null) {
-            runEl.setAttribute("data-underline", String.valueOf(textStyle.getUnderline()));
-        }
-        if (textStyle.getFontColor() != null) {
-            runEl.setAttribute("data-font-color", textStyle.getFontColor());
-        }
+        return headerName;
     }
 
     private List<Element> getElements(Element root, String tagName) {
@@ -233,5 +267,10 @@ public class ComposeTableStyleApplyService {
         ByteArrayOutputStream baos = new ByteArrayOutputStream();
         transformer.transform(new DOMSource(doc), new StreamResult(baos));
         return baos.toByteArray();
+    }
+
+    private static class RegisteredPair {
+        private HwpxStyleRegistryService.RegisteredStyleIds headerIds;
+        private HwpxStyleRegistryService.RegisteredStyleIds bodyIds;
     }
 }
