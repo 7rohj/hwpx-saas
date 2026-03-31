@@ -50,7 +50,13 @@ public class ComposeService {
         for (ParagraphNodeDto dto : request.getSourceParagraphs()) {
             ParagraphNode node = toParagraphNode(dto);
 
+            /* 260331
             if (heading1Classifier.isHeading1(node, sourceSample)) {
+                matchedIds.add(node.getParagraphId());
+                applyStyle(node, templateStyle);
+            }
+            */
+           if (node.getParagraphId().equals(sourceSample.getParagraphId())) {
                 matchedIds.add(node.getParagraphId());
                 applyStyle(node, templateStyle);
             }
