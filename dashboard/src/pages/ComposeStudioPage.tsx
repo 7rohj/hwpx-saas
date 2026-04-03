@@ -202,6 +202,8 @@ export default function ComposeStudioPage({
   const [sourceBoxes, setSourceBoxes] = useState<OverlayBox[]>([])
   const [selectedBoxId, setSelectedBoxId] = useState<string | null>(null)
 
+  const [isApplyResultOpen, setIsApplyResultOpen] = useState(false)
+
   const currentParagraphs = activeSide === "template" ? templateParagraphs : sourceParagraphs
   const currentTables = activeSide === "template" ? templateTables : sourceTables
   const currentBoxes = activeSide === "template" ? templateBoxes : sourceBoxes
@@ -445,36 +447,75 @@ export default function ComposeStudioPage({
       setApplying(true)
       setApplyResult(null)
 
-      // 수정:
-      // 이제 currentRole 하나가 아니라
-      // session에 저장된 selection 전체를 누적 적용
-      const body = {
-        sessionId,
-        fontPolicy: "original",
-      }
-
-      const res = await fetch(`${API_BASE_URL}/api/v1/compose/apply-all`, {
+      const res = await fetch(`${API_BASE_URL}/api/v1/compose/apply`, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
           "X-API-Key": apiKey,
         },
-        body: JSON.stringify(body),
+        body: JSON.stringify({
+          sessionId,
+          label: currentRole,
+          fontPolicy: "original",
+        }),
       })
 
-      if (!res.ok) {
-        throw new Error("apply-all 실패")
+      const raw = await res.text()
+
+      let data: any = null
+      try {
+        data = raw ? JSON.parse(raw) : null
+      } catch {
+        data = raw
       }
 
-      const data = await res.json()
+      if (!res.ok) {
+        console.error("apply error response:", data)
+        throw new Error(
+          typeof data === "string"
+            ? data
+            : data?.message || data?.error || "apply 실패"
+        )
+      }
+
       setApplyResult(data)
-      alert("apply-all 완료!")
+      setIsApplyResultOpen(false)
+
+      if (data?.downloadUrl) {
+        await triggerDownload(data.downloadUrl, data?.fileId)
+      }
+
+      alert("apply 완료!")
     } catch (err) {
       console.error(err)
-      alert(err instanceof Error ? err.message : "apply-all 실패")
+      alert(err instanceof Error ? err.message : "apply 실패")
     } finally {
       setApplying(false)
     }
+  }
+
+  async function triggerDownload(downloadUrl: string, fileName?: string) {
+    const apiKey = localStorage.getItem("apiKey") ?? ""
+
+    const res = await fetch(`${API_BASE_URL}${downloadUrl}`, {
+      headers: apiKey ? { "X-API-Key": apiKey } : {},
+    })
+
+    if (!res.ok) {
+      throw new Error("파일 다운로드에 실패했습니다.")
+    }
+
+    const blob = await res.blob()
+    const objectUrl = URL.createObjectURL(blob)
+
+    const link = document.createElement("a")
+    link.href = objectUrl
+    link.download = fileName || "output.hwpx"
+    document.body.appendChild(link)
+    link.click()
+    link.remove()
+
+    URL.revokeObjectURL(objectUrl)
   }
 
   function createOverlayBox(box: Omit<OverlayBox, "id">) {
@@ -913,10 +954,27 @@ export default function ComposeStudioPage({
 
           {applyResult ? (
             <section className="mt-6 rounded-[32px] border border-[#dbe7ff] bg-white p-6">
-              <h2 className="text-xl font-semibold text-[#162033]">apply 결과</h2>
-              <pre className="mt-4 overflow-x-auto rounded-2xl bg-[#0f172a] p-4 text-xs text-slate-100">
-                {JSON.stringify(applyResult, null, 2)}
-              </pre>
+              <details
+                open={isApplyResultOpen}
+                onToggle={(e) => setIsApplyResultOpen((e.target as HTMLDetailsElement).open)}
+                className="group"
+              >
+                <summary className="cursor-pointer list-none text-xl font-semibold text-[#162033]">
+                  <div className="flex items-center justify-between gap-3">
+                    <span>apply 결과</span>
+                    <span className="text-sm font-medium text-[#63708a] group-open:hidden">
+                      펼쳐보기
+                    </span>
+                    <span className="hidden text-sm font-medium text-[#63708a] group-open:inline">
+                      접기
+                    </span>
+                  </div>
+                </summary>
+
+                <pre className="mt-4 overflow-x-auto rounded-2xl bg-[#0f172a] p-4 text-xs text-slate-100">
+                  {JSON.stringify(applyResult, null, 2)}
+                </pre>
+              </details>
             </section>
           ) : null}
         </div>
