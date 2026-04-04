@@ -447,7 +447,7 @@ export default function ComposeStudioPage({
       setApplying(true)
       setApplyResult(null)
 
-      const res = await fetch(`${API_BASE_URL}/api/v1/compose/apply`, {
+      const res = await fetch(`${API_BASE_URL}/api/v1/compose/apply-all`, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
@@ -481,11 +481,7 @@ export default function ComposeStudioPage({
       setApplyResult(data)
       setIsApplyResultOpen(false)
 
-      if (data?.downloadUrl) {
-        await triggerDownload(data.downloadUrl, data?.fileId)
-      }
-
-      alert("apply 완료!")
+      alert("템플릿 서식으로 변경 완료하였습니다.")
     } catch (err) {
       console.error(err)
       alert(err instanceof Error ? err.message : "apply 실패")
