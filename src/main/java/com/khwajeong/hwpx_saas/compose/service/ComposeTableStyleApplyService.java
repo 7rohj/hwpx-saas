@@ -2,7 +2,10 @@ package com.khwajeong.hwpx_saas.compose.service;
 
 import com.khwajeong.hwpx_saas.compose.model.ExtractedTableStyle;
 import org.springframework.stereotype.Service;
-import org.w3c.dom.*;
+import org.w3c.dom.Document;
+import org.w3c.dom.Element;
+import org.w3c.dom.Node;
+import org.w3c.dom.NodeList;
 import org.xml.sax.InputSource;
 
 import javax.xml.parsers.DocumentBuilderFactory;
@@ -11,11 +14,19 @@ import javax.xml.transform.Transformer;
 import javax.xml.transform.TransformerFactory;
 import javax.xml.transform.dom.DOMSource;
 import javax.xml.transform.stream.StreamResult;
-import java.io.*;
+import java.io.ByteArrayInputStream;
+import java.io.ByteArrayOutputStream;
+import java.io.InputStream;
 import java.nio.file.Files;
 import java.nio.file.Path;
-import java.util.*;
-import java.util.zip.*;
+import java.util.ArrayList;
+import java.util.Enumeration;
+import java.util.LinkedHashMap;
+import java.util.List;
+import java.util.Map;
+import java.util.zip.ZipEntry;
+import java.util.zip.ZipFile;
+import java.util.zip.ZipOutputStream;
 
 @Service
 public class ComposeTableStyleApplyService {
@@ -49,7 +60,6 @@ public class ComposeTableStyleApplyService {
             Map<String, byte[]> updatedEntries = new LinkedHashMap<>();
             Map<String, Document> headerDocs = loadHeaderDocs(zipFile);
 
-            // header마다 새 style id 등록
             Map<String, RegisteredPair> registeredByHeader = registerStylesToHeaders(headerDocs, style);
 
             Enumeration<? extends ZipEntry> entries = zipFile.entries();
@@ -73,6 +83,9 @@ public class ComposeTableStyleApplyService {
                     if (pair == null && registeredByHeader.containsKey("Contents/header0.xml")) {
                         pair = registeredByHeader.get("Contents/header0.xml");
                     }
+                    if (pair == null && registeredByHeader.containsKey("Contents/header.xml")) {
+                        pair = registeredByHeader.get("Contents/header.xml");
+                    }
 
                     if (pair != null) {
                         bytes = applyTableStyleToSectionXml(bytes, sourceTableId, pair);
@@ -82,7 +95,6 @@ public class ComposeTableStyleApplyService {
                 updatedEntries.put(entry.getName(), bytes);
             }
 
-            // 수정된 header xml 반영
             for (Map.Entry<String, Document> e : headerDocs.entrySet()) {
                 updatedEntries.put(e.getKey(), documentToBytes(e.getValue()));
             }
@@ -130,6 +142,7 @@ public class ComposeTableStyleApplyService {
         for (Map.Entry<String, Document> e : headerDocs.entrySet()) {
             Document doc = e.getValue();
 
+            // 헤더용: 배경색/선 복사용 borderFill 생성
             HwpxStyleRegistryService.RegisteredStyleIds headerIds =
                     hwpxStyleRegistryService.registerTableCellStyle(
                             doc,
@@ -139,18 +152,10 @@ public class ComposeTableStyleApplyService {
                             style.getHeaderBackgroundColor()
                     );
 
-            HwpxStyleRegistryService.RegisteredStyleIds bodyIds =
-                    hwpxStyleRegistryService.registerTableCellStyle(
-                            doc,
-                            style.getBodyTextStyle(),
-                            style.getBodyOuterBorder(),
-                            style.getBodyInnerBorder(),
-                            style.getBodyBackgroundColor()
-                    );
-
+            // 바디는 이번 목표에서 건드리지 않으므로 생성하지 않아도 됨
             RegisteredPair pair = new RegisteredPair();
             pair.headerIds = headerIds;
-            pair.bodyIds = bodyIds;
+            pair.bodyIds = null;
 
             result.put(e.getKey(), pair);
         }
@@ -197,33 +202,27 @@ public class ComposeTableStyleApplyService {
             boolean isHeaderRow = rowIndex == 0;
 
             for (Element cellEl : cells) {
-                HwpxStyleRegistryService.RegisteredStyleIds ids =
-                        isHeaderRow ? pair.headerIds : pair.bodyIds;
-
-                applyCellRefs(cellEl, ids);
+                if (isHeaderRow) {
+                    // 핵심: 헤더 row 0 셀에만 배경/선용 borderFillIDRef 적용
+                    applyHeaderCellBackgroundOnly(cellEl, pair.headerIds);
+                }
+                // body row는 아무것도 건드리지 않음
             }
         }
     }
 
-    private void applyCellRefs(Element cellEl, HwpxStyleRegistryService.RegisteredStyleIds ids) {
-        if (cellEl == null || ids == null) return;
-
-        if (ids.getBorderFillId() != null) {
-            cellEl.setAttribute("borderFillIDRef", ids.getBorderFillId());
+    private void applyHeaderCellBackgroundOnly(
+            Element cellEl,
+            HwpxStyleRegistryService.RegisteredStyleIds ids
+    ) {
+        if (cellEl == null || ids == null) {
+            return;
         }
 
-        List<Element> paraList = getElements(cellEl, "hp:p");
-        for (Element paraEl : paraList) {
-            if (ids.getParaPrId() != null) {
-                paraEl.setAttribute("paraPrIDRef", ids.getParaPrId());
-            }
-
-            List<Element> runList = getElements(paraEl, "hp:run");
-            for (Element runEl : runList) {
-                if (ids.getCharPrId() != null) {
-                    runEl.setAttribute("charPrIDRef", ids.getCharPrId());
-                }
-            }
+        // 핵심: 셀 자체 borderFillIDRef만 교체
+        // paraPrIDRef / charPrIDRef 는 절대 건드리지 않음
+        if (ids.getBorderFillId() != null && !ids.getBorderFillId().isBlank()) {
+            cellEl.setAttribute("borderFillIDRef", ids.getBorderFillId());
         }
     }
 

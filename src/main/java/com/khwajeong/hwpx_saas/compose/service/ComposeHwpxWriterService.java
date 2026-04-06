@@ -87,6 +87,7 @@ public class ComposeHwpxWriterService {
                     outputBytes = mergeResult.bytes;
                     bundle.mergedParaPrIdRef = mergeResult.newParaPrIdRef;
                     bundle.mergedCharPrIdRef = mergeResult.newCharPrIdRef;
+                    bundle.mergedBorderFillIdRef = mergeResult.newBorderFillIdRef;
                 }
 
                 if (entryName.startsWith("Contents/section") && entryName.endsWith(".xml")) {
@@ -95,7 +96,8 @@ public class ComposeHwpxWriterService {
                             globalParagraphIndex,
                             targetIndexes,
                             bundle.mergedParaPrIdRef,
-                            bundle.mergedCharPrIdRef
+                            bundle.mergedCharPrIdRef,
+                            bundle.mergedBorderFillIdRef
                     );
                     outputBytes = result.bytes;
                     globalParagraphIndex += result.processedParagraphCount;
@@ -158,6 +160,8 @@ public class ComposeHwpxWriterService {
             bundle.templateCharPrElement = charPrEl;
             bundle.templateFontRefs = extractFontRefs(charPrEl);
             bundle.templateHeaderDoc = doc;
+            bundle.templateHeaderBorderFillIdRef = extractFirstTableHeaderBorderFillId(templateHwpxPath);
+
             return bundle;
         }
     }
@@ -165,10 +169,12 @@ public class ComposeHwpxWriterService {
     private HeaderMergeResult mergeStyleIntoHeader(byte[] headerXmlBytes, TemplateStyleBundle bundle) throws Exception {
         Document sourceDoc = parseXml(headerXmlBytes);
 
-        // 1) template charPr가 참조하는 각 언어별 font를 source header에 복제
-        Map<String, String> fontRefRemap = mergeReferencedFonts(sourceDoc, bundle.templateHeaderDoc, bundle.templateFontRefs);
+        Map<String, String> fontRefRemap = mergeReferencedFonts(
+                sourceDoc,
+                bundle.templateHeaderDoc,
+                bundle.templateFontRefs
+        );
 
-        // 2) paraPr 복제
         Element refList = findOrCreateRefList(sourceDoc);
 
         String newParaPrId = nextId(sourceDoc, bundle.templateParaPrElement.getTagName());
@@ -176,23 +182,217 @@ public class ComposeHwpxWriterService {
         clonedParaPr.setAttribute("id", newParaPrId);
         refList.appendChild(clonedParaPr);
 
-        // 3) charPr 복제 + fontRef remap
         String newCharPrId = nextId(sourceDoc, bundle.templateCharPrElement.getTagName());
         Element clonedCharPr = (Element) sourceDoc.importNode(bundle.templateCharPrElement, true);
         clonedCharPr.setAttribute("id", newCharPrId);
         remapCharPrFontRefs(clonedCharPr, fontRefRemap);
         refList.appendChild(clonedCharPr);
 
+        String newBorderFillIdRef = null;
+        if (bundle.templateHeaderBorderFillIdRef != null && !bundle.templateHeaderBorderFillIdRef.isBlank()) {
+            newBorderFillIdRef = copyBorderFillIntoHeader(
+                    sourceDoc,
+                    bundle.templateHeaderDoc,
+                    bundle.templateHeaderBorderFillIdRef
+            );
+        }
+
         HeaderMergeResult result = new HeaderMergeResult();
         result.newParaPrIdRef = newParaPrId;
         result.newCharPrIdRef = newCharPrId;
+        result.newBorderFillIdRef = newBorderFillIdRef;
         result.bytes = toBytes(sourceDoc);
         return result;
     }
 
-    /**
-     * key format: lang|oldFontId -> newFontId
-     */
+    private String copyBorderFillIntoHeader(
+            Document sourceHeaderDoc,
+            Document templateHeaderDoc,
+            String templateBorderFillIdRef
+    ) {
+        if (sourceHeaderDoc == null || templateHeaderDoc == null ||
+                templateBorderFillIdRef == null || templateBorderFillIdRef.isBlank()) {
+            return null;
+        }
+
+        Element templateBorderFill = findElementById(templateHeaderDoc, "hh:borderFill", templateBorderFillIdRef);
+        if (templateBorderFill == null) {
+            templateBorderFill = findElementById(templateHeaderDoc, "hp:borderFill", templateBorderFillIdRef);
+        }
+        if (templateBorderFill == null) {
+            return null;
+        }
+
+        Element sourceBorderFills = findOrCreateBorderFills(sourceHeaderDoc);
+        String newId = nextBorderFillId(sourceHeaderDoc);
+
+        Element cloned = (Element) sourceHeaderDoc.importNode(templateBorderFill, true);
+        cloned.setAttribute("id", newId);
+        sourceBorderFills.appendChild(cloned);
+
+        updateBorderFillsItemCnt(sourceBorderFills);
+
+        return newId;
+    }
+
+    private Element findOrCreateBorderFills(Document doc) {
+        NodeList list = doc.getElementsByTagName("hh:borderFills");
+        if (list.getLength() > 0 && list.item(0) instanceof Element el) {
+            return el;
+        }
+
+        NodeList hpList = doc.getElementsByTagName("hp:borderFills");
+        if (hpList.getLength() > 0 && hpList.item(0) instanceof Element el) {
+            return el;
+        }
+
+        Element refList = findOrCreateRefList(doc);
+        Element borderFills = doc.createElement("hh:borderFills");
+        borderFills.setAttribute("itemCnt", "0");
+        refList.appendChild(borderFills);
+        return borderFills;
+    }
+
+    private void updateBorderFillsItemCnt(Element borderFillsEl) {
+        if (borderFillsEl == null) return;
+
+        int count = 0;
+        NodeList children = borderFillsEl.getChildNodes();
+        for (int i = 0; i < children.getLength(); i++) {
+            Node node = children.item(i);
+            if (node instanceof Element el) {
+                String nodeName = el.getNodeName();
+                String localName = el.getLocalName();
+
+                boolean isBorderFill =
+                        "hh:borderFill".equalsIgnoreCase(nodeName) ||
+                        "hp:borderFill".equalsIgnoreCase(nodeName) ||
+                        "borderFill".equalsIgnoreCase(localName);
+
+                if (isBorderFill) {
+                    count++;
+                }
+            }
+        }
+
+        borderFillsEl.setAttribute("itemCnt", String.valueOf(count));
+    }
+
+    private String extractFirstTableHeaderBorderFillId(Path templateHwpxPath) throws Exception {
+        try (ZipFile templateZip = new ZipFile(templateHwpxPath.toFile())) {
+            Enumeration<? extends ZipEntry> entries = templateZip.entries();
+
+            while (entries.hasMoreElements()) {
+                ZipEntry entry = entries.nextElement();
+                String name = entry.getName();
+
+                if (!name.startsWith("Contents/section") || !name.endsWith(".xml")) {
+                    continue;
+                }
+
+                byte[] bytes;
+                try (InputStream in = templateZip.getInputStream(entry)) {
+                    bytes = in.readAllBytes();
+                }
+
+                Document doc = parseXml(bytes);
+                NodeList tblList = doc.getElementsByTagName("hp:tbl");
+                if (tblList.getLength() == 0) continue;
+
+                Element tbl = (Element) tblList.item(0);
+                NodeList trList = tbl.getElementsByTagName("hp:tr");
+                if (trList.getLength() == 0) continue;
+
+                Element firstRow = (Element) trList.item(0);
+                NodeList tcList = firstRow.getElementsByTagName("hp:tc");
+                if (tcList.getLength() == 0) continue;
+
+                Element firstCell = (Element) tcList.item(0);
+                String borderFillId = firstCell.getAttribute("borderFillIDRef");
+
+                if (borderFillId != null && !borderFillId.isBlank()) {
+                    return borderFillId;
+                }
+            }
+        }
+
+        return null;
+    }
+
+    private SectionRewriteResult rewriteSectionXml(
+            byte[] xmlBytes,
+            int globalStartIndex,
+            Set<Integer> targetIndexes,
+            String sourceParaPrIdRef,
+            String sourceCharPrIdRef,
+            String mergedBorderFillIdRef
+    ) throws Exception {
+
+        Document doc = parseXml(xmlBytes);
+
+        applyHeaderBorderFillToAllTables(doc, mergedBorderFillIdRef);
+
+        NodeList paraList = doc.getElementsByTagName("hp:p");
+        int paraCount = paraList.getLength();
+
+        int logicalParagraphIndex = globalStartIndex;
+
+        for (int i = 0; i < paraCount; i++) {
+            Element p = (Element) paraList.item(i);
+
+            boolean hasText = hasTextRun(p);
+
+            if (!hasText) {
+                continue;
+            }
+
+            if (targetIndexes.contains(logicalParagraphIndex)) {
+                if (sourceParaPrIdRef != null && !sourceParaPrIdRef.isBlank()) {
+                    p.setAttribute("paraPrIDRef", sourceParaPrIdRef);
+                }
+
+                if (sourceCharPrIdRef != null && !sourceCharPrIdRef.isBlank()) {
+                    rewriteAllCharPrRefs(p, sourceCharPrIdRef);
+                }
+
+                removeLineSegArray(p);
+            }
+
+            logicalParagraphIndex++;
+        }
+
+        SectionRewriteResult result = new SectionRewriteResult();
+        result.bytes = toBytes(doc);
+        result.processedParagraphCount = logicalParagraphIndex - globalStartIndex;
+        return result;
+    }
+
+    private void applyHeaderBorderFillToAllTables(Document doc, String borderFillIdRef) {
+        if (doc == null || borderFillIdRef == null || borderFillIdRef.isBlank()) {
+            return;
+        }
+
+        NodeList tblList = doc.getElementsByTagName("hp:tbl");
+
+        for (int i = 0; i < tblList.getLength(); i++) {
+            Node tblNode = tblList.item(i);
+            if (!(tblNode instanceof Element tbl)) continue;
+
+            NodeList trList = tbl.getElementsByTagName("hp:tr");
+            if (trList.getLength() == 0) continue;
+
+            Element firstRow = (Element) trList.item(0);
+            NodeList tcList = firstRow.getElementsByTagName("hp:tc");
+
+            for (int j = 0; j < tcList.getLength(); j++) {
+                Node tcNode = tcList.item(j);
+                if (tcNode instanceof Element tc) {
+                    tc.setAttribute("borderFillIDRef", borderFillIdRef);
+                }
+            }
+        }
+    }
+
     private Map<String, String> mergeReferencedFonts(
             Document sourceHeaderDoc,
             Document templateHeaderDoc,
@@ -235,7 +435,6 @@ public class ComposeHwpxWriterService {
         Map<String, String> refs = new LinkedHashMap<>();
         if (charPrEl == null) return refs;
 
-        // hh:fontRef / hp:fontRef child 우선
         NodeList children = charPrEl.getChildNodes();
         for (int i = 0; i < children.getLength(); i++) {
             Node node = children.item(i);
@@ -261,7 +460,6 @@ public class ComposeHwpxWriterService {
             copyAttrIfExists(el, refs, "user");
         }
 
-        // 혹시 child가 아니라 attr에 박혀있는 경우도 대비
         if (refs.isEmpty()) {
             copyAttrIfExists(charPrEl, refs, "hangul");
             copyAttrIfExists(charPrEl, refs, "latin");
@@ -443,54 +641,6 @@ public class ComposeHwpxWriterService {
         return String.valueOf(max + 1);
     }
 
-    private SectionRewriteResult rewriteSectionXml(
-            byte[] xmlBytes,
-            int globalStartIndex,
-            Set<Integer> targetIndexes,
-            String sourceParaPrIdRef,
-            String sourceCharPrIdRef
-    ) throws Exception {
-
-        Document doc = parseXml(xmlBytes);
-
-        NodeList paraList = doc.getElementsByTagName("hp:p");
-        int paraCount = paraList.getLength();
-
-        // 🔥 extractor 기준 p0, p1...와 동일하게
-        // "문단 순서"를 따로 센다.
-        int logicalParagraphIndex = globalStartIndex;
-
-        for (int i = 0; i < paraCount; i++) {
-            Element p = (Element) paraList.item(i);
-
-            // 이 문단이 실제 텍스트를 가진 문단인지 확인
-            boolean hasText = hasTextRun(p);
-
-            if (!hasText) {
-                continue;
-            }
-
-            if (targetIndexes.contains(logicalParagraphIndex)) {
-                if (sourceParaPrIdRef != null && !sourceParaPrIdRef.isBlank()) {
-                    p.setAttribute("paraPrIDRef", sourceParaPrIdRef);
-                }
-
-                if (sourceCharPrIdRef != null && !sourceCharPrIdRef.isBlank()) {
-                    rewriteAllCharPrRefs(p, sourceCharPrIdRef);
-                }
-
-                removeLineSegArray(p);
-            }
-
-            logicalParagraphIndex++;
-        }
-
-        SectionRewriteResult result = new SectionRewriteResult();
-        result.bytes = toBytes(doc);
-        result.processedParagraphCount = logicalParagraphIndex - globalStartIndex;
-        return result;
-    }
-
     private boolean hasTextRun(Element p) {
         if (p == null) return false;
 
@@ -619,6 +769,44 @@ public class ComposeHwpxWriterService {
         return String.valueOf(max + 1);
     }
 
+    private String nextBorderFillId(Document doc) {
+        int max = -1;
+
+        for (String containerTag : List.of("hh:borderFills", "hp:borderFills")) {
+            NodeList containers = doc.getElementsByTagName(containerTag);
+            for (int c = 0; c < containers.getLength(); c++) {
+                Node containerNode = containers.item(c);
+                if (!(containerNode instanceof Element containerEl)) continue;
+
+                NodeList children = containerEl.getChildNodes();
+                for (int i = 0; i < children.getLength(); i++) {
+                    Node node = children.item(i);
+                    if (!(node instanceof Element el)) continue;
+
+                    String nodeName = el.getNodeName();
+                    String localName = el.getLocalName();
+
+                    boolean isBorderFill =
+                            "hh:borderFill".equalsIgnoreCase(nodeName) ||
+                            "hp:borderFill".equalsIgnoreCase(nodeName) ||
+                            "borderFill".equalsIgnoreCase(localName);
+
+                    if (!isBorderFill) continue;
+
+                    String id = el.getAttribute("id");
+                    if (id == null || id.isBlank()) continue;
+
+                    try {
+                        max = Math.max(max, Integer.parseInt(id));
+                    } catch (Exception ignored) {
+                    }
+                }
+            }
+        }
+
+        return String.valueOf(max + 1);
+    }
+
     private String safeAttr(Element el, String name) {
         if (el == null || name == null) return null;
         String v = el.getAttribute(name);
@@ -646,6 +834,7 @@ public class ComposeHwpxWriterService {
         private byte[] bytes;
         private String newParaPrIdRef;
         private String newCharPrIdRef;
+        private String newBorderFillIdRef;
     }
 
     private static class TemplateStyleBundle {
@@ -655,5 +844,7 @@ public class ComposeHwpxWriterService {
         private Document templateHeaderDoc;
         private String mergedParaPrIdRef;
         private String mergedCharPrIdRef;
+        private String templateHeaderBorderFillIdRef;
+        private String mergedBorderFillIdRef;
     }
 }

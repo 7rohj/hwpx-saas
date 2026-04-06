@@ -34,6 +34,7 @@ public class HwpxTableExtractor {
 
         try (ZipFile zipFile = new ZipFile(hwpxFile)) {
             List<ZipEntry> sectionEntries = findSectionEntries(zipFile);
+            Document headerDoc = loadHeaderDoc(zipFile);
 
             int tableIndex = 0;
             int virtualTopCursor = 80;
@@ -83,12 +84,10 @@ public class HwpxTableExtractor {
                     dto.setColCount(maxColCount);
                     dto.setCellTexts(cellTexts);
 
-                    // 추가:
-                    // 헤더/바디 구분 스타일 추출
-                    ExtractedTableStyle extractedStyle = extractTableStyle(hwpxFile, tblEl);
+                    // 핵심: template 표의 실제 스타일 추출
+                    ExtractedTableStyle extractedStyle = extractTableStyle(hwpxFile, headerDoc, tblEl);
                     dto.setExtractedStyle(extractedStyle);
 
-                    // 기존 대표 스타일도 유지
                     if (extractedStyle != null) {
                         if (extractedStyle.getHeaderTextStyle() != null) {
                             dto.setFontFamily(extractedStyle.getHeaderTextStyle().getFontFamily());
@@ -105,8 +104,7 @@ public class HwpxTableExtractor {
                         }
                     }
 
-                    // 추가:
-                    // 임시 좌표 생성
+                    // preview용 임시 좌표
                     int rowCount = dto.getRowCount() != null ? dto.getRowCount() : 1;
                     int colCount = dto.getColCount() != null ? dto.getColCount() : 1;
 
@@ -139,38 +137,62 @@ public class HwpxTableExtractor {
         return result;
     }
 
-    // 추가:
-    // template 표에서 헤더/바디 스타일 세트 추출
-    private ExtractedTableStyle extractTableStyle(File hwpxFile, Element tblEl) {
+    private Document loadHeaderDoc(ZipFile zipFile) {
+        try {
+            ZipEntry headerEntry = zipFile.getEntry("Contents/header.xml");
+            if (headerEntry == null) {
+                headerEntry = zipFile.getEntry("Contents/header0.xml");
+            }
+            if (headerEntry == null) {
+                return null;
+            }
+
+            byte[] headerBytes;
+            try (InputStream in = zipFile.getInputStream(headerEntry)) {
+                headerBytes = in.readAllBytes();
+            }
+
+            DocumentBuilderFactory factory = DocumentBuilderFactory.newInstance();
+            factory.setNamespaceAware(false);
+
+            return factory.newDocumentBuilder()
+                    .parse(new InputSource(new ByteArrayInputStream(headerBytes)));
+        } catch (Exception e) {
+            return null;
+        }
+    }
+
+    private ExtractedTableStyle extractTableStyle(File hwpxFile, Document headerDoc, Element tblEl) {
         ExtractedTableStyle style = new ExtractedTableStyle();
 
         List<Element> rows = getElements(tblEl, "hp:tr");
 
         Element headerCell = findFirstCellOfRow(rows, 0);
         Element bodyCell = findFirstCellOfRow(rows, 1);
-
-        // body가 없으면 header 다음 fallback
         if (bodyCell == null) {
             bodyCell = headerCell;
         }
 
-        // 추가:
-        // 텍스트 스타일 추출
         style.setHeaderTextStyle(extractCellTextStyle(hwpxFile, headerCell));
         style.setBodyTextStyle(extractCellTextStyle(hwpxFile, bodyCell));
 
-        // 추가:
-        // 배경색 추출 (지금은 약식, 다음 단계에서 borderFill 정밀 파싱 가능)
-        style.setHeaderBackgroundColor(findRoughBackgroundColor(headerCell, "#f1f5f9"));
-        style.setBodyBackgroundColor(findRoughBackgroundColor(bodyCell, "#ffffff"));
+        // 핵심: template의 row0 / row1 cell borderFillIDRef를 직접 타고 색상 추출
+        String headerBorderFillId = readAnyAttr(headerCell, "borderFillIDRef", "borderFillIdRef");
+        String bodyBorderFillId = readAnyAttr(bodyCell, "borderFillIDRef", "borderFillIdRef");
 
-        // 추가:
-        // 헤더/바디 외곽선 / 내부선 스타일 분리
-        style.setHeaderOuterBorder(extractRoughBorderStyle(headerCell, true, "#334155", 1, "solid"));
-        style.setHeaderInnerBorder(extractRoughBorderStyle(headerCell, false, "#94a3b8", 1, "solid"));
+        style.setHeaderBackgroundColor(parseBackgroundColorFromHeader(headerDoc, headerBorderFillId, "#FFFFFFFF"));
+        style.setBodyBackgroundColor(parseBackgroundColorFromHeader(headerDoc, bodyBorderFillId, "#FFFFFFFF"));
 
-        style.setBodyOuterBorder(extractRoughBorderStyle(bodyCell, true, "#64748b", 1, "solid"));
-        style.setBodyInnerBorder(extractRoughBorderStyle(bodyCell, false, "#cbd5e1", 1, "solid"));
+        // 선은 최소 복사: leftBorder 하나를 대표값으로 사용
+        style.setHeaderOuterBorder(parseBorderStyleFromHeader(
+                headerDoc, headerBorderFillId, "hh:leftBorder", "#000000", 12, "SOLID"
+        ));
+        style.setHeaderInnerBorder(style.getHeaderOuterBorder());
+
+        style.setBodyOuterBorder(parseBorderStyleFromHeader(
+                headerDoc, bodyBorderFillId, "hh:leftBorder", "#000000", 12, "SOLID"
+        ));
+        style.setBodyInnerBorder(style.getBodyOuterBorder());
 
         return style;
     }
@@ -213,28 +235,102 @@ public class HwpxTableExtractor {
         return null;
     }
 
-    // 추가:
-    // 현재는 borderFill 정밀 파싱 전이라 fallback 기반으로 채움
-    // 다음 단계에서 cell/table의 borderFillIDRef를 읽어 진짜 값으로 교체 가능
-    private ExtractedTableStyle.BorderStyle extractRoughBorderStyle(
-            Element cellEl,
-            boolean outer,
+    private String parseBackgroundColorFromHeader(
+            Document headerDoc,
+            String borderFillId,
+            String defaultColor
+    ) {
+        if (headerDoc == null || borderFillId == null || borderFillId.isBlank()) {
+            return defaultColor;
+        }
+
+        NodeList borderFillList = headerDoc.getElementsByTagName("hh:borderFill");
+        for (int i = 0; i < borderFillList.getLength(); i++) {
+            Node node = borderFillList.item(i);
+            if (!(node instanceof Element bf)) {
+                continue;
+            }
+
+            if (!borderFillId.equals(readAnyAttr(bf, "id"))) {
+                continue;
+            }
+
+            // template_header.xml은 hc:winBrush 사용
+            NodeList winBrushList = bf.getElementsByTagName("hc:winBrush");
+            if (winBrushList.getLength() > 0 && winBrushList.item(0) instanceof Element winBrush) {
+                String faceColor = readAnyAttr(winBrush, "faceColor");
+                if (faceColor != null && !faceColor.isBlank()) {
+                    return faceColor;
+                }
+            }
+
+            return defaultColor;
+        }
+
+        return defaultColor;
+    }
+
+    private ExtractedTableStyle.BorderStyle parseBorderStyleFromHeader(
+            Document headerDoc,
+            String borderFillId,
+            String edgeTagName,
             String defaultColor,
             Integer defaultWidth,
             String defaultLineStyle
     ) {
-        ExtractedTableStyle.BorderStyle borderStyle = new ExtractedTableStyle.BorderStyle();
-        borderStyle.setColor(defaultColor);
-        borderStyle.setWidth(defaultWidth);
-        borderStyle.setLineStyle(defaultLineStyle);
+        ExtractedTableStyle.BorderStyle style = new ExtractedTableStyle.BorderStyle();
+        style.setColor(defaultColor);
+        style.setWidth(defaultWidth);
+        style.setLineStyle(defaultLineStyle);
 
-        if (cellEl == null) {
-            return borderStyle;
+        if (headerDoc == null || borderFillId == null || borderFillId.isBlank()) {
+            return style;
         }
 
-        // 다음 단계 확장 포인트:
-        // borderFillIDRef / fillIDRef 같은 실제 HWPX 속성 읽어서 반영 가능
-        return borderStyle;
+        NodeList borderFillList = headerDoc.getElementsByTagName("hh:borderFill");
+        for (int i = 0; i < borderFillList.getLength(); i++) {
+            Node node = borderFillList.item(i);
+            if (!(node instanceof Element bf)) {
+                continue;
+            }
+
+            if (!borderFillId.equals(readAnyAttr(bf, "id"))) {
+                continue;
+            }
+
+            NodeList children = bf.getChildNodes();
+            for (int j = 0; j < children.getLength(); j++) {
+                Node child = children.item(j);
+                if (!(child instanceof Element edgeEl)) {
+                    continue;
+                }
+
+                String nodeName = edgeEl.getNodeName();
+                String localName = edgeEl.getLocalName();
+
+                if (!edgeTagName.equalsIgnoreCase(nodeName) && !edgeTagName.equalsIgnoreCase(localName)) {
+                    continue;
+                }
+
+                String type = readAnyAttr(edgeEl, "type");
+                String width = readAnyAttr(edgeEl, "width");
+                String color = readAnyAttr(edgeEl, "color");
+
+                if (type != null && !type.isBlank()) {
+                    style.setLineStyle(type);
+                }
+                if (width != null && !width.isBlank()) {
+                    style.setWidth(parseWidthToInt(width, defaultWidth));
+                }
+                if (color != null && !color.isBlank()) {
+                    style.setColor(color);
+                }
+
+                return style;
+            }
+        }
+
+        return style;
     }
 
     private Element findFirstCellOfRow(List<Element> rows, int rowIndex) {
@@ -298,16 +394,6 @@ public class HwpxTableExtractor {
         return sb.toString().trim();
     }
 
-    private String findRoughBackgroundColor(Element cellEl, String defaultColor) {
-        if (cellEl == null) {
-            return defaultColor;
-        }
-
-        // 다음 단계 확장 포인트:
-        // 실제 fillBrush / borderFill 파싱
-        return defaultColor;
-    }
-
     private String readAnyAttr(Element el, String... names) {
         if (el == null || names == null) {
             return null;
@@ -335,5 +421,20 @@ public class HwpxTableExtractor {
         }
 
         return null;
+    }
+
+    // "0.12 mm" -> 12
+    private int parseWidthToInt(String value, int defaultValue) {
+        if (value == null || value.isBlank()) {
+            return defaultValue;
+        }
+
+        try {
+            String normalized = value.replace("mm", "").trim();
+            double parsed = Double.parseDouble(normalized);
+            return (int) Math.round(parsed * 100);
+        } catch (Exception e) {
+            return defaultValue;
+        }
     }
 }

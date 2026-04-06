@@ -2,37 +2,32 @@ package com.khwajeong.hwpx_saas.compose.model;
 
 public class ExtractedTableStyle {
 
-    // 추가:
     // 헤더 셀 텍스트 스타일
     private CellTextStyle headerTextStyle;
 
-    // 추가:
     // 바디 셀 텍스트 스타일
     private CellTextStyle bodyTextStyle;
 
-    // 추가:
     // 헤더 셀 배경색
     private String headerBackgroundColor;
 
-    // 추가:
     // 바디 셀 배경색
     private String bodyBackgroundColor;
 
-    // 추가:
     // 헤더 영역 외곽선 스타일
     private BorderStyle headerOuterBorder;
 
-    // 추가:
     // 헤더 영역 내부선 스타일
     private BorderStyle headerInnerBorder;
 
-    // 추가:
     // 바디 영역 외곽선 스타일
     private BorderStyle bodyOuterBorder;
 
-    // 추가:
     // 바디 영역 내부선 스타일
     private BorderStyle bodyInnerBorder;
+
+    // 헤더 셀의 borderFillIDRef
+    private String headerBorderFillId;
 
     public CellTextStyle getHeaderTextStyle() {
         return headerTextStyle;
@@ -98,8 +93,14 @@ public class ExtractedTableStyle {
         this.bodyInnerBorder = bodyInnerBorder;
     }
 
-    // 추가:
-    // 셀 내부 텍스트 스타일
+    public String getHeaderBorderFillId() {
+        return headerBorderFillId;
+    }
+
+    public void setHeaderBorderFillId(String headerBorderFillId) {
+        this.headerBorderFillId = headerBorderFillId;
+    }
+
     public static class CellTextStyle {
         private String fontFamily;
         private Integer fontSize;
@@ -166,8 +167,6 @@ public class ExtractedTableStyle {
         }
     }
 
-    // 추가:
-    // 선 스타일
     public static class BorderStyle {
         private String color;
         private Integer width;
