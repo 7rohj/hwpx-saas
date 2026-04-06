@@ -54,10 +54,8 @@ public class ComposeTextStyleApplyService {
             throw new IllegalArgumentException("matchedParagraphIds is empty");
         }
 
-        // 1) source를 HWPX 객체로 열고
         HWPXFile hwpxFile = HWPXReader.fromFilepath(sourceHwpxPath.toString());
 
-        // 2) 예전 프로젝트 방식대로 Text -> StyleRenderer 사용해서 charPr/paraPr 생성
         StyleRenderer styleRenderer = new StyleRenderer(hwpxFile.headerXMLFile());
 
         Text textStyle = new Text("")
@@ -74,7 +72,6 @@ public class ComposeTextStyleApplyService {
 
         String newCharPrId = styleRenderer.renderCharStyleAndReturnCharPrId(textStyle);
 
-        // paragraph마다 base paraPrId가 다를 수 있으므로 개별 생성
         Map<Integer, String> paragraphIndexToNewParaPrId = new HashMap<>();
         Set<Integer> targetIndexes = parseParagraphIndexes(matchedParagraphIds);
 
@@ -99,14 +96,12 @@ public class ComposeTextStyleApplyService {
             paragraphIndexToNewParaPrId.put(idx, newParaPrId);
         }
 
-        // 3) header에 새 스타일 정의가 추가된 source를 먼저 임시 저장
         Path tempStyledSource = Files.createTempFile("compose-style-base-", ".hwpx");
         try (ByteArrayOutputStream baos = new ByteArrayOutputStream()) {
             HWPXWriter.toStream(hwpxFile, baos);
             Files.write(tempStyledSource, baos.toByteArray());
         }
 
-        // 4) section xml에서 target paragraph의 paraPrIDRef / charPrIDRef만 교체
         Path outputPath = Files.createTempFile("compose-render-output-", ".hwpx");
 
         int globalParagraphIndex = 0;
@@ -135,7 +130,8 @@ public class ComposeTextStyleApplyService {
                             globalParagraphIndex,
                             targetIndexes,
                             paragraphIndexToNewParaPrId,
-                            newCharPrId
+                            newCharPrId,
+                            templateStyle.getFontSize() // [수정] template fontSize 전달
                     );
                     outputBytes = result.bytes;
                     globalParagraphIndex += result.processedParagraphCount;
@@ -182,7 +178,8 @@ public class ComposeTextStyleApplyService {
             int globalStartIndex,
             Set<Integer> targetIndexes,
             Map<Integer, String> paragraphIndexToNewParaPrId,
-            String newCharPrId
+            String newCharPrId,
+            Integer templateFontSize
     ) throws Exception {
 
         Document doc = parseXml(xmlBytes);
@@ -190,6 +187,7 @@ public class ComposeTextStyleApplyService {
         NodeList paraList = doc.getElementsByTagName("hp:p");
         int paraCount = paraList.getLength();
 
+        // [수정] 1차: 대상 문단의 paraPr/charPr/styleIDRef 수정
         for (int i = 0; i < paraCount; i++) {
             Element p = (Element) paraList.item(i);
             int globalIndex = globalStartIndex + i;
@@ -207,7 +205,10 @@ public class ComposeTextStyleApplyService {
             for (int r = 0; r < runList.getLength(); r++) {
                 Node runNode = runList.item(r);
                 if (runNode instanceof Element runEl) {
-                    runEl.setAttribute("charPrIDRef", newCharPrId);
+                    // [수정] 텍스트를 가진 run만 교체
+                    if (hasTextDescendant(runEl)) {
+                        runEl.setAttribute("charPrIDRef", newCharPrId);
+                    }
                 }
             }
 
@@ -215,15 +216,148 @@ public class ComposeTextStyleApplyService {
             for (int r = 0; r < rList.getLength(); r++) {
                 Node rNode = rList.item(r);
                 if (rNode instanceof Element rEl) {
-                    rEl.setAttribute("charPrIDRef", newCharPrId);
+                    if (hasTextDescendant(rEl)) {
+                        rEl.setAttribute("charPrIDRef", newCharPrId);
+                    }
                 }
             }
+
+            // [수정] 기존 style 참조 제거
+            p.removeAttribute("styleIDRef");
         }
+
+        // [수정] 2차: 모든 문단의 lineseg를 다시 계산
+        // 대상 문단은 templateFontSize*100 사용
+        // 비대상 문단은 기존 textheight 유지
+        recomputeLineSegLayout(doc, globalStartIndex, targetIndexes, templateFontSize);
 
         SectionRewriteResult result = new SectionRewriteResult();
         result.bytes = toBytes(doc);
         result.processedParagraphCount = paraCount;
         return result;
+    }
+
+    // [수정] run 안에 실제 텍스트가 있는지 확인
+    private boolean hasTextDescendant(Element element) {
+        if (element == null) {
+            return false;
+        }
+
+        NodeList tList = element.getElementsByTagName("hp:t");
+        for (int i = 0; i < tList.getLength(); i++) {
+            Node tNode = tList.item(i);
+            if (tNode != null) {
+                String text = tNode.getTextContent();
+                if (text != null && !text.trim().isEmpty()) {
+                    return true;
+                }
+            }
+        }
+        return false;
+    }
+
+    // [수정] lineseg 전체 재계산
+    private void recomputeLineSegLayout(
+            Document doc,
+            int globalStartIndex,
+            Set<Integer> targetIndexes,
+            Integer templateFontSize
+    ) {
+        NodeList paraList = doc.getElementsByTagName("hp:p");
+
+        int currentVertPos = 0;
+
+        for (int i = 0; i < paraList.getLength(); i++) {
+            Element p = (Element) paraList.item(i);
+            int globalIndex = globalStartIndex + i;
+
+            Element lineSeg = findFirstLineSegElement(p);
+            if (lineSeg == null) {
+                continue;
+            }
+
+            int textHeight;
+
+            // [수정] 대상 문단은 template fontSize * 100
+            if (targetIndexes.contains(globalIndex) && templateFontSize != null && templateFontSize > 0) {
+                textHeight = templateFontSize * 100;
+            } else {
+                // [수정] 비대상 문단은 기존 textheight 유지
+                textHeight = parseIntOrDefault(lineSeg.getAttribute("textheight"), 500);
+            }
+
+            int vertSize = textHeight;
+            int baseline = (int) Math.round(textHeight * 0.85);
+            int spacing = (int) Math.round(textHeight * 0.60);
+
+            lineSeg.setAttribute("textheight", String.valueOf(textHeight));
+            lineSeg.setAttribute("vertsize", String.valueOf(vertSize));
+            lineSeg.setAttribute("baseline", String.valueOf(baseline));
+            lineSeg.setAttribute("spacing", String.valueOf(spacing));
+            lineSeg.setAttribute("vertpos", String.valueOf(currentVertPos));
+
+            currentVertPos += vertSize + spacing;
+        }
+    }
+
+    // [수정] 각 문단의 첫 번째 hp:lineseg 찾기
+    private Element findFirstLineSegElement(Element paragraphElement) {
+        if (paragraphElement == null) {
+            return null;
+        }
+
+        NodeList children = paragraphElement.getChildNodes();
+        for (int i = 0; i < children.getLength(); i++) {
+            Node node = children.item(i);
+            if (!(node instanceof Element el)) {
+                continue;
+            }
+
+            String nodeName = el.getNodeName();
+            String localName = el.getLocalName();
+
+            boolean isLineSegArray =
+                    "hp:linesegarray".equalsIgnoreCase(nodeName) ||
+                    "linesegarray".equalsIgnoreCase(nodeName) ||
+                    "linesegarray".equalsIgnoreCase(localName);
+
+            if (!isLineSegArray) {
+                continue;
+            }
+
+            NodeList lineSegs = el.getChildNodes();
+            for (int j = 0; j < lineSegs.getLength(); j++) {
+                Node segNode = lineSegs.item(j);
+                if (!(segNode instanceof Element segEl)) {
+                    continue;
+                }
+
+                String segName = segEl.getNodeName();
+                String segLocal = segEl.getLocalName();
+
+                boolean isLineSeg =
+                        "hp:lineseg".equalsIgnoreCase(segName) ||
+                        "lineseg".equalsIgnoreCase(segName) ||
+                        "lineseg".equalsIgnoreCase(segLocal);
+
+                if (isLineSeg) {
+                    return segEl;
+                }
+            }
+        }
+
+        return null;
+    }
+
+    private int parseIntOrDefault(String value, int defaultValue) {
+        if (value == null || value.isBlank()) {
+            return defaultValue;
+        }
+        try {
+            return Integer.parseInt(value.trim());
+        } catch (Exception e) {
+            return defaultValue;
+        }
     }
 
     private Document parseXml(byte[] xmlBytes) throws Exception {

@@ -484,7 +484,7 @@ export default function ComposeStudioPage({
       alert("템플릿 서식으로 변경 완료하였습니다.")
     } catch (err) {
       console.error(err)
-      alert(err instanceof Error ? err.message : "apply 실패")
+      alert(err instanceof Error ? err.message : "템플릿 서식으로 변경 실패했습니다.")
     } finally {
       setApplying(false)
     }
