@@ -142,7 +142,10 @@ public class ComposeTableStyleApplyService {
         for (Map.Entry<String, Document> e : headerDocs.entrySet()) {
             Document doc = e.getValue();
 
-            // 헤더용: 배경색/선 복사용 borderFill 생성
+            // 헤더 스타일 등록:
+            // - backgroundColor
+            // - borderFill
+            // - header text용 charPr / paraPr
             HwpxStyleRegistryService.RegisteredStyleIds headerIds =
                     hwpxStyleRegistryService.registerTableCellStyle(
                             doc,
@@ -152,7 +155,6 @@ public class ComposeTableStyleApplyService {
                             style.getHeaderBackgroundColor()
                     );
 
-            // 바디는 이번 목표에서 건드리지 않으므로 생성하지 않아도 됨
             RegisteredPair pair = new RegisteredPair();
             pair.headerIds = headerIds;
             pair.bodyIds = null;
@@ -203,15 +205,17 @@ public class ComposeTableStyleApplyService {
 
             for (Element cellEl : cells) {
                 if (isHeaderRow) {
-                    // 핵심: 헤더 row 0 셀에만 배경/선용 borderFillIDRef 적용
-                    applyHeaderCellBackgroundOnly(cellEl, pair.headerIds);
+                    // 헤더 row 0에만:
+                    // 1) 셀 background/border borderFillIDRef
+                    // 2) 내부 p/run의 paraPrIDRef / charPrIDRef
+                    applyHeaderCellFullStyle(cellEl, pair.headerIds);
                 }
-                // body row는 아무것도 건드리지 않음
+                // 바디는 지금 단계에서 건드리지 않음
             }
         }
     }
 
-    private void applyHeaderCellBackgroundOnly(
+    private void applyHeaderCellFullStyle(
             Element cellEl,
             HwpxStyleRegistryService.RegisteredStyleIds ids
     ) {
@@ -219,10 +223,25 @@ public class ComposeTableStyleApplyService {
             return;
         }
 
-        // 핵심: 셀 자체 borderFillIDRef만 교체
-        // paraPrIDRef / charPrIDRef 는 절대 건드리지 않음
+        // 1) 셀 자체 배경/선 스타일 적용
         if (ids.getBorderFillId() != null && !ids.getBorderFillId().isBlank()) {
             cellEl.setAttribute("borderFillIDRef", ids.getBorderFillId());
+        }
+
+        // 2) 헤더 셀 내부 문단/텍스트 스타일 적용
+        // template_section0.xml 기준으로 header cell 내부는 hp:subList > hp:p > hp:run 구조
+        List<Element> paraList = getElements(cellEl, "hp:p");
+        for (Element paraEl : paraList) {
+            if (ids.getParaPrId() != null && !ids.getParaPrId().isBlank()) {
+                paraEl.setAttribute("paraPrIDRef", ids.getParaPrId());
+            }
+
+            List<Element> runList = getElements(paraEl, "hp:run");
+            for (Element runEl : runList) {
+                if (ids.getCharPrId() != null && !ids.getCharPrId().isBlank()) {
+                    runEl.setAttribute("charPrIDRef", ids.getCharPrId());
+                }
+            }
         }
     }
 
