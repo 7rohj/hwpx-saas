@@ -66,7 +66,6 @@ public class HwpxTableExtractor {
                     List<List<String>> cellTexts = new ArrayList<>();
 
                     int maxColCount = 0;
-
                     for (Element rowEl : rowElements) {
                         List<Element> cellElements = getElements(rowEl, "hp:tc");
                         List<String> rowTexts = new ArrayList<>();
@@ -158,33 +157,56 @@ public class HwpxTableExtractor {
         List<Element> rows = getElements(tblEl, "hp:tr");
 
         Element headerCell = findFirstCellOfRow(rows, 0);
-        Element bodyCell = findFirstCellOfRow(rows, 1);
+        Element firstBodyCell = findFirstCellOfRow(rows, 1);
+        Element middleBodyCell = findRepresentativeMiddleBodyCell(rows);
         Element lastBodyCell = findFirstCellOfLastBodyRow(rows);
 
-        if (bodyCell == null) {
-            bodyCell = headerCell;
-        }
-        if (lastBodyCell == null) {
-            lastBodyCell = bodyCell;
-        }
+        if (firstBodyCell == null) firstBodyCell = headerCell;
+        if (middleBodyCell == null) middleBodyCell = firstBodyCell;
+        if (lastBodyCell == null) lastBodyCell = middleBodyCell;
 
         style.setHeaderTextStyle(extractCellTextStyle(hwpxFile, headerCell));
-        style.setBodyTextStyle(extractCellTextStyle(hwpxFile, bodyCell));
+        style.setBodyTextStyle(extractCellTextStyle(hwpxFile, firstBodyCell));
 
         String headerBorderFillId = readAnyAttr(headerCell, "borderFillIDRef", "borderFillIdRef");
-        String bodyBorderFillId = readAnyAttr(bodyCell, "borderFillIDRef", "borderFillIdRef");
+        String firstBodyBorderFillId = readAnyAttr(firstBodyCell, "borderFillIDRef", "borderFillIdRef");
+        String middleBodyBorderFillId = readAnyAttr(middleBodyCell, "borderFillIDRef", "borderFillIdRef");
         String lastBodyBorderFillId = readAnyAttr(lastBodyCell, "borderFillIDRef", "borderFillIdRef");
 
         style.setHeaderBackgroundColor(parseBackgroundColorFromHeader(headerDoc, headerBorderFillId, "#FFFFFFFF"));
-        style.setBodyBackgroundColor(parseBackgroundColorFromHeader(headerDoc, bodyBorderFillId, "#FFFFFFFF"));
+        style.setBodyBackgroundColor(parseBackgroundColorFromHeader(headerDoc, firstBodyBorderFillId, "#FFFFFFFF"));
 
-        style.setHeaderOuterBorder(parseBorderStyleFromHeader(headerDoc, headerBorderFillId, "hh:leftBorder", "#000000", "0.12 mm", "SOLID"));
-        style.setHeaderInnerBorder(parseBorderStyleFromHeader(headerDoc, headerBorderFillId, "hh:topBorder", "#000000", "0.12 mm", "SOLID"));
+        // 헤더
+        style.setHeaderOuterBorder(parseBorderStyleFromHeader(
+                headerDoc, headerBorderFillId, "hh:leftBorder", "#000000", "0.12 mm", "SOLID"
+        ));
+        style.setHeaderInnerBorder(parseBorderStyleFromHeader(
+                headerDoc, headerBorderFillId, "hh:topBorder", "#000000", "0.12 mm", "SOLID"
+        ));
 
-        style.setBodyOuterBorder(parseBorderStyleFromHeader(headerDoc, bodyBorderFillId, "hh:leftBorder", "#000000", "0.12 mm", "SOLID"));
-        style.setBodyInnerBorder(parseBorderStyleFromHeader(headerDoc, bodyBorderFillId, "hh:topBorder", "#000000", "0.12 mm", "SOLID"));
+        // 바디 세로 내부선 / 외부선
+        style.setBodyOuterBorder(parseBorderStyleFromHeader(
+                headerDoc, middleBodyBorderFillId, "hh:leftBorder", "#000000", "0.12 mm", "SOLID"
+        ));
+        style.setBodyInnerVerticalBorder(parseBorderStyleFromHeader(
+                headerDoc, middleBodyBorderFillId, "hh:leftBorder", "#000000", "0.12 mm", "SOLID"
+        ));
 
-        style.setBodyLastRowBorder(parseBorderStyleFromHeader(headerDoc, lastBodyBorderFillId, "hh:bottomBorder", "#000000", "0.12 mm", "SOLID"));
+        // 핵심 1:
+        // body 내부 가로선 대표는 "첫 body row의 bottom"에서 읽는다.
+        style.setBodyInnerHorizontalBorder(parseBorderStyleFromHeader(
+                headerDoc, firstBodyBorderFillId, "hh:bottomBorder", "#000000", "0.12 mm", "SOLID"
+        ));
+
+        // 첫 body row의 top (헤더 아래 경계)
+        style.setBodyFirstRowTopBorder(parseBorderStyleFromHeader(
+                headerDoc, firstBodyBorderFillId, "hh:topBorder", "#000000", "0.12 mm", "SOLID"
+        ));
+
+        // 마지막 body row의 bottom
+        style.setBodyLastRowBottomBorder(parseBorderStyleFromHeader(
+                headerDoc, lastBodyBorderFillId, "hh:bottomBorder", "#000000", "0.12 mm", "SOLID"
+        ));
 
         return style;
     }
@@ -305,7 +327,7 @@ public class HwpxTableExtractor {
                     style.setLineStyle(type);
                 }
                 if (width != null && !width.isBlank()) {
-                    style.setWidth(width);   // 핵심: 원문 그대로 저장
+                    style.setWidth(width); // 원문 그대로
                 }
                 if (color != null && !color.isBlank()) {
                     style.setColor(color);
@@ -330,6 +352,20 @@ public class HwpxTableExtractor {
         }
 
         return cellElements.get(0);
+    }
+
+    private Element findRepresentativeMiddleBodyCell(List<Element> rows) {
+        if (rows == null || rows.size() < 3) {
+            return findFirstCellOfRow(rows, 1);
+        }
+
+        // header 제외 후 body가 2개뿐이면 첫 body를 대표값으로
+        if (rows.size() == 3) {
+            return findFirstCellOfRow(rows, 1);
+        }
+
+        // body가 3개 이상이면 두 번째 body row를 일반 body 대표값으로 사용
+        return findFirstCellOfRow(rows, 2);
     }
 
     private Element findFirstCellOfLastBodyRow(List<Element> rows) {

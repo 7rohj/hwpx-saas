@@ -8,13 +8,20 @@ public class ExtractedTableStyle {
     private String headerBackgroundColor;
     private String bodyBackgroundColor;
 
+    // 헤더
     private BorderStyle headerOuterBorder;
     private BorderStyle headerInnerBorder;
 
+    // 바디
     private BorderStyle bodyOuterBorder;
-    private BorderStyle bodyInnerBorder;
 
-    private BorderStyle bodyLastRowBorder;
+    // 바디 내부선 분리
+    private BorderStyle bodyInnerHorizontalBorder; // 가로 내부선
+    private BorderStyle bodyInnerVerticalBorder;   // 세로 내부선
+
+    // 바디 첫 row / 마지막 row
+    private BorderStyle bodyFirstRowTopBorder;
+    private BorderStyle bodyLastRowBottomBorder;
 
     public CellTextStyle getHeaderTextStyle() {
         return headerTextStyle;
@@ -72,20 +79,36 @@ public class ExtractedTableStyle {
         this.bodyOuterBorder = bodyOuterBorder;
     }
 
-    public BorderStyle getBodyInnerBorder() {
-        return bodyInnerBorder;
+    public BorderStyle getBodyInnerHorizontalBorder() {
+        return bodyInnerHorizontalBorder;
     }
 
-    public void setBodyInnerBorder(BorderStyle bodyInnerBorder) {
-        this.bodyInnerBorder = bodyInnerBorder;
+    public void setBodyInnerHorizontalBorder(BorderStyle bodyInnerHorizontalBorder) {
+        this.bodyInnerHorizontalBorder = bodyInnerHorizontalBorder;
     }
 
-    public BorderStyle getBodyLastRowBorder() {
-        return bodyLastRowBorder;
+    public BorderStyle getBodyInnerVerticalBorder() {
+        return bodyInnerVerticalBorder;
     }
 
-    public void setBodyLastRowBorder(BorderStyle bodyLastRowBorder) {
-        this.bodyLastRowBorder = bodyLastRowBorder;
+    public void setBodyInnerVerticalBorder(BorderStyle bodyInnerVerticalBorder) {
+        this.bodyInnerVerticalBorder = bodyInnerVerticalBorder;
+    }
+
+    public BorderStyle getBodyFirstRowTopBorder() {
+        return bodyFirstRowTopBorder;
+    }
+
+    public void setBodyFirstRowTopBorder(BorderStyle bodyFirstRowTopBorder) {
+        this.bodyFirstRowTopBorder = bodyFirstRowTopBorder;
+    }
+
+    public BorderStyle getBodyLastRowBottomBorder() {
+        return bodyLastRowBottomBorder;
+    }
+
+    public void setBodyLastRowBottomBorder(BorderStyle bodyLastRowBottomBorder) {
+        this.bodyLastRowBottomBorder = bodyLastRowBottomBorder;
     }
 
     public static class CellTextStyle {
@@ -156,7 +179,7 @@ public class ExtractedTableStyle {
 
     public static class BorderStyle {
         private String lineStyle;
-        private String width;   // 핵심: Integer -> String 으로 변경
+        private String width;
         private String color;
 
         public String getLineStyle() {

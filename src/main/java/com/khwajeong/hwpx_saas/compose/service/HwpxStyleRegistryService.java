@@ -11,7 +11,7 @@ public class HwpxStyleRegistryService {
             Document headerDoc,
             ExtractedTableStyle.CellTextStyle textStyle,
             ExtractedTableStyle.BorderStyle outerBorder,
-            ExtractedTableStyle.BorderStyle innerBorder,
+            ExtractedTableStyle.BorderStyle innerHorizontalBorder,
             String backgroundColor
     ) {
         if (headerDoc == null) {
@@ -20,7 +20,13 @@ public class HwpxStyleRegistryService {
 
         String newCharPrId = createCharPr(headerDoc, textStyle);
         String newParaPrId = createParaPr(headerDoc, textStyle);
-        String newBorderFillId = createBorderFill(headerDoc, outerBorder, innerBorder, innerBorder, backgroundColor);
+        String newBorderFillId = createBorderFill(
+                headerDoc,
+                outerBorder,              // left/right
+                innerHorizontalBorder,    // top
+                innerHorizontalBorder,    // bottom
+                backgroundColor
+        );
 
         RegisteredStyleIds ids = new RegisteredStyleIds();
         ids.setCharPrId(newCharPrId);
@@ -29,14 +35,14 @@ public class HwpxStyleRegistryService {
         return ids;
     }
 
-    public String registerLastRowBorderFill(
+    public String registerCustomBorderFill(
             Document headerDoc,
-            ExtractedTableStyle.BorderStyle outerBorder,
-            ExtractedTableStyle.BorderStyle innerBorder,
-            ExtractedTableStyle.BorderStyle lastRowBorder,
+            ExtractedTableStyle.BorderStyle leftRightBorder,
+            ExtractedTableStyle.BorderStyle topBorder,
+            ExtractedTableStyle.BorderStyle bottomBorder,
             String backgroundColor
     ) {
-        return createBorderFill(headerDoc, outerBorder, innerBorder, lastRowBorder, backgroundColor);
+        return createBorderFill(headerDoc, leftRightBorder, topBorder, bottomBorder, backgroundColor);
     }
 
     private String createCharPr(Document doc, ExtractedTableStyle.CellTextStyle textStyle) {
@@ -170,8 +176,8 @@ public class HwpxStyleRegistryService {
 
     private String createBorderFill(
             Document doc,
-            ExtractedTableStyle.BorderStyle outerBorder,
-            ExtractedTableStyle.BorderStyle innerBorder,
+            ExtractedTableStyle.BorderStyle leftRightBorder,
+            ExtractedTableStyle.BorderStyle topBorder,
             ExtractedTableStyle.BorderStyle bottomBorder,
             String backgroundColor
     ) {
@@ -197,9 +203,9 @@ public class HwpxStyleRegistryService {
         backSlash.setAttribute("isCounter", "0");
         borderFill.appendChild(backSlash);
 
-        appendBorderEdge(doc, borderFill, "hh:leftBorder", outerBorder);
-        appendBorderEdge(doc, borderFill, "hh:rightBorder", outerBorder);
-        appendBorderEdge(doc, borderFill, "hh:topBorder", innerBorder);
+        appendBorderEdge(doc, borderFill, "hh:leftBorder", leftRightBorder);
+        appendBorderEdge(doc, borderFill, "hh:rightBorder", leftRightBorder);
+        appendBorderEdge(doc, borderFill, "hh:topBorder", topBorder);
         appendBorderEdge(doc, borderFill, "hh:bottomBorder", bottomBorder);
 
         Element diagonal = doc.createElement("hh:diagonal");
@@ -240,7 +246,7 @@ public class HwpxStyleRegistryService {
                 lineStyle = style.getLineStyle().toUpperCase();
             }
             if (style.getWidth() != null && !style.getWidth().isBlank()) {
-                width = style.getWidth();   // 핵심: 그대로 쓰기
+                width = style.getWidth(); // template 원문 그대로
             }
             if (style.getColor() != null && !style.getColor().isBlank()) {
                 color = normalizeColor(style.getColor());
