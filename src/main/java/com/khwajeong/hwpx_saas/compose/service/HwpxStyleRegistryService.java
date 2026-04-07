@@ -20,13 +20,23 @@ public class HwpxStyleRegistryService {
 
         String newCharPrId = createCharPr(headerDoc, textStyle);
         String newParaPrId = createParaPr(headerDoc, textStyle);
-        String newBorderFillId = createBorderFill(headerDoc, outerBorder, innerBorder, backgroundColor);
+        String newBorderFillId = createBorderFill(headerDoc, outerBorder, innerBorder, innerBorder, backgroundColor);
 
         RegisteredStyleIds ids = new RegisteredStyleIds();
         ids.setCharPrId(newCharPrId);
         ids.setParaPrId(newParaPrId);
         ids.setBorderFillId(newBorderFillId);
         return ids;
+    }
+
+    public String registerLastRowBorderFill(
+            Document headerDoc,
+            ExtractedTableStyle.BorderStyle outerBorder,
+            ExtractedTableStyle.BorderStyle innerBorder,
+            ExtractedTableStyle.BorderStyle lastRowBorder,
+            String backgroundColor
+    ) {
+        return createBorderFill(headerDoc, outerBorder, innerBorder, lastRowBorder, backgroundColor);
     }
 
     private String createCharPr(Document doc, ExtractedTableStyle.CellTextStyle textStyle) {
@@ -42,66 +52,22 @@ public class HwpxStyleRegistryService {
         charPr.setAttribute("borderFillIDRef", "3");
 
         if (textStyle != null) {
-            charPr.setAttribute(
-                    "textColor",
-                    textStyle.getFontColor() != null ? normalizeColor(textStyle.getFontColor()) : "#000000"
-            );
-            charPr.setAttribute(
-                    "height",
-                    textStyle.getFontSize() != null ? String.valueOf(textStyle.getFontSize() * 100) : "1000"
-            );
+            charPr.setAttribute("textColor", textStyle.getFontColor() != null ? normalizeColor(textStyle.getFontColor()) : "#000000");
+            charPr.setAttribute("height", textStyle.getFontSize() != null ? String.valueOf(textStyle.getFontSize() * 100) : "1000");
 
             if (Boolean.TRUE.equals(textStyle.getBold())) {
                 charPr.appendChild(doc.createElement("hh:bold"));
             }
 
-            if (Boolean.TRUE.equals(textStyle.getItalic())) {
-                charPr.appendChild(doc.createElement("hh:italic"));
-            }
-
-            if (Boolean.TRUE.equals(textStyle.getUnderline())) {
-                Element underline = doc.createElement("hh:underline");
-                underline.setAttribute("type", "BOTTOM");
-                underline.setAttribute("shape", "SOLID");
-                underline.setAttribute("color", "#000000");
-                charPr.appendChild(underline);
-            }
-
-            FontRefIds fontRefIds;
-            if (textStyle.getFontFamily() != null && !textStyle.getFontFamily().isBlank()) {
-                fontRefIds = registerFontFamily(doc, textStyle.getFontFamily());
-            } else {
-                fontRefIds = defaultFontRefIds();
-            }
-
+            FontRefIds ids = registerFontFamily(doc, textStyle.getFontFamily());
             Element fontRef = doc.createElement("hh:fontRef");
-            fontRef.setAttribute("hangul", fontRefIds.hangulId);
-            fontRef.setAttribute("latin", fontRefIds.latinId);
-            fontRef.setAttribute("hanja", fontRefIds.hanjaId);
-            fontRef.setAttribute("japanese", fontRefIds.japaneseId);
-            fontRef.setAttribute("other", fontRefIds.otherId);
-            fontRef.setAttribute("symbol", fontRefIds.symbolId);
-            fontRef.setAttribute("user", fontRefIds.userId);
-            charPr.appendChild(fontRef);
-
-            charPr.appendChild(createCommonTextSubNode(doc, "hh:ratio", "100"));
-            charPr.appendChild(createCommonTextSubNode(doc, "hh:spacing", "0"));
-            charPr.appendChild(createCommonTextSubNode(doc, "hh:relSz", "100"));
-            charPr.appendChild(createCommonTextSubNode(doc, "hh:offset", "0"));
-        } else {
-            charPr.setAttribute("textColor", "#000000");
-            charPr.setAttribute("height", "1000");
-
-            FontRefIds fontRefIds = defaultFontRefIds();
-
-            Element fontRef = doc.createElement("hh:fontRef");
-            fontRef.setAttribute("hangul", fontRefIds.hangulId);
-            fontRef.setAttribute("latin", fontRefIds.latinId);
-            fontRef.setAttribute("hanja", fontRefIds.hanjaId);
-            fontRef.setAttribute("japanese", fontRefIds.japaneseId);
-            fontRef.setAttribute("other", fontRefIds.otherId);
-            fontRef.setAttribute("symbol", fontRefIds.symbolId);
-            fontRef.setAttribute("user", fontRefIds.userId);
+            fontRef.setAttribute("hangul", ids.hangulId);
+            fontRef.setAttribute("latin", ids.latinId);
+            fontRef.setAttribute("hanja", ids.hanjaId);
+            fontRef.setAttribute("japanese", ids.japaneseId);
+            fontRef.setAttribute("other", ids.otherId);
+            fontRef.setAttribute("symbol", ids.symbolId);
+            fontRef.setAttribute("user", ids.userId);
             charPr.appendChild(fontRef);
 
             charPr.appendChild(createCommonTextSubNode(doc, "hh:ratio", "100"));
@@ -206,6 +172,7 @@ public class HwpxStyleRegistryService {
             Document doc,
             ExtractedTableStyle.BorderStyle outerBorder,
             ExtractedTableStyle.BorderStyle innerBorder,
+            ExtractedTableStyle.BorderStyle bottomBorder,
             String backgroundColor
     ) {
         Element parent = findOrCreateBorderFills(doc);
@@ -232,8 +199,8 @@ public class HwpxStyleRegistryService {
 
         appendBorderEdge(doc, borderFill, "hh:leftBorder", outerBorder);
         appendBorderEdge(doc, borderFill, "hh:rightBorder", outerBorder);
-        appendBorderEdge(doc, borderFill, "hh:topBorder", outerBorder);
-        appendBorderEdge(doc, borderFill, "hh:bottomBorder", outerBorder);
+        appendBorderEdge(doc, borderFill, "hh:topBorder", innerBorder);
+        appendBorderEdge(doc, borderFill, "hh:bottomBorder", bottomBorder);
 
         Element diagonal = doc.createElement("hh:diagonal");
         diagonal.setAttribute("type", "SOLID");
@@ -272,8 +239,8 @@ public class HwpxStyleRegistryService {
             if (style.getLineStyle() != null && !style.getLineStyle().isBlank()) {
                 lineStyle = style.getLineStyle().toUpperCase();
             }
-            if (style.getWidth() != null && style.getWidth() > 0) {
-                width = String.format("%.2f mm", style.getWidth() / 100.0);
+            if (style.getWidth() != null && !style.getWidth().isBlank()) {
+                width = style.getWidth();   // 핵심: 그대로 쓰기
             }
             if (style.getColor() != null && !style.getColor().isBlank()) {
                 color = normalizeColor(style.getColor());
@@ -287,28 +254,16 @@ public class HwpxStyleRegistryService {
     }
 
     private FontRefIds registerFontFamily(Document doc, String fontFamily) {
+        String safe = (fontFamily == null || fontFamily.isBlank()) ? "한컴바탕" : fontFamily;
+
         FontRefIds ids = new FontRefIds();
-
-        ids.hangulId = findOrCreateFont(doc, "HANGUL", fontFamily);
-        ids.latinId = findOrCreateFont(doc, "LATIN", fontFamily);
-        ids.hanjaId = findOrCreateFont(doc, "HANJA", fontFamily);
-        ids.japaneseId = findOrCreateFont(doc, "JAPANESE", fontFamily);
-        ids.otherId = findOrCreateFont(doc, "OTHER", fontFamily);
-        ids.symbolId = findOrCreateFont(doc, "SYMBOL", fontFamily);
-        ids.userId = findOrCreateFont(doc, "USER", fontFamily);
-
-        return ids;
-    }
-
-    private FontRefIds defaultFontRefIds() {
-        FontRefIds ids = new FontRefIds();
-        ids.hangulId = "3";
-        ids.latinId = "3";
-        ids.hanjaId = "3";
-        ids.japaneseId = "3";
-        ids.otherId = "3";
-        ids.symbolId = "3";
-        ids.userId = "3";
+        ids.hangulId = findOrCreateFont(doc, "HANGUL", safe);
+        ids.latinId = findOrCreateFont(doc, "LATIN", safe);
+        ids.hanjaId = findOrCreateFont(doc, "HANJA", safe);
+        ids.japaneseId = findOrCreateFont(doc, "JAPANESE", safe);
+        ids.otherId = findOrCreateFont(doc, "OTHER", safe);
+        ids.symbolId = findOrCreateFont(doc, "SYMBOL", safe);
+        ids.userId = findOrCreateFont(doc, "USER", safe);
         return ids;
     }
 
@@ -320,9 +275,7 @@ public class HwpxStyleRegistryService {
 
         for (int i = 0; i < children.getLength(); i++) {
             Node node = children.item(i);
-            if (!(node instanceof Element child)) {
-                continue;
-            }
+            if (!(node instanceof Element child)) continue;
 
             String nodeName = child.getNodeName();
             String localName = child.getLocalName();
@@ -332,9 +285,7 @@ public class HwpxStyleRegistryService {
                     "font".equalsIgnoreCase(nodeName) ||
                     "font".equalsIgnoreCase(localName);
 
-            if (!isFont) {
-                continue;
-            }
+            if (!isFont) continue;
 
             String existingFace = child.getAttribute("face");
             String existingId = child.getAttribute("id");
@@ -366,9 +317,7 @@ public class HwpxStyleRegistryService {
         NodeList list = doc.getElementsByTagName("hh:fontface");
         for (int i = 0; i < list.getLength(); i++) {
             Node node = list.item(i);
-            if (!(node instanceof Element el)) {
-                continue;
-            }
+            if (!(node instanceof Element el)) continue;
 
             String currentLang = el.getAttribute("lang");
             if (lang.equalsIgnoreCase(currentLang)) {

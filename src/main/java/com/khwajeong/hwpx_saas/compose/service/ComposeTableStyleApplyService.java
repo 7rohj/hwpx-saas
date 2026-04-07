@@ -39,7 +39,7 @@ public class ComposeTableStyleApplyService {
 
     public Path applyTableStyle(
             Path sourceHwpxPath,
-            String sourceTableId,   // 호환성 때문에 파라미터는 받되, 이제 전체 테이블 적용이라 내부에서 사용 안 함
+            String sourceTableId,
             ExtractedTableStyle style
     ) throws Exception {
         if (sourceHwpxPath == null || !Files.exists(sourceHwpxPath)) {
@@ -85,9 +85,6 @@ public class ComposeTableStyleApplyService {
                     }
 
                     if (pair != null) {
-                        // 핵심 수정:
-                        // 기존: sourceTableId 와 일치하는 table 하나만 적용
-                        // 변경: section 안의 모든 hp:tbl 에 적용
                         bytes = applyTableStyleToAllTablesInSectionXml(bytes, pair);
                     }
                 }
@@ -160,9 +157,19 @@ public class ComposeTableStyleApplyService {
                             style.getBodyBackgroundColor()
                     );
 
+            String bodyLastRowBorderFillId =
+                    hwpxStyleRegistryService.registerLastRowBorderFill(
+                            doc,
+                            style.getBodyOuterBorder(),
+                            style.getBodyInnerBorder(),
+                            style.getBodyLastRowBorder(),
+                            style.getBodyBackgroundColor()
+                    );
+
             RegisteredPair pair = new RegisteredPair();
             pair.headerIds = headerIds;
             pair.bodyIds = bodyIds;
+            pair.bodyLastRowBorderFillId = bodyLastRowBorderFillId;
             pair.headerFontSize = extractFontSize(style.getHeaderTextStyle(), 12);
             pair.bodyFontSize = extractFontSize(style.getBodyTextStyle(), 10);
 
@@ -179,10 +186,6 @@ public class ComposeTableStyleApplyService {
         return textStyle.getFontSize();
     }
 
-    /**
-     * 핵심 수정:
-     * section xml 안의 모든 hp:tbl 에 style 적용
-     */
     private byte[] applyTableStyleToAllTablesInSectionXml(
             byte[] sectionXmlBytes,
             RegisteredPair pair
@@ -205,18 +208,22 @@ public class ComposeTableStyleApplyService {
 
     private void applyStyleToTable(Element tblEl, RegisteredPair pair) {
         List<Element> rows = getElements(tblEl, "hp:tr");
+        int lastRowIndex = rows.size() - 1;
 
         for (int rowIndex = 0; rowIndex < rows.size(); rowIndex++) {
             Element rowEl = rows.get(rowIndex);
             List<Element> cells = getElements(rowEl, "hp:tc");
 
             boolean isHeaderRow = rowIndex == 0;
+            boolean isLastBodyRow = rowIndex == lastRowIndex && rowIndex > 0;
 
             for (Element cellEl : cells) {
                 if (isHeaderRow) {
-                    applyCellFullStyle(cellEl, pair.headerIds, pair.headerFontSize);
+                    applyCellFullStyle(cellEl, pair.headerIds, pair.headerFontSize, null);
+                } else if (isLastBodyRow) {
+                    applyCellFullStyle(cellEl, pair.bodyIds, pair.bodyFontSize, pair.bodyLastRowBorderFillId);
                 } else {
-                    applyCellFullStyle(cellEl, pair.bodyIds, pair.bodyFontSize);
+                    applyCellFullStyle(cellEl, pair.bodyIds, pair.bodyFontSize, null);
                 }
             }
         }
@@ -225,18 +232,21 @@ public class ComposeTableStyleApplyService {
     private void applyCellFullStyle(
             Element cellEl,
             HwpxStyleRegistryService.RegisteredStyleIds ids,
-            int fontSize
+            int fontSize,
+            String overrideBorderFillId
     ) {
         if (cellEl == null || ids == null) {
             return;
         }
 
-        // 1) 셀 자체 배경/선 스타일
-        if (ids.getBorderFillId() != null && !ids.getBorderFillId().isBlank()) {
-            cellEl.setAttribute("borderFillIDRef", ids.getBorderFillId());
+        String finalBorderFillId = overrideBorderFillId != null && !overrideBorderFillId.isBlank()
+                ? overrideBorderFillId
+                : ids.getBorderFillId();
+
+        if (finalBorderFillId != null && !finalBorderFillId.isBlank()) {
+            cellEl.setAttribute("borderFillIDRef", finalBorderFillId);
         }
 
-        // 2) 셀 내부 문단/텍스트 스타일
         List<Element> paraList = getElements(cellEl, "hp:p");
         for (Element paraEl : paraList) {
             if (ids.getParaPrId() != null && !ids.getParaPrId().isBlank()) {
@@ -250,7 +260,6 @@ public class ComposeTableStyleApplyService {
                 }
             }
 
-            // 3) fontSize 기반 lineseg 재계산
             recalculateLineSegArray(paraEl, fontSize);
         }
     }
@@ -369,6 +378,7 @@ public class ComposeTableStyleApplyService {
     private static class RegisteredPair {
         private HwpxStyleRegistryService.RegisteredStyleIds headerIds;
         private HwpxStyleRegistryService.RegisteredStyleIds bodyIds;
+        private String bodyLastRowBorderFillId;
         private int headerFontSize;
         private int bodyFontSize;
     }

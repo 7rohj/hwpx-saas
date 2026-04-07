@@ -2,32 +2,19 @@ package com.khwajeong.hwpx_saas.compose.model;
 
 public class ExtractedTableStyle {
 
-    // 헤더 셀 텍스트 스타일
     private CellTextStyle headerTextStyle;
-
-    // 바디 셀 텍스트 스타일
     private CellTextStyle bodyTextStyle;
 
-    // 헤더 셀 배경색
     private String headerBackgroundColor;
-
-    // 바디 셀 배경색
     private String bodyBackgroundColor;
 
-    // 헤더 영역 외곽선 스타일
     private BorderStyle headerOuterBorder;
-
-    // 헤더 영역 내부선 스타일
     private BorderStyle headerInnerBorder;
 
-    // 바디 영역 외곽선 스타일
     private BorderStyle bodyOuterBorder;
-
-    // 바디 영역 내부선 스타일
     private BorderStyle bodyInnerBorder;
 
-    // 헤더 셀의 borderFillIDRef
-    private String headerBorderFillId;
+    private BorderStyle bodyLastRowBorder;
 
     public CellTextStyle getHeaderTextStyle() {
         return headerTextStyle;
@@ -93,12 +80,12 @@ public class ExtractedTableStyle {
         this.bodyInnerBorder = bodyInnerBorder;
     }
 
-    public String getHeaderBorderFillId() {
-        return headerBorderFillId;
+    public BorderStyle getBodyLastRowBorder() {
+        return bodyLastRowBorder;
     }
 
-    public void setHeaderBorderFillId(String headerBorderFillId) {
-        this.headerBorderFillId = headerBorderFillId;
+    public void setBodyLastRowBorder(BorderStyle bodyLastRowBorder) {
+        this.bodyLastRowBorder = bodyLastRowBorder;
     }
 
     public static class CellTextStyle {
@@ -168,25 +155,9 @@ public class ExtractedTableStyle {
     }
 
     public static class BorderStyle {
-        private String color;
-        private Integer width;
         private String lineStyle;
-
-        public String getColor() {
-            return color;
-        }
-
-        public void setColor(String color) {
-            this.color = color;
-        }
-
-        public Integer getWidth() {
-            return width;
-        }
-
-        public void setWidth(Integer width) {
-            this.width = width;
-        }
+        private String width;   // 핵심: Integer -> String 으로 변경
+        private String color;
 
         public String getLineStyle() {
             return lineStyle;
@@ -194,6 +165,22 @@ public class ExtractedTableStyle {
 
         public void setLineStyle(String lineStyle) {
             this.lineStyle = lineStyle;
+        }
+
+        public String getWidth() {
+            return width;
+        }
+
+        public void setWidth(String width) {
+            this.width = width;
+        }
+
+        public String getColor() {
+            return color;
+        }
+
+        public void setColor(String color) {
+            this.color = color;
         }
     }
 }

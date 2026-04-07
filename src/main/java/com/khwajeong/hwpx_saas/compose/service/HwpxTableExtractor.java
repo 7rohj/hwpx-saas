@@ -72,8 +72,7 @@ public class HwpxTableExtractor {
                         List<String> rowTexts = new ArrayList<>();
 
                         for (Element cellEl : cellElements) {
-                            String cellText = extractCellText(cellEl);
-                            rowTexts.add(cellText);
+                            rowTexts.add(extractCellText(cellEl));
                         }
 
                         maxColCount = Math.max(maxColCount, rowTexts.size());
@@ -84,27 +83,18 @@ public class HwpxTableExtractor {
                     dto.setColCount(maxColCount);
                     dto.setCellTexts(cellTexts);
 
-                    // 핵심: template 표의 실제 스타일 추출
                     ExtractedTableStyle extractedStyle = extractTableStyle(hwpxFile, headerDoc, tblEl);
                     dto.setExtractedStyle(extractedStyle);
 
-                    if (extractedStyle != null) {
-                        if (extractedStyle.getHeaderTextStyle() != null) {
-                            dto.setFontFamily(extractedStyle.getHeaderTextStyle().getFontFamily());
-                            dto.setFontSize(extractedStyle.getHeaderTextStyle().getFontSize());
-                            dto.setBold(extractedStyle.getHeaderTextStyle().getBold());
-                            dto.setItalic(extractedStyle.getHeaderTextStyle().getItalic());
-                            dto.setFontColor(extractedStyle.getHeaderTextStyle().getFontColor());
-                        }
+                    if (extractedStyle != null && extractedStyle.getHeaderTextStyle() != null) {
+                        dto.setFontFamily(extractedStyle.getHeaderTextStyle().getFontFamily());
+                        dto.setFontSize(extractedStyle.getHeaderTextStyle().getFontSize());
+                        dto.setBold(extractedStyle.getHeaderTextStyle().getBold());
+                        dto.setItalic(extractedStyle.getHeaderTextStyle().getItalic());
+                        dto.setFontColor(extractedStyle.getHeaderTextStyle().getFontColor());
                         dto.setBackgroundColor(extractedStyle.getHeaderBackgroundColor());
-
-                        if (extractedStyle.getBodyOuterBorder() != null) {
-                            dto.setBorderColor(extractedStyle.getBodyOuterBorder().getColor());
-                            dto.setBorderWidth(extractedStyle.getBodyOuterBorder().getWidth());
-                        }
                     }
 
-                    // preview용 임시 좌표
                     int rowCount = dto.getRowCount() != null ? dto.getRowCount() : 1;
                     int colCount = dto.getColCount() != null ? dto.getColCount() : 1;
 
@@ -169,30 +159,32 @@ public class HwpxTableExtractor {
 
         Element headerCell = findFirstCellOfRow(rows, 0);
         Element bodyCell = findFirstCellOfRow(rows, 1);
+        Element lastBodyCell = findFirstCellOfLastBodyRow(rows);
+
         if (bodyCell == null) {
             bodyCell = headerCell;
+        }
+        if (lastBodyCell == null) {
+            lastBodyCell = bodyCell;
         }
 
         style.setHeaderTextStyle(extractCellTextStyle(hwpxFile, headerCell));
         style.setBodyTextStyle(extractCellTextStyle(hwpxFile, bodyCell));
 
-        // 핵심: template의 row0 / row1 cell borderFillIDRef를 직접 타고 색상 추출
         String headerBorderFillId = readAnyAttr(headerCell, "borderFillIDRef", "borderFillIdRef");
         String bodyBorderFillId = readAnyAttr(bodyCell, "borderFillIDRef", "borderFillIdRef");
+        String lastBodyBorderFillId = readAnyAttr(lastBodyCell, "borderFillIDRef", "borderFillIdRef");
 
         style.setHeaderBackgroundColor(parseBackgroundColorFromHeader(headerDoc, headerBorderFillId, "#FFFFFFFF"));
         style.setBodyBackgroundColor(parseBackgroundColorFromHeader(headerDoc, bodyBorderFillId, "#FFFFFFFF"));
 
-        // 선은 최소 복사: leftBorder 하나를 대표값으로 사용
-        style.setHeaderOuterBorder(parseBorderStyleFromHeader(
-                headerDoc, headerBorderFillId, "hh:leftBorder", "#000000", 12, "SOLID"
-        ));
-        style.setHeaderInnerBorder(style.getHeaderOuterBorder());
+        style.setHeaderOuterBorder(parseBorderStyleFromHeader(headerDoc, headerBorderFillId, "hh:leftBorder", "#000000", "0.12 mm", "SOLID"));
+        style.setHeaderInnerBorder(parseBorderStyleFromHeader(headerDoc, headerBorderFillId, "hh:topBorder", "#000000", "0.12 mm", "SOLID"));
 
-        style.setBodyOuterBorder(parseBorderStyleFromHeader(
-                headerDoc, bodyBorderFillId, "hh:leftBorder", "#000000", 12, "SOLID"
-        ));
-        style.setBodyInnerBorder(style.getBodyOuterBorder());
+        style.setBodyOuterBorder(parseBorderStyleFromHeader(headerDoc, bodyBorderFillId, "hh:leftBorder", "#000000", "0.12 mm", "SOLID"));
+        style.setBodyInnerBorder(parseBorderStyleFromHeader(headerDoc, bodyBorderFillId, "hh:topBorder", "#000000", "0.12 mm", "SOLID"));
+
+        style.setBodyLastRowBorder(parseBorderStyleFromHeader(headerDoc, lastBodyBorderFillId, "hh:bottomBorder", "#000000", "0.12 mm", "SOLID"));
 
         return style;
     }
@@ -247,15 +239,12 @@ public class HwpxTableExtractor {
         NodeList borderFillList = headerDoc.getElementsByTagName("hh:borderFill");
         for (int i = 0; i < borderFillList.getLength(); i++) {
             Node node = borderFillList.item(i);
-            if (!(node instanceof Element bf)) {
-                continue;
-            }
+            if (!(node instanceof Element bf)) continue;
 
             if (!borderFillId.equals(readAnyAttr(bf, "id"))) {
                 continue;
             }
 
-            // template_header.xml은 hc:winBrush 사용
             NodeList winBrushList = bf.getElementsByTagName("hc:winBrush");
             if (winBrushList.getLength() > 0 && winBrushList.item(0) instanceof Element winBrush) {
                 String faceColor = readAnyAttr(winBrush, "faceColor");
@@ -275,7 +264,7 @@ public class HwpxTableExtractor {
             String borderFillId,
             String edgeTagName,
             String defaultColor,
-            Integer defaultWidth,
+            String defaultWidth,
             String defaultLineStyle
     ) {
         ExtractedTableStyle.BorderStyle style = new ExtractedTableStyle.BorderStyle();
@@ -290,9 +279,7 @@ public class HwpxTableExtractor {
         NodeList borderFillList = headerDoc.getElementsByTagName("hh:borderFill");
         for (int i = 0; i < borderFillList.getLength(); i++) {
             Node node = borderFillList.item(i);
-            if (!(node instanceof Element bf)) {
-                continue;
-            }
+            if (!(node instanceof Element bf)) continue;
 
             if (!borderFillId.equals(readAnyAttr(bf, "id"))) {
                 continue;
@@ -301,9 +288,7 @@ public class HwpxTableExtractor {
             NodeList children = bf.getChildNodes();
             for (int j = 0; j < children.getLength(); j++) {
                 Node child = children.item(j);
-                if (!(child instanceof Element edgeEl)) {
-                    continue;
-                }
+                if (!(child instanceof Element edgeEl)) continue;
 
                 String nodeName = edgeEl.getNodeName();
                 String localName = edgeEl.getLocalName();
@@ -320,7 +305,7 @@ public class HwpxTableExtractor {
                     style.setLineStyle(type);
                 }
                 if (width != null && !width.isBlank()) {
-                    style.setWidth(parseWidthToInt(width, defaultWidth));
+                    style.setWidth(width);   // 핵심: 원문 그대로 저장
                 }
                 if (color != null && !color.isBlank()) {
                     style.setColor(color);
@@ -344,6 +329,18 @@ public class HwpxTableExtractor {
             return null;
         }
 
+        return cellElements.get(0);
+    }
+
+    private Element findFirstCellOfLastBodyRow(List<Element> rows) {
+        if (rows == null || rows.size() < 2) {
+            return null;
+        }
+        Element rowEl = rows.get(rows.size() - 1);
+        List<Element> cellElements = getElements(rowEl, "hp:tc");
+        if (cellElements.isEmpty()) {
+            return null;
+        }
         return cellElements.get(0);
     }
 
@@ -407,9 +404,7 @@ public class HwpxTableExtractor {
         for (String name : names) {
             for (int i = 0; i < attrs.getLength(); i++) {
                 Node attr = attrs.item(i);
-                if (attr == null) {
-                    continue;
-                }
+                if (attr == null) continue;
 
                 String nodeName = attr.getNodeName();
                 String localName = attr.getLocalName();
@@ -421,20 +416,5 @@ public class HwpxTableExtractor {
         }
 
         return null;
-    }
-
-    // "0.12 mm" -> 12
-    private int parseWidthToInt(String value, int defaultValue) {
-        if (value == null || value.isBlank()) {
-            return defaultValue;
-        }
-
-        try {
-            String normalized = value.replace("mm", "").trim();
-            double parsed = Double.parseDouble(normalized);
-            return (int) Math.round(parsed * 100);
-        } catch (Exception e) {
-            return defaultValue;
-        }
     }
 }
