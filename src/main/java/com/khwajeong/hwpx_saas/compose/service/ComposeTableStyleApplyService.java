@@ -39,14 +39,11 @@ public class ComposeTableStyleApplyService {
 
     public Path applyTableStyle(
             Path sourceHwpxPath,
-            String sourceTableId,
+            String sourceTableId,   // 호환성 때문에 파라미터는 받되, 이제 전체 테이블 적용이라 내부에서 사용 안 함
             ExtractedTableStyle style
     ) throws Exception {
         if (sourceHwpxPath == null || !Files.exists(sourceHwpxPath)) {
             throw new IllegalArgumentException("source hwpx not found");
-        }
-        if (sourceTableId == null || sourceTableId.isBlank()) {
-            throw new IllegalArgumentException("sourceTableId is required");
         }
         if (style == null) {
             throw new IllegalArgumentException("style is required");
@@ -88,7 +85,10 @@ public class ComposeTableStyleApplyService {
                     }
 
                     if (pair != null) {
-                        bytes = applyTableStyleToSectionXml(bytes, sourceTableId, pair);
+                        // 핵심 수정:
+                        // 기존: sourceTableId 와 일치하는 table 하나만 적용
+                        // 변경: section 안의 모든 hp:tbl 에 적용
+                        bytes = applyTableStyleToAllTablesInSectionXml(bytes, pair);
                     }
                 }
 
@@ -179,9 +179,12 @@ public class ComposeTableStyleApplyService {
         return textStyle.getFontSize();
     }
 
-    private byte[] applyTableStyleToSectionXml(
+    /**
+     * 핵심 수정:
+     * section xml 안의 모든 hp:tbl 에 style 적용
+     */
+    private byte[] applyTableStyleToAllTablesInSectionXml(
             byte[] sectionXmlBytes,
-            String sourceTableId,
             RegisteredPair pair
     ) throws Exception {
         Document doc = DocumentBuilderFactory.newInstance()
@@ -189,18 +192,10 @@ public class ComposeTableStyleApplyService {
                 .parse(new InputSource(new ByteArrayInputStream(sectionXmlBytes)));
 
         NodeList tblList = doc.getElementsByTagName("hp:tbl");
-        int tableIndex = 0;
 
         for (int i = 0; i < tblList.getLength(); i++) {
             Node node = tblList.item(i);
             if (!(node instanceof Element tblEl)) continue;
-
-            String currentTableId = "t" + tableIndex;
-            tableIndex++;
-
-            if (!sourceTableId.equals(currentTableId)) {
-                continue;
-            }
 
             applyStyleToTable(tblEl, pair);
         }
@@ -236,12 +231,12 @@ public class ComposeTableStyleApplyService {
             return;
         }
 
-        // 1) 셀 자체 배경/선 스타일 적용
+        // 1) 셀 자체 배경/선 스타일
         if (ids.getBorderFillId() != null && !ids.getBorderFillId().isBlank()) {
             cellEl.setAttribute("borderFillIDRef", ids.getBorderFillId());
         }
 
-        // 2) 셀 내부 문단/텍스트 스타일 적용
+        // 2) 셀 내부 문단/텍스트 스타일
         List<Element> paraList = getElements(cellEl, "hp:p");
         for (Element paraEl : paraList) {
             if (ids.getParaPrId() != null && !ids.getParaPrId().isBlank()) {
@@ -255,7 +250,7 @@ public class ComposeTableStyleApplyService {
                 }
             }
 
-            // 3) 핵심: font-size 기반으로 lineSeg 재계산 후 덮어쓰기
+            // 3) fontSize 기반 lineseg 재계산
             recalculateLineSegArray(paraEl, fontSize);
         }
     }
