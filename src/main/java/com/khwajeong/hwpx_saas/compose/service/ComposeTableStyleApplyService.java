@@ -142,10 +142,6 @@ public class ComposeTableStyleApplyService {
         for (Map.Entry<String, Document> e : headerDocs.entrySet()) {
             Document doc = e.getValue();
 
-            // 헤더 스타일 등록:
-            // - backgroundColor
-            // - borderFill
-            // - header text용 charPr / paraPr
             HwpxStyleRegistryService.RegisteredStyleIds headerIds =
                     hwpxStyleRegistryService.registerTableCellStyle(
                             doc,
@@ -155,14 +151,32 @@ public class ComposeTableStyleApplyService {
                             style.getHeaderBackgroundColor()
                     );
 
+            HwpxStyleRegistryService.RegisteredStyleIds bodyIds =
+                    hwpxStyleRegistryService.registerTableCellStyle(
+                            doc,
+                            style.getBodyTextStyle(),
+                            style.getBodyOuterBorder(),
+                            style.getBodyInnerBorder(),
+                            style.getBodyBackgroundColor()
+                    );
+
             RegisteredPair pair = new RegisteredPair();
             pair.headerIds = headerIds;
-            pair.bodyIds = null;
+            pair.bodyIds = bodyIds;
+            pair.headerFontSize = extractFontSize(style.getHeaderTextStyle(), 12);
+            pair.bodyFontSize = extractFontSize(style.getBodyTextStyle(), 10);
 
             result.put(e.getKey(), pair);
         }
 
         return result;
+    }
+
+    private int extractFontSize(ExtractedTableStyle.CellTextStyle textStyle, int defaultValue) {
+        if (textStyle == null || textStyle.getFontSize() == null || textStyle.getFontSize() <= 0) {
+            return defaultValue;
+        }
+        return textStyle.getFontSize();
     }
 
     private byte[] applyTableStyleToSectionXml(
@@ -205,19 +219,18 @@ public class ComposeTableStyleApplyService {
 
             for (Element cellEl : cells) {
                 if (isHeaderRow) {
-                    // 헤더 row 0에만:
-                    // 1) 셀 background/border borderFillIDRef
-                    // 2) 내부 p/run의 paraPrIDRef / charPrIDRef
-                    applyHeaderCellFullStyle(cellEl, pair.headerIds);
+                    applyCellFullStyle(cellEl, pair.headerIds, pair.headerFontSize);
+                } else {
+                    applyCellFullStyle(cellEl, pair.bodyIds, pair.bodyFontSize);
                 }
-                // 바디는 지금 단계에서 건드리지 않음
             }
         }
     }
 
-    private void applyHeaderCellFullStyle(
+    private void applyCellFullStyle(
             Element cellEl,
-            HwpxStyleRegistryService.RegisteredStyleIds ids
+            HwpxStyleRegistryService.RegisteredStyleIds ids,
+            int fontSize
     ) {
         if (cellEl == null || ids == null) {
             return;
@@ -228,8 +241,7 @@ public class ComposeTableStyleApplyService {
             cellEl.setAttribute("borderFillIDRef", ids.getBorderFillId());
         }
 
-        // 2) 헤더 셀 내부 문단/텍스트 스타일 적용
-        // template_section0.xml 기준으로 header cell 내부는 hp:subList > hp:p > hp:run 구조
+        // 2) 셀 내부 문단/텍스트 스타일 적용
         List<Element> paraList = getElements(cellEl, "hp:p");
         for (Element paraEl : paraList) {
             if (ids.getParaPrId() != null && !ids.getParaPrId().isBlank()) {
@@ -242,7 +254,89 @@ public class ComposeTableStyleApplyService {
                     runEl.setAttribute("charPrIDRef", ids.getCharPrId());
                 }
             }
+
+            // 3) 핵심: font-size 기반으로 lineSeg 재계산 후 덮어쓰기
+            recalculateLineSegArray(paraEl, fontSize);
         }
+    }
+
+    private void recalculateLineSegArray(Element paraEl, int fontSize) {
+        if (paraEl == null) {
+            return;
+        }
+
+        int safeFontSize = fontSize > 0 ? fontSize : 10;
+
+        int textHeight = safeFontSize * 100;
+        int vertSize = textHeight;
+        int baseline = (int) Math.round(textHeight * 0.85);
+        int spacing = (int) Math.round(textHeight * 0.60);
+
+        Element lineSegArray = findDirectChild(paraEl, "hp:linesegarray");
+        if (lineSegArray == null) {
+            lineSegArray = paraEl.getOwnerDocument().createElement("hp:linesegarray");
+            paraEl.appendChild(lineSegArray);
+        }
+
+        List<Element> lineSegs = getDirectChildren(lineSegArray, "hp:lineseg");
+        if (lineSegs.isEmpty()) {
+            Element newLineSeg = paraEl.getOwnerDocument().createElement("hp:lineseg");
+            newLineSeg.setAttribute("textpos", "0");
+            newLineSeg.setAttribute("vertpos", "0");
+            newLineSeg.setAttribute("vertsize", String.valueOf(vertSize));
+            newLineSeg.setAttribute("textheight", String.valueOf(textHeight));
+            newLineSeg.setAttribute("baseline", String.valueOf(baseline));
+            newLineSeg.setAttribute("spacing", String.valueOf(spacing));
+            newLineSeg.setAttribute("horzpos", "0");
+            newLineSeg.setAttribute("horzsize", "23500");
+            newLineSeg.setAttribute("flags", "393216");
+            lineSegArray.appendChild(newLineSeg);
+            return;
+        }
+
+        for (Element lineSeg : lineSegs) {
+            lineSeg.setAttribute("textheight", String.valueOf(textHeight));
+            lineSeg.setAttribute("vertsize", String.valueOf(vertSize));
+            lineSeg.setAttribute("baseline", String.valueOf(baseline));
+            lineSeg.setAttribute("spacing", String.valueOf(spacing));
+        }
+    }
+
+    private Element findDirectChild(Element parent, String tagName) {
+        if (parent == null) return null;
+
+        NodeList children = parent.getChildNodes();
+        for (int i = 0; i < children.getLength(); i++) {
+            Node node = children.item(i);
+            if (!(node instanceof Element el)) continue;
+
+            String nodeName = el.getNodeName();
+            String localName = el.getLocalName();
+
+            if (tagName.equalsIgnoreCase(nodeName) || tagName.equalsIgnoreCase(localName)) {
+                return el;
+            }
+        }
+        return null;
+    }
+
+    private List<Element> getDirectChildren(Element parent, String tagName) {
+        List<Element> result = new ArrayList<>();
+        if (parent == null) return result;
+
+        NodeList children = parent.getChildNodes();
+        for (int i = 0; i < children.getLength(); i++) {
+            Node node = children.item(i);
+            if (!(node instanceof Element el)) continue;
+
+            String nodeName = el.getNodeName();
+            String localName = el.getLocalName();
+
+            if (tagName.equalsIgnoreCase(nodeName) || tagName.equalsIgnoreCase(localName)) {
+                result.add(el);
+            }
+        }
+        return result;
     }
 
     private String toHeaderName(String sectionName) {
@@ -280,5 +374,7 @@ public class ComposeTableStyleApplyService {
     private static class RegisteredPair {
         private HwpxStyleRegistryService.RegisteredStyleIds headerIds;
         private HwpxStyleRegistryService.RegisteredStyleIds bodyIds;
+        private int headerFontSize;
+        private int bodyFontSize;
     }
 }

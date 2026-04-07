@@ -42,45 +42,67 @@ public class HwpxStyleRegistryService {
         charPr.setAttribute("borderFillIDRef", "3");
 
         if (textStyle != null) {
-            if (textStyle.getFontColor() != null) {
-                charPr.setAttribute("textColor", normalizeColor(textStyle.getFontColor()));
-            } else {
-                charPr.setAttribute("textColor", "#000000");
-            }
-
-            if (textStyle.getFontSize() != null) {
-                charPr.setAttribute("height", String.valueOf(textStyle.getFontSize() * 100));
-            } else {
-                charPr.setAttribute("height", "1000");
-            }
+            charPr.setAttribute(
+                    "textColor",
+                    textStyle.getFontColor() != null ? normalizeColor(textStyle.getFontColor()) : "#000000"
+            );
+            charPr.setAttribute(
+                    "height",
+                    textStyle.getFontSize() != null ? String.valueOf(textStyle.getFontSize() * 100) : "1000"
+            );
 
             if (Boolean.TRUE.equals(textStyle.getBold())) {
                 charPr.appendChild(doc.createElement("hh:bold"));
             }
 
-            if (textStyle.getFontFamily() != null && !textStyle.getFontFamily().isBlank()) {
-                FontRefIds fontRefIds = registerFontFamily(doc, textStyle.getFontFamily());
-
-                Element fontRef = doc.createElement("hh:fontRef");
-                fontRef.setAttribute("hangul", fontRefIds.hangulId);
-                fontRef.setAttribute("latin", fontRefIds.latinId);
-                fontRef.setAttribute("hanja", fontRefIds.hangulId);
-                fontRef.setAttribute("japanese", fontRefIds.hangulId);
-                fontRef.setAttribute("other", fontRefIds.latinId);
-                fontRef.setAttribute("symbol", fontRefIds.latinId);
-                fontRef.setAttribute("user", fontRefIds.hangulId);
-                charPr.appendChild(fontRef);
-            } else {
-                Element fontRef = doc.createElement("hh:fontRef");
-                fontRef.setAttribute("hangul", "3");
-                fontRef.setAttribute("latin", "3");
-                fontRef.setAttribute("hanja", "3");
-                fontRef.setAttribute("japanese", "3");
-                fontRef.setAttribute("other", "3");
-                fontRef.setAttribute("symbol", "3");
-                fontRef.setAttribute("user", "3");
-                charPr.appendChild(fontRef);
+            if (Boolean.TRUE.equals(textStyle.getItalic())) {
+                charPr.appendChild(doc.createElement("hh:italic"));
             }
+
+            if (Boolean.TRUE.equals(textStyle.getUnderline())) {
+                Element underline = doc.createElement("hh:underline");
+                underline.setAttribute("type", "BOTTOM");
+                underline.setAttribute("shape", "SOLID");
+                underline.setAttribute("color", "#000000");
+                charPr.appendChild(underline);
+            }
+
+            FontRefIds fontRefIds;
+            if (textStyle.getFontFamily() != null && !textStyle.getFontFamily().isBlank()) {
+                fontRefIds = registerFontFamily(doc, textStyle.getFontFamily());
+            } else {
+                fontRefIds = defaultFontRefIds();
+            }
+
+            Element fontRef = doc.createElement("hh:fontRef");
+            fontRef.setAttribute("hangul", fontRefIds.hangulId);
+            fontRef.setAttribute("latin", fontRefIds.latinId);
+            fontRef.setAttribute("hanja", fontRefIds.hanjaId);
+            fontRef.setAttribute("japanese", fontRefIds.japaneseId);
+            fontRef.setAttribute("other", fontRefIds.otherId);
+            fontRef.setAttribute("symbol", fontRefIds.symbolId);
+            fontRef.setAttribute("user", fontRefIds.userId);
+            charPr.appendChild(fontRef);
+
+            charPr.appendChild(createCommonTextSubNode(doc, "hh:ratio", "100"));
+            charPr.appendChild(createCommonTextSubNode(doc, "hh:spacing", "0"));
+            charPr.appendChild(createCommonTextSubNode(doc, "hh:relSz", "100"));
+            charPr.appendChild(createCommonTextSubNode(doc, "hh:offset", "0"));
+        } else {
+            charPr.setAttribute("textColor", "#000000");
+            charPr.setAttribute("height", "1000");
+
+            FontRefIds fontRefIds = defaultFontRefIds();
+
+            Element fontRef = doc.createElement("hh:fontRef");
+            fontRef.setAttribute("hangul", fontRefIds.hangulId);
+            fontRef.setAttribute("latin", fontRefIds.latinId);
+            fontRef.setAttribute("hanja", fontRefIds.hanjaId);
+            fontRef.setAttribute("japanese", fontRefIds.japaneseId);
+            fontRef.setAttribute("other", fontRefIds.otherId);
+            fontRef.setAttribute("symbol", fontRefIds.symbolId);
+            fontRef.setAttribute("user", fontRefIds.userId);
+            charPr.appendChild(fontRef);
 
             charPr.appendChild(createCommonTextSubNode(doc, "hh:ratio", "100"));
             charPr.appendChild(createCommonTextSubNode(doc, "hh:spacing", "0"));
@@ -266,8 +288,27 @@ public class HwpxStyleRegistryService {
 
     private FontRefIds registerFontFamily(Document doc, String fontFamily) {
         FontRefIds ids = new FontRefIds();
+
         ids.hangulId = findOrCreateFont(doc, "HANGUL", fontFamily);
         ids.latinId = findOrCreateFont(doc, "LATIN", fontFamily);
+        ids.hanjaId = findOrCreateFont(doc, "HANJA", fontFamily);
+        ids.japaneseId = findOrCreateFont(doc, "JAPANESE", fontFamily);
+        ids.otherId = findOrCreateFont(doc, "OTHER", fontFamily);
+        ids.symbolId = findOrCreateFont(doc, "SYMBOL", fontFamily);
+        ids.userId = findOrCreateFont(doc, "USER", fontFamily);
+
+        return ids;
+    }
+
+    private FontRefIds defaultFontRefIds() {
+        FontRefIds ids = new FontRefIds();
+        ids.hangulId = "3";
+        ids.latinId = "3";
+        ids.hanjaId = "3";
+        ids.japaneseId = "3";
+        ids.otherId = "3";
+        ids.symbolId = "3";
+        ids.userId = "3";
         return ids;
     }
 
@@ -484,6 +525,11 @@ public class HwpxStyleRegistryService {
     private static class FontRefIds {
         private String hangulId;
         private String latinId;
+        private String hanjaId;
+        private String japaneseId;
+        private String otherId;
+        private String symbolId;
+        private String userId;
     }
 
     public static class RegisteredStyleIds {
