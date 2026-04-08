@@ -60,7 +60,7 @@ public class HwpxStyleRegistryService {
 
         Element charPr = doc.createElement("hh:charPr");
         charPr.setAttribute("id", newId);
-        charPr.setAttribute("shadeColor", "#FFFFFFFF");
+        charPr.setAttribute("shadeColor", toHwpxColor("#FFFFFFFF"));
         charPr.setAttribute("useFontSpace", "0");
         charPr.setAttribute("useKerning", "0");
         charPr.setAttribute("symMark", "NONE");
@@ -69,7 +69,7 @@ public class HwpxStyleRegistryService {
         if (textStyle != null) {
             charPr.setAttribute(
                     "textColor",
-                    textStyle.getFontColor() != null ? normalizeColor(textStyle.getFontColor()) : "#000000"
+                    textStyle.getFontColor() != null ? toHwpxColor(textStyle.getFontColor()) : toHwpxColor("#000000")
             );
             charPr.setAttribute(
                     "height",
@@ -86,7 +86,7 @@ public class HwpxStyleRegistryService {
                 Element underline = doc.createElement("hh:underline");
                 underline.setAttribute("type", "BOTTOM");
                 underline.setAttribute("shape", "SOLID");
-                underline.setAttribute("color", "#000000");
+                underline.setAttribute("color", toHwpxColor("#000000"));
                 charPr.appendChild(underline);
             }
 
@@ -238,14 +238,14 @@ public class HwpxStyleRegistryService {
         Element diagonal = doc.createElement("hh:diagonal");
         diagonal.setAttribute("type", "SOLID");
         diagonal.setAttribute("width", "0.1 mm");
-        diagonal.setAttribute("color", "#000000");
+        diagonal.setAttribute("color", toHwpxColor("#000000"));
         borderFill.appendChild(diagonal);
 
         if (backgroundColor != null && !backgroundColor.isBlank()) {
             Element fillBrush = doc.createElement("hc:fillBrush");
             Element winBrush = doc.createElement("hc:winBrush");
-            winBrush.setAttribute("faceColor", normalizeColor(backgroundColor));
-            winBrush.setAttribute("hatchColor", "#000000");
+            winBrush.setAttribute("faceColor", toHwpxColor(backgroundColor));
+            winBrush.setAttribute("hatchColor", toHwpxColor("#000000"));
             winBrush.setAttribute("alpha", "0");
             fillBrush.appendChild(winBrush);
             borderFill.appendChild(fillBrush);
@@ -276,13 +276,13 @@ public class HwpxStyleRegistryService {
                 width = style.getWidth();
             }
             if (style.getColor() != null && !style.getColor().isBlank()) {
-                color = normalizeColor(style.getColor());
+                color = style.getColor();
             }
         }
 
         edge.setAttribute("type", lineStyle);
         edge.setAttribute("width", width);
-        edge.setAttribute("color", color);
+        edge.setAttribute("color", toHwpxColor(color));
         parent.appendChild(edge);
     }
 
@@ -483,11 +483,51 @@ public class HwpxStyleRegistryService {
 
     private String normalizeColor(String raw) {
         if (raw == null || raw.isBlank()) return "#000000";
+
         String v = raw.trim().toUpperCase().replace("##", "#");
+
         if (!v.startsWith("#")) {
             v = "#" + v.replace("#", "");
         }
-        return v;
+
+        String hex = v.substring(1);
+
+        if (hex.length() == 6) {
+            return "#" + hex;
+        }
+
+        if (hex.length() == 8) {
+            return "#" + hex;
+        }
+
+        return "#000000";
+    }
+
+    /**
+     * HWPX 색상 저장용 변환.
+     * 입력:  #RRGGBB 또는 #AARRGGBB
+     * 출력:  #BBGGRR 또는 #AABBGGRR
+     */
+    private String toHwpxColor(String raw) {
+        String normalized = normalizeColor(raw);
+        String hex = normalized.substring(1);
+
+        if (hex.length() == 6) {
+            String rr = hex.substring(0, 2);
+            String gg = hex.substring(2, 4);
+            String bb = hex.substring(4, 6);
+            return "#" + bb + gg + rr;
+        }
+
+        if (hex.length() == 8) {
+            String aa = hex.substring(0, 2);
+            String rr = hex.substring(2, 4);
+            String gg = hex.substring(4, 6);
+            String bb = hex.substring(6, 8);
+            return "#" + aa + bb + gg + rr;
+        }
+
+        return "#000000";
     }
 
     private String normalizeHorizontalAlign(String raw) {
