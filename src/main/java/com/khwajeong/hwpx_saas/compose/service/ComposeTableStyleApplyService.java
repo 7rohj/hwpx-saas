@@ -198,7 +198,7 @@ public class ComposeTableStyleApplyService {
                             style.getBodyBackgroundColor()
                     );
 
-            // column > 0 전용 body borderFill
+            // 중간 column 전용 body borderFill
             String bodyFirstRowOtherColBorderFillId =
                     hwpxStyleRegistryService.registerCustomBorderFill(
                             doc,
@@ -239,6 +239,47 @@ public class ComposeTableStyleApplyService {
                             style.getBodyBackgroundColor()
                     );
 
+            // 마지막 column 전용 body borderFill
+            String bodyFirstRowLastColBorderFillId =
+                    hwpxStyleRegistryService.registerCustomBorderFill(
+                            doc,
+                            style.getBodyInnerVerticalBorder(),   // left = 내부 세로선
+                            style.getBodyOuterBorder(),           // right = 바디 외부 세로선
+                            style.getBodyFirstRowTopBorder(),
+                            style.getBodyInnerHorizontalBorder(),
+                            style.getBodyBackgroundColor()
+                    );
+
+            String bodyMiddleRowLastColBorderFillId =
+                    hwpxStyleRegistryService.registerCustomBorderFill(
+                            doc,
+                            style.getBodyInnerVerticalBorder(),   // left = 내부 세로선
+                            style.getBodyOuterBorder(),           // right = 바디 외부 세로선
+                            hiddenBorder(),
+                            style.getBodyInnerHorizontalBorder(),
+                            style.getBodyBackgroundColor()
+                    );
+
+            String bodyLastRowLastColBorderFillId =
+                    hwpxStyleRegistryService.registerCustomBorderFill(
+                            doc,
+                            style.getBodyInnerVerticalBorder(),   // left = 내부 세로선
+                            style.getBodyOuterBorder(),           // right = 바디 외부 세로선
+                            hiddenBorder(),
+                            style.getBodyLastRowBottomBorder(),
+                            style.getBodyBackgroundColor()
+                    );
+
+            String bodySingleRowLastColBorderFillId =
+                    hwpxStyleRegistryService.registerCustomBorderFill(
+                            doc,
+                            style.getBodyInnerVerticalBorder(),   // left = 내부 세로선
+                            style.getBodyOuterBorder(),           // right = 바디 외부 세로선
+                            style.getBodyFirstRowTopBorder(),
+                            style.getBodyLastRowBottomBorder(),
+                            style.getBodyBackgroundColor()
+                    );
+
             RegisteredPair pair = new RegisteredPair();
             pair.headerIds = headerIds;
             pair.bodyIds = bodyIds;
@@ -252,6 +293,11 @@ public class ComposeTableStyleApplyService {
             pair.bodyMiddleRowOtherColBorderFillId = bodyMiddleRowOtherColBorderFillId;
             pair.bodyLastRowOtherColBorderFillId = bodyLastRowOtherColBorderFillId;
             pair.bodySingleRowOtherColBorderFillId = bodySingleRowOtherColBorderFillId;
+
+            pair.bodyFirstRowLastColBorderFillId = bodyFirstRowLastColBorderFillId;
+            pair.bodyMiddleRowLastColBorderFillId = bodyMiddleRowLastColBorderFillId;
+            pair.bodyLastRowLastColBorderFillId = bodyLastRowLastColBorderFillId;
+            pair.bodySingleRowLastColBorderFillId = bodySingleRowLastColBorderFillId;
 
             pair.headerFontSize = extractFontSize(style.getHeaderTextStyle(), 12);
             pair.bodyFontSize = extractFontSize(style.getBodyTextStyle(), 10);
@@ -312,9 +358,12 @@ public class ComposeTableStyleApplyService {
             boolean isLastBodyRow = rowIndex == lastRowIndex && rowIndex > 1;
             boolean isMiddleBodyRow = rowIndex > 1 && rowIndex < lastRowIndex;
 
+            int lastColIndex = cells.size() - 1;
+
             for (int colIndex = 0; colIndex < cells.size(); colIndex++) {
                 Element cellEl = cells.get(colIndex);
                 boolean isFirstCol = colIndex == 0;
+                boolean isLastCol = colIndex == lastColIndex;
 
                 if (isHeaderRow) {
                     applyCellFullStyle(cellEl, pair.headerIds, pair.headerFontSize, null);
@@ -328,7 +377,9 @@ public class ComposeTableStyleApplyService {
                             pair.bodyFontSize,
                             isFirstCol
                                     ? pair.bodySingleRowFirstColBorderFillId
-                                    : pair.bodySingleRowOtherColBorderFillId
+                                    : isLastCol
+                                        ? pair.bodySingleRowLastColBorderFillId
+                                        : pair.bodySingleRowOtherColBorderFillId
                     );
                     continue;
                 }
@@ -340,7 +391,9 @@ public class ComposeTableStyleApplyService {
                             pair.bodyFontSize,
                             isFirstCol
                                     ? pair.bodyFirstRowFirstColBorderFillId
-                                    : pair.bodyFirstRowOtherColBorderFillId
+                                    : isLastCol
+                                        ? pair.bodyFirstRowLastColBorderFillId
+                                        : pair.bodyFirstRowOtherColBorderFillId
                     );
                     continue;
                 }
@@ -352,7 +405,9 @@ public class ComposeTableStyleApplyService {
                             pair.bodyFontSize,
                             isFirstCol
                                     ? pair.bodyMiddleRowFirstColBorderFillId
-                                    : pair.bodyMiddleRowOtherColBorderFillId
+                                    : isLastCol
+                                        ? pair.bodyMiddleRowLastColBorderFillId
+                                        : pair.bodyMiddleRowOtherColBorderFillId
                     );
                     continue;
                 }
@@ -364,7 +419,9 @@ public class ComposeTableStyleApplyService {
                             pair.bodyFontSize,
                             isFirstCol
                                     ? pair.bodyLastRowFirstColBorderFillId
-                                    : pair.bodyLastRowOtherColBorderFillId
+                                    : isLastCol
+                                        ? pair.bodyLastRowLastColBorderFillId
+                                        : pair.bodyLastRowOtherColBorderFillId
                     );
                 }
             }
@@ -530,6 +587,11 @@ public class ComposeTableStyleApplyService {
         private String bodyMiddleRowOtherColBorderFillId;
         private String bodyLastRowOtherColBorderFillId;
         private String bodySingleRowOtherColBorderFillId;
+
+        private String bodyFirstRowLastColBorderFillId;
+        private String bodyMiddleRowLastColBorderFillId;
+        private String bodyLastRowLastColBorderFillId;
+        private String bodySingleRowLastColBorderFillId;
 
         private int headerFontSize;
         private int bodyFontSize;
