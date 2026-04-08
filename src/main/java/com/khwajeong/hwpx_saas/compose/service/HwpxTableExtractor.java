@@ -184,26 +184,28 @@ public class HwpxTableExtractor {
                 headerDoc, headerBorderFillId, "hh:topBorder", "#000000", "0.12 mm", "SOLID"
         ));
 
-        // 바디 세로 내부선 / 외부선
+        // 바디 외부선
         style.setBodyOuterBorder(parseBorderStyleFromHeader(
                 headerDoc, middleBodyBorderFillId, "hh:leftBorder", "#000000", "0.12 mm", "SOLID"
         ));
+
+        // 핵심:
+        // 표 바디 내부 세로선 = 첫 번째 바디 셀의 rightBorder
         style.setBodyInnerVerticalBorder(parseBorderStyleFromHeader(
-                headerDoc, middleBodyBorderFillId, "hh:leftBorder", "#000000", "0.12 mm", "SOLID"
+                headerDoc, firstBodyBorderFillId, "hh:rightBorder", "#000000", "0.12 mm", "SOLID"
         ));
 
-        // 핵심 1:
-        // body 내부 가로선 대표는 "첫 body row의 bottom"에서 읽는다.
+        // 표 바디 내부 가로선 = 첫 번째 바디 셀의 bottomBorder
         style.setBodyInnerHorizontalBorder(parseBorderStyleFromHeader(
                 headerDoc, firstBodyBorderFillId, "hh:bottomBorder", "#000000", "0.12 mm", "SOLID"
         ));
 
-        // 첫 body row의 top (헤더 아래 경계)
+        // 첫 번째 바디 row의 top
         style.setBodyFirstRowTopBorder(parseBorderStyleFromHeader(
                 headerDoc, firstBodyBorderFillId, "hh:topBorder", "#000000", "0.12 mm", "SOLID"
         ));
 
-        // 마지막 body row의 bottom
+        // 마지막 바디 row의 bottom
         style.setBodyLastRowBottomBorder(parseBorderStyleFromHeader(
                 headerDoc, lastBodyBorderFillId, "hh:bottomBorder", "#000000", "0.12 mm", "SOLID"
         ));
@@ -327,7 +329,7 @@ public class HwpxTableExtractor {
                     style.setLineStyle(type);
                 }
                 if (width != null && !width.isBlank()) {
-                    style.setWidth(width); // 원문 그대로
+                    style.setWidth(width);
                 }
                 if (color != null && !color.isBlank()) {
                     style.setColor(color);
@@ -359,12 +361,10 @@ public class HwpxTableExtractor {
             return findFirstCellOfRow(rows, 1);
         }
 
-        // header 제외 후 body가 2개뿐이면 첫 body를 대표값으로
         if (rows.size() == 3) {
             return findFirstCellOfRow(rows, 1);
         }
 
-        // body가 3개 이상이면 두 번째 body row를 일반 body 대표값으로 사용
         return findFirstCellOfRow(rows, 2);
     }
 
