@@ -39,6 +39,17 @@ public class HwpxParagraphExtractor {
                     for (int i = 0; i < paraList.getLength(); i++) {
                         Element p = (Element) paraList.item(i);
 
+                        // 1) 표 내부 문단 제거
+                        if (isInsideTable(p)) {
+                            continue;
+                        }
+
+                        // 2) 표를 품고 있는 바깥 문단 제거
+                        //    (이 문단의 하위 hp:tbl 안 텍스트가 제목1제목2... 로 중복 추출되는 문제 방지)
+                        if (containsTableDescendant(p)) {
+                            continue;
+                        }
+
                         String text = extractText(p);
                         if (text == null || text.trim().isEmpty()) {
                             continue;
@@ -49,10 +60,8 @@ public class HwpxParagraphExtractor {
                         sp.setText(text.trim());
                         sp.setSingleLine(!text.contains("\n"));
 
-                        // 수정 없음: 문단 스타일 참조 ID 추출
                         sp.setParaPrIdRef(readAttrIgnoreCase(p, "paraPrIDRef"));
 
-                        // 수정 없음: 첫 run의 문자 스타일 참조 ID 추출
                         String charPrIdRef = extractFirstCharPrIdRef(p);
                         sp.setCharPrIdRef(charPrIdRef);
 
@@ -66,6 +75,60 @@ public class HwpxParagraphExtractor {
         }
 
         return result;
+    }
+
+    /**
+     * 현재 문단이 표 내부에 들어있는지 확인
+     */
+    private boolean isInsideTable(Node node) {
+        Node parent = node.getParentNode();
+
+        while (parent != null) {
+            if (parent instanceof Element el) {
+                String name = el.getNodeName();
+                String local = el.getLocalName();
+
+                if ("hp:tbl".equalsIgnoreCase(name) || "tbl".equalsIgnoreCase(local)) {
+                    return true;
+                }
+            }
+            parent = parent.getParentNode();
+        }
+
+        return false;
+    }
+
+    /**
+     * 현재 문단이 자기 하위에 표를 포함하고 있는지 확인
+     * 예: 바깥 hp:p 안에 hp:tbl 이 들어있는 경우
+     */
+    private boolean containsTableDescendant(Element p) {
+        if (p == null) {
+            return false;
+        }
+
+        NodeList tblList = p.getElementsByTagName("hp:tbl");
+        if (tblList != null && tblList.getLength() > 0) {
+            return true;
+        }
+
+        // namespace/localName 대비용
+        NodeList childNodes = p.getChildNodes();
+        for (int i = 0; i < childNodes.getLength(); i++) {
+            Node node = childNodes.item(i);
+            if (!(node instanceof Element el)) {
+                continue;
+            }
+
+            String name = el.getNodeName();
+            String local = el.getLocalName();
+
+            if ("hp:tbl".equalsIgnoreCase(name) || "tbl".equalsIgnoreCase(local)) {
+                return true;
+            }
+        }
+
+        return false;
     }
 
     private List<? extends ZipEntry> findSectionEntries(ZipFile zipFile) {
@@ -89,6 +152,11 @@ public class HwpxParagraphExtractor {
         return sections;
     }
 
+    /**
+     * 일반 문단 텍스트만 추출
+     * 현재는 표를 포함한 문단은 위에서 skip하므로,
+     * 여기서는 hp:t를 그대로 이어붙여도 안전
+     */
     private String extractText(Element p) {
         NodeList runs = p.getElementsByTagName("hp:t");
 
@@ -96,7 +164,13 @@ public class HwpxParagraphExtractor {
 
         for (int i = 0; i < runs.getLength(); i++) {
             Node n = runs.item(i);
-            sb.append(n.getTextContent());
+            if (n == null) {
+                continue;
+            }
+            String value = n.getTextContent();
+            if (value != null) {
+                sb.append(value);
+            }
         }
 
         return sb.toString();
