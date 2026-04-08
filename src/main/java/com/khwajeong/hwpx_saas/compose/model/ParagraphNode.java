@@ -6,17 +6,19 @@ public class ParagraphNode {
     private String text;
     private Integer fontSize;
     private Boolean bold;
-    private Boolean italic;      // 추가: apply 결과 보존용
-    private Boolean underline;   // 추가: apply 결과 보존용
+    private Boolean italic;
+    private Boolean underline;
     private String color;
     private String align;
     private Integer spaceBefore;
     private Integer spaceAfter;
     private Integer lineSpacing;
     private Boolean singleLine;
-
-    // 추가: apply 결과 보존용
     private String fontFamily;
+
+    // icon 타입 문단용
+    private String prefix;
+    private Boolean icon;
 
     public String getParagraphId() {
         return paragraphId;
@@ -128,5 +130,21 @@ public class ParagraphNode {
 
     public void setFontFamily(String fontFamily) {
         this.fontFamily = fontFamily;
+    }
+
+    public String getPrefix() {
+        return prefix;
+    }
+
+    public void setPrefix(String prefix) {
+        this.prefix = prefix;
+    }
+
+    public Boolean getIcon() {
+        return icon;
+    }
+
+    public void setIcon(Boolean icon) {
+        this.icon = icon;
     }
 }

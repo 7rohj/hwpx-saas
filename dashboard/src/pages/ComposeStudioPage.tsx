@@ -130,6 +130,7 @@ const ROLE_OPTIONS = [
   { value: "heading2", label: "heading2" },
   { value: "heading3", label: "heading3" },
   { value: "body", label: "body" },
+  { value: "icon", label: "icon" },
   { value: "caption", label: "caption" },
   { value: "table", label: "table" },
 ]

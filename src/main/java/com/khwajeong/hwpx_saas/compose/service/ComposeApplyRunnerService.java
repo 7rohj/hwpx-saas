@@ -19,6 +19,7 @@ public class ComposeApplyRunnerService {
     private final ComposeTextStyleApplyService composeTextStyleApplyService;
     private final HwpxTableExtractor hwpxTableExtractor;
     private final ComposeTableStyleApplyService composeTableStyleApplyService;
+    private final IconClassifier iconClassifier;
 
     public ComposeApplyRunnerService(
             ComposeSelectionService composeSelectionService,
@@ -27,7 +28,8 @@ public class ComposeApplyRunnerService {
             HwpxStyleExtractor hwpxStyleExtractor,
             ComposeTextStyleApplyService composeTextStyleApplyService,
             HwpxTableExtractor hwpxTableExtractor,
-            ComposeTableStyleApplyService composeTableStyleApplyService
+            ComposeTableStyleApplyService composeTableStyleApplyService,
+            IconClassifier iconClassifier
     ) {
         this.composeSelectionService = composeSelectionService;
         this.composeService = composeService;
@@ -36,6 +38,7 @@ public class ComposeApplyRunnerService {
         this.composeTextStyleApplyService = composeTextStyleApplyService;
         this.hwpxTableExtractor = hwpxTableExtractor;
         this.composeTableStyleApplyService = composeTableStyleApplyService;
+        this.iconClassifier = iconClassifier;
     }
 
     public ComposeRunApplyResponse run(ComposeRunApplyRequest request) {
@@ -139,6 +142,7 @@ public class ComposeApplyRunnerService {
                     "heading2",
                     "heading3",
                     "body",
+                    "icon",
                     "caption",
                     "table"
             );
@@ -270,11 +274,17 @@ public class ComposeApplyRunnerService {
 
         ComposeApplyResponse applyResponse = composeService.applyHeading1Style(applyRequest);
 
+        String prefixToInject = null;
+        if ("icon".equalsIgnoreCase(request.getLabel())) {
+            prefixToInject = resolveIconPrefix(templateSelection, templateSample);
+        }
+
         Path outputPath = composeTextStyleApplyService.applyTextStyleUsingRenderer(
                 sourceHwpxPath,
                 templateStyle,
                 sourceParagraphs,
-                applyResponse.getMatchedParagraphIds()
+                applyResponse.getMatchedParagraphIds(),
+                prefixToInject
         );
 
         String fileId = outputPath.getFileName().toString();
@@ -287,6 +297,7 @@ public class ComposeApplyRunnerService {
                         + ", label=" + templateSelection.getLabel()
                         + ", paragraphId=" + templateSelection.getParagraphId()
                         + ", blockType=" + templateSelection.getBlockType()
+                        + ", prefix=" + nvl(prefixToInject, "")
         );
         response.setSourceSelectionSummary(
                 "source page=" + sourceSelection.getPage()
@@ -363,6 +374,20 @@ public class ComposeApplyRunnerService {
         response.setDownloadUrl("/api/v1/compose/files/" + fileId);
 
         return response;
+    }
+
+    private String resolveIconPrefix(ComposeSelection templateSelection, ParagraphNodeDto templateSample) {
+        String fromParagraph = templateSample != null ? iconClassifier.extractPrefix(templateSample.getText()) : null;
+        if (fromParagraph != null && !fromParagraph.isBlank()) {
+            return fromParagraph;
+        }
+
+        String fromOcr = templateSelection != null ? iconClassifier.extractPrefix(templateSelection.getOcrText()) : null;
+        if (fromOcr != null && !fromOcr.isBlank()) {
+            return fromOcr;
+        }
+
+        return null;
     }
 
     private ComposeSelection toModel(ComposeSelectionResponse dto) {
@@ -453,5 +478,9 @@ public class ComposeApplyRunnerService {
         }
 
         return f;
+    }
+
+    private String nvl(String value, String defaultValue) {
+        return value != null ? value : defaultValue;
     }
 }

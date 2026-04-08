@@ -14,6 +14,12 @@ public class StyleProfile {
     // 추가: 실제 글꼴명 적용용
     private String fontFamily;
 
+    // 추가: icon 타입 문단의 앞 기호 보존용
+    private String prefix;
+
+    // 추가: body 와 구분되는 icon 타입 스타일 여부
+    private Boolean icon;
+
     public Integer getFontSize() {
         return fontSize;
     }
@@ -92,5 +98,21 @@ public class StyleProfile {
 
     public void setFontFamily(String fontFamily) {
         this.fontFamily = fontFamily;
+    }
+
+    public String getPrefix() {
+        return prefix;
+    }
+
+    public void setPrefix(String prefix) {
+        this.prefix = prefix;
+    }
+
+    public Boolean getIcon() {
+        return icon;
+    }
+
+    public void setIcon(Boolean icon) {
+        this.icon = icon;
     }
 }

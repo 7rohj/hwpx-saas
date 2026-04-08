@@ -38,7 +38,8 @@ public class ComposeTextStyleApplyService {
             Path sourceHwpxPath,
             StyleProfileDto templateStyle,
             List<ParagraphNodeDto> sourceParagraphs,
-            List<String> matchedParagraphIds
+            List<String> matchedParagraphIds,
+            String prefixToInject
     ) throws Exception {
 
         if (sourceHwpxPath == null || !Files.exists(sourceHwpxPath)) {
@@ -131,7 +132,8 @@ public class ComposeTextStyleApplyService {
                             targetIndexes,
                             paragraphIndexToNewParaPrId,
                             newCharPrId,
-                            templateStyle.getFontSize() // [수정] template fontSize 전달
+                            templateStyle.getFontSize(),
+                            prefixToInject
                     );
                     outputBytes = result.bytes;
                     globalParagraphIndex += result.processedParagraphCount;
@@ -179,7 +181,8 @@ public class ComposeTextStyleApplyService {
             Set<Integer> targetIndexes,
             Map<Integer, String> paragraphIndexToNewParaPrId,
             String newCharPrId,
-            Integer templateFontSize
+            Integer templateFontSize,
+            String prefixToInject
     ) throws Exception {
 
         Document doc = parseXml(xmlBytes);
@@ -187,7 +190,6 @@ public class ComposeTextStyleApplyService {
         NodeList paraList = doc.getElementsByTagName("hp:p");
         int paraCount = paraList.getLength();
 
-        // [수정] 1차: 대상 문단의 paraPr/charPr/styleIDRef 수정
         for (int i = 0; i < paraCount; i++) {
             Element p = (Element) paraList.item(i);
             int globalIndex = globalStartIndex + i;
@@ -201,11 +203,14 @@ public class ComposeTextStyleApplyService {
                 p.setAttribute("paraPrIDRef", newParaPrId);
             }
 
+            if (prefixToInject != null && !prefixToInject.isBlank()) {
+                injectPrefixIntoParagraph(p, prefixToInject);
+            }
+
             NodeList runList = p.getElementsByTagName("hp:run");
             for (int r = 0; r < runList.getLength(); r++) {
                 Node runNode = runList.item(r);
                 if (runNode instanceof Element runEl) {
-                    // [수정] 텍스트를 가진 run만 교체
                     if (hasTextDescendant(runEl)) {
                         runEl.setAttribute("charPrIDRef", newCharPrId);
                     }
@@ -222,13 +227,9 @@ public class ComposeTextStyleApplyService {
                 }
             }
 
-            // [수정] 기존 style 참조 제거
             p.removeAttribute("styleIDRef");
         }
 
-        // [수정] 2차: 모든 문단의 lineseg를 다시 계산
-        // 대상 문단은 templateFontSize*100 사용
-        // 비대상 문단은 기존 textheight 유지
         recomputeLineSegLayout(doc, globalStartIndex, targetIndexes, templateFontSize);
 
         SectionRewriteResult result = new SectionRewriteResult();
@@ -237,7 +238,50 @@ public class ComposeTextStyleApplyService {
         return result;
     }
 
-    // [수정] run 안에 실제 텍스트가 있는지 확인
+    private void injectPrefixIntoParagraph(Element paragraphElement, String prefixToInject) {
+        if (paragraphElement == null || prefixToInject == null || prefixToInject.isBlank()) {
+            return;
+        }
+
+        Element firstTextEl = findFirstTextElement(paragraphElement);
+        if (firstTextEl == null) {
+            return;
+        }
+
+        String original = firstTextEl.getTextContent();
+        if (original == null) {
+            original = "";
+        }
+
+        String withoutExistingPrefix = stripKnownLeadingPrefix(original);
+        String finalText = prefixToInject + withoutExistingPrefix.stripLeading();
+
+        firstTextEl.setTextContent(finalText);
+    }
+
+    private String stripKnownLeadingPrefix(String text) {
+        if (text == null || text.isBlank()) {
+            return "";
+        }
+
+        return text.replaceFirst("^\\s*[■□●○•※▶▷◆◇☞\\-–—]\\s*", "");
+    }
+
+    private Element findFirstTextElement(Element paragraphElement) {
+        if (paragraphElement == null) {
+            return null;
+        }
+
+        NodeList tList = paragraphElement.getElementsByTagName("hp:t");
+        for (int i = 0; i < tList.getLength(); i++) {
+            Node node = tList.item(i);
+            if (node instanceof Element el) {
+                return el;
+            }
+        }
+        return null;
+    }
+
     private boolean hasTextDescendant(Element element) {
         if (element == null) {
             return false;
@@ -256,7 +300,6 @@ public class ComposeTextStyleApplyService {
         return false;
     }
 
-    // [수정] lineseg 전체 재계산
     private void recomputeLineSegLayout(
             Document doc,
             int globalStartIndex,
@@ -278,11 +321,9 @@ public class ComposeTextStyleApplyService {
 
             int textHeight;
 
-            // [수정] 대상 문단은 template fontSize * 100
             if (targetIndexes.contains(globalIndex) && templateFontSize != null && templateFontSize > 0) {
                 textHeight = templateFontSize * 100;
             } else {
-                // [수정] 비대상 문단은 기존 textheight 유지
                 textHeight = parseIntOrDefault(lineSeg.getAttribute("textheight"), 500);
             }
 
@@ -300,7 +341,6 @@ public class ComposeTextStyleApplyService {
         }
     }
 
-    // [수정] 각 문단의 첫 번째 hp:lineseg 찾기
     private Element findFirstLineSegElement(Element paragraphElement) {
         if (paragraphElement == null) {
             return null;
