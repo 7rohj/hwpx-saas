@@ -184,12 +184,12 @@ public class HwpxTableExtractor {
                 headerDoc, headerBorderFillId, "hh:topBorder", "#000000", "0.12 mm", "SOLID"
         ));
 
-        // 바디 외부선
+        // 핵심 수정:
+        // 표 바디 외부 세로선 = 첫 번째 바디 셀의 leftBorder
         style.setBodyOuterBorder(parseBorderStyleFromHeader(
-                headerDoc, middleBodyBorderFillId, "hh:leftBorder", "#000000", "0.12 mm", "SOLID"
+                headerDoc, firstBodyBorderFillId, "hh:leftBorder", "#000000", "0.12 mm", "SOLID"
         ));
 
-        // 핵심:
         // 표 바디 내부 세로선 = 첫 번째 바디 셀의 rightBorder
         style.setBodyInnerVerticalBorder(parseBorderStyleFromHeader(
                 headerDoc, firstBodyBorderFillId, "hh:rightBorder", "#000000", "0.12 mm", "SOLID"
