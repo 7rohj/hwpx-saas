@@ -152,58 +152,107 @@ public class ComposeTableStyleApplyService {
                     hwpxStyleRegistryService.registerTableCellStyle(
                             doc,
                             style.getBodyTextStyle(),
-                            style.getBodyInnerVerticalBorder(),   // left/right
-                            style.getBodyInnerHorizontalBorder(), // top/bottom 기본값
-                            style.getBodyBackgroundColor()
-                    );
-
-            // 첫 body row: top=헤더 아래선, bottom=body 내부 가로선 대표
-            String bodyFirstRowBorderFillId =
-                    hwpxStyleRegistryService.registerCustomBorderFill(
-                            doc,
                             style.getBodyInnerVerticalBorder(),
-                            style.getBodyFirstRowTopBorder(),
                             style.getBodyInnerHorizontalBorder(),
                             style.getBodyBackgroundColor()
                     );
 
-            // 중간 body row: top=NONE, bottom=body 내부 가로선 대표
-            String bodyMiddleRowBorderFillId =
+            // column = 0 전용 body borderFill
+            String bodyFirstRowFirstColBorderFillId =
                     hwpxStyleRegistryService.registerCustomBorderFill(
                             doc,
-                            style.getBodyInnerVerticalBorder(),
-                            hiddenBorder(),
-                            style.getBodyInnerHorizontalBorder(),
+                            style.getBodyOuterBorder(),           // left = 바디 처음칸 left
+                            style.getBodyInnerVerticalBorder(),   // right = 내부 세로선
+                            style.getBodyFirstRowTopBorder(),     // top
+                            style.getBodyInnerHorizontalBorder(), // bottom
                             style.getBodyBackgroundColor()
                     );
 
-            // 마지막 body row: top=NONE, bottom=마지막 row 전용
-            String bodyLastRowBorderFillId =
+            String bodyMiddleRowFirstColBorderFillId =
                     hwpxStyleRegistryService.registerCustomBorderFill(
                             doc,
-                            style.getBodyInnerVerticalBorder(),
-                            hiddenBorder(),
-                            style.getBodyLastRowBottomBorder(),
+                            style.getBodyOuterBorder(),           // left = 바디 외부 세로선
+                            style.getBodyInnerVerticalBorder(),   // right = 내부 세로선
+                            hiddenBorder(),                       // top 숨김
+                            style.getBodyInnerHorizontalBorder(), // bottom
                             style.getBodyBackgroundColor()
                     );
 
-            // body가 1행뿐이면
-            String bodySingleRowBorderFillId =
+            String bodyLastRowFirstColBorderFillId =
                     hwpxStyleRegistryService.registerCustomBorderFill(
                             doc,
-                            style.getBodyInnerVerticalBorder(),
-                            style.getBodyFirstRowTopBorder(),
-                            style.getBodyLastRowBottomBorder(),
+                            style.getBodyOuterBorder(),             // left = 바디 외부 세로선
+                            style.getBodyInnerVerticalBorder(),     // right = 내부 세로선
+                            hiddenBorder(),                         // top 숨김
+                            style.getBodyLastRowBottomBorder(),     // bottom
+                            style.getBodyBackgroundColor()
+                    );
+
+            String bodySingleRowFirstColBorderFillId =
+                    hwpxStyleRegistryService.registerCustomBorderFill(
+                            doc,
+                            style.getBodyOuterBorder(),             // left = 바디 외부 세로선
+                            style.getBodyInnerVerticalBorder(),     // right = 내부 세로선
+                            style.getBodyFirstRowTopBorder(),       // top
+                            style.getBodyLastRowBottomBorder(),     // bottom
+                            style.getBodyBackgroundColor()
+                    );
+
+            // column > 0 전용 body borderFill
+            String bodyFirstRowOtherColBorderFillId =
+                    hwpxStyleRegistryService.registerCustomBorderFill(
+                            doc,
+                            style.getBodyInnerVerticalBorder(),   // left = 내부 세로선
+                            style.getBodyInnerVerticalBorder(),   // right = 내부 세로선
+                            style.getBodyFirstRowTopBorder(),     // top
+                            style.getBodyInnerHorizontalBorder(), // bottom
+                            style.getBodyBackgroundColor()
+                    );
+
+            String bodyMiddleRowOtherColBorderFillId =
+                    hwpxStyleRegistryService.registerCustomBorderFill(
+                            doc,
+                            style.getBodyInnerVerticalBorder(),   // left = 내부 세로선
+                            style.getBodyInnerVerticalBorder(),   // right = 내부 세로선
+                            hiddenBorder(),                       // top 숨김
+                            style.getBodyInnerHorizontalBorder(), // bottom
+                            style.getBodyBackgroundColor()
+                    );
+
+            String bodyLastRowOtherColBorderFillId =
+                    hwpxStyleRegistryService.registerCustomBorderFill(
+                            doc,
+                            style.getBodyInnerVerticalBorder(),   // left = 내부 세로선
+                            style.getBodyInnerVerticalBorder(),   // right = 내부 세로선
+                            hiddenBorder(),                       // top 숨김
+                            style.getBodyLastRowBottomBorder(),   // bottom
+                            style.getBodyBackgroundColor()
+                    );
+
+            String bodySingleRowOtherColBorderFillId =
+                    hwpxStyleRegistryService.registerCustomBorderFill(
+                            doc,
+                            style.getBodyInnerVerticalBorder(),   // left = 내부 세로선
+                            style.getBodyInnerVerticalBorder(),   // right = 내부 세로선
+                            style.getBodyFirstRowTopBorder(),     // top
+                            style.getBodyLastRowBottomBorder(),   // bottom
                             style.getBodyBackgroundColor()
                     );
 
             RegisteredPair pair = new RegisteredPair();
             pair.headerIds = headerIds;
             pair.bodyIds = bodyIds;
-            pair.bodyFirstRowBorderFillId = bodyFirstRowBorderFillId;
-            pair.bodyMiddleRowBorderFillId = bodyMiddleRowBorderFillId;
-            pair.bodyLastRowBorderFillId = bodyLastRowBorderFillId;
-            pair.bodySingleRowBorderFillId = bodySingleRowBorderFillId;
+
+            pair.bodyFirstRowFirstColBorderFillId = bodyFirstRowFirstColBorderFillId;
+            pair.bodyMiddleRowFirstColBorderFillId = bodyMiddleRowFirstColBorderFillId;
+            pair.bodyLastRowFirstColBorderFillId = bodyLastRowFirstColBorderFillId;
+            pair.bodySingleRowFirstColBorderFillId = bodySingleRowFirstColBorderFillId;
+
+            pair.bodyFirstRowOtherColBorderFillId = bodyFirstRowOtherColBorderFillId;
+            pair.bodyMiddleRowOtherColBorderFillId = bodyMiddleRowOtherColBorderFillId;
+            pair.bodyLastRowOtherColBorderFillId = bodyLastRowOtherColBorderFillId;
+            pair.bodySingleRowOtherColBorderFillId = bodySingleRowOtherColBorderFillId;
+
             pair.headerFontSize = extractFontSize(style.getHeaderTextStyle(), 12);
             pair.bodyFontSize = extractFontSize(style.getBodyTextStyle(), 10);
 
@@ -263,17 +312,60 @@ public class ComposeTableStyleApplyService {
             boolean isLastBodyRow = rowIndex == lastRowIndex && rowIndex > 1;
             boolean isMiddleBodyRow = rowIndex > 1 && rowIndex < lastRowIndex;
 
-            for (Element cellEl : cells) {
+            for (int colIndex = 0; colIndex < cells.size(); colIndex++) {
+                Element cellEl = cells.get(colIndex);
+                boolean isFirstCol = colIndex == 0;
+
                 if (isHeaderRow) {
                     applyCellFullStyle(cellEl, pair.headerIds, pair.headerFontSize, null);
-                } else if (isOnlyOneBodyRow) {
-                    applyCellFullStyle(cellEl, pair.bodyIds, pair.bodyFontSize, pair.bodySingleRowBorderFillId);
-                } else if (isFirstBodyRow) {
-                    applyCellFullStyle(cellEl, pair.bodyIds, pair.bodyFontSize, pair.bodyFirstRowBorderFillId);
-                } else if (isMiddleBodyRow) {
-                    applyCellFullStyle(cellEl, pair.bodyIds, pair.bodyFontSize, pair.bodyMiddleRowBorderFillId);
-                } else if (isLastBodyRow) {
-                    applyCellFullStyle(cellEl, pair.bodyIds, pair.bodyFontSize, pair.bodyLastRowBorderFillId);
+                    continue;
+                }
+
+                if (isOnlyOneBodyRow) {
+                    applyCellFullStyle(
+                            cellEl,
+                            pair.bodyIds,
+                            pair.bodyFontSize,
+                            isFirstCol
+                                    ? pair.bodySingleRowFirstColBorderFillId
+                                    : pair.bodySingleRowOtherColBorderFillId
+                    );
+                    continue;
+                }
+
+                if (isFirstBodyRow) {
+                    applyCellFullStyle(
+                            cellEl,
+                            pair.bodyIds,
+                            pair.bodyFontSize,
+                            isFirstCol
+                                    ? pair.bodyFirstRowFirstColBorderFillId
+                                    : pair.bodyFirstRowOtherColBorderFillId
+                    );
+                    continue;
+                }
+
+                if (isMiddleBodyRow) {
+                    applyCellFullStyle(
+                            cellEl,
+                            pair.bodyIds,
+                            pair.bodyFontSize,
+                            isFirstCol
+                                    ? pair.bodyMiddleRowFirstColBorderFillId
+                                    : pair.bodyMiddleRowOtherColBorderFillId
+                    );
+                    continue;
+                }
+
+                if (isLastBodyRow) {
+                    applyCellFullStyle(
+                            cellEl,
+                            pair.bodyIds,
+                            pair.bodyFontSize,
+                            isFirstCol
+                                    ? pair.bodyLastRowFirstColBorderFillId
+                                    : pair.bodyLastRowOtherColBorderFillId
+                    );
                 }
             }
         }
@@ -428,10 +520,17 @@ public class ComposeTableStyleApplyService {
     private static class RegisteredPair {
         private HwpxStyleRegistryService.RegisteredStyleIds headerIds;
         private HwpxStyleRegistryService.RegisteredStyleIds bodyIds;
-        private String bodyFirstRowBorderFillId;
-        private String bodyMiddleRowBorderFillId;
-        private String bodyLastRowBorderFillId;
-        private String bodySingleRowBorderFillId;
+
+        private String bodyFirstRowFirstColBorderFillId;
+        private String bodyMiddleRowFirstColBorderFillId;
+        private String bodyLastRowFirstColBorderFillId;
+        private String bodySingleRowFirstColBorderFillId;
+
+        private String bodyFirstRowOtherColBorderFillId;
+        private String bodyMiddleRowOtherColBorderFillId;
+        private String bodyLastRowOtherColBorderFillId;
+        private String bodySingleRowOtherColBorderFillId;
+
         private int headerFontSize;
         private int bodyFontSize;
     }

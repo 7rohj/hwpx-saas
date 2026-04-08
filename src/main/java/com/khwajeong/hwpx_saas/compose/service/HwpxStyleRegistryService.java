@@ -20,11 +20,12 @@ public class HwpxStyleRegistryService {
 
         String newCharPrId = createCharPr(headerDoc, textStyle);
         String newParaPrId = createParaPr(headerDoc, textStyle);
-        String newBorderFillId = createBorderFill(
+        String newBorderFillId = createBorderFillAsymmetric(
                 headerDoc,
-                outerBorder,              // left/right
-                innerHorizontalBorder,    // top
-                innerHorizontalBorder,    // bottom
+                outerBorder,               // left
+                outerBorder,               // right
+                innerHorizontalBorder,     // top
+                innerHorizontalBorder,     // bottom
                 backgroundColor
         );
 
@@ -37,12 +38,20 @@ public class HwpxStyleRegistryService {
 
     public String registerCustomBorderFill(
             Document headerDoc,
-            ExtractedTableStyle.BorderStyle leftRightBorder,
+            ExtractedTableStyle.BorderStyle leftBorder,
+            ExtractedTableStyle.BorderStyle rightBorder,
             ExtractedTableStyle.BorderStyle topBorder,
             ExtractedTableStyle.BorderStyle bottomBorder,
             String backgroundColor
     ) {
-        return createBorderFill(headerDoc, leftRightBorder, topBorder, bottomBorder, backgroundColor);
+        return createBorderFillAsymmetric(
+                headerDoc,
+                leftBorder,
+                rightBorder,
+                topBorder,
+                bottomBorder,
+                backgroundColor
+        );
     }
 
     private String createCharPr(Document doc, ExtractedTableStyle.CellTextStyle textStyle) {
@@ -58,14 +67,31 @@ public class HwpxStyleRegistryService {
         charPr.setAttribute("borderFillIDRef", "3");
 
         if (textStyle != null) {
-            charPr.setAttribute("textColor", textStyle.getFontColor() != null ? normalizeColor(textStyle.getFontColor()) : "#000000");
-            charPr.setAttribute("height", textStyle.getFontSize() != null ? String.valueOf(textStyle.getFontSize() * 100) : "1000");
+            charPr.setAttribute(
+                    "textColor",
+                    textStyle.getFontColor() != null ? normalizeColor(textStyle.getFontColor()) : "#000000"
+            );
+            charPr.setAttribute(
+                    "height",
+                    textStyle.getFontSize() != null ? String.valueOf(textStyle.getFontSize() * 100) : "1000"
+            );
 
             if (Boolean.TRUE.equals(textStyle.getBold())) {
                 charPr.appendChild(doc.createElement("hh:bold"));
             }
+            if (Boolean.TRUE.equals(textStyle.getItalic())) {
+                charPr.appendChild(doc.createElement("hh:italic"));
+            }
+            if (Boolean.TRUE.equals(textStyle.getUnderline())) {
+                Element underline = doc.createElement("hh:underline");
+                underline.setAttribute("type", "BOTTOM");
+                underline.setAttribute("shape", "SOLID");
+                underline.setAttribute("color", "#000000");
+                charPr.appendChild(underline);
+            }
 
             FontRefIds ids = registerFontFamily(doc, textStyle.getFontFamily());
+
             Element fontRef = doc.createElement("hh:fontRef");
             fontRef.setAttribute("hangul", ids.hangulId);
             fontRef.setAttribute("latin", ids.latinId);
@@ -174,9 +200,10 @@ public class HwpxStyleRegistryService {
         return el;
     }
 
-    private String createBorderFill(
+    private String createBorderFillAsymmetric(
             Document doc,
-            ExtractedTableStyle.BorderStyle leftRightBorder,
+            ExtractedTableStyle.BorderStyle leftBorder,
+            ExtractedTableStyle.BorderStyle rightBorder,
             ExtractedTableStyle.BorderStyle topBorder,
             ExtractedTableStyle.BorderStyle bottomBorder,
             String backgroundColor
@@ -203,8 +230,8 @@ public class HwpxStyleRegistryService {
         backSlash.setAttribute("isCounter", "0");
         borderFill.appendChild(backSlash);
 
-        appendBorderEdge(doc, borderFill, "hh:leftBorder", leftRightBorder);
-        appendBorderEdge(doc, borderFill, "hh:rightBorder", leftRightBorder);
+        appendBorderEdge(doc, borderFill, "hh:leftBorder", leftBorder);
+        appendBorderEdge(doc, borderFill, "hh:rightBorder", rightBorder);
         appendBorderEdge(doc, borderFill, "hh:topBorder", topBorder);
         appendBorderEdge(doc, borderFill, "hh:bottomBorder", bottomBorder);
 
@@ -246,7 +273,7 @@ public class HwpxStyleRegistryService {
                 lineStyle = style.getLineStyle().toUpperCase();
             }
             if (style.getWidth() != null && !style.getWidth().isBlank()) {
-                width = style.getWidth(); // template 원문 그대로
+                width = style.getWidth();
             }
             if (style.getColor() != null && !style.getColor().isBlank()) {
                 color = normalizeColor(style.getColor());
