@@ -548,7 +548,7 @@ export default function ComposePageParagraphLayer({
                           borderBottom: borders.bottom,
 
                           display: "flex",
-                          alignItems: "flex-start",
+                          alignItems: "center", // "flex-start",
                           justifyContent: toJustifyContent(textStyle.align),
                           padding: "4px 8px",
 
@@ -558,16 +558,16 @@ export default function ComposePageParagraphLayer({
                           fontStyle: textStyle.italic ? "italic" : "normal",
                           textDecoration: textStyle.underline ? "underline" : "none",
                           color: toPreviewColor(textStyle.fontColor, "#334155"),
-                          whiteSpace: "pre-wrap",
-                          wordBreak: "break-word",
+                          whiteSpace: "pre-wrap", // "normal"
+                          wordBreak: "keep-all", // "break-word",
                           overflow: "hidden",
-                          textAlign: toTextAlign(textStyle.align),
+                          textAlign: toTextAlign(textStyle.align), // "center",
                           boxSizing: "border-box",
                           pointerEvents: "none",
                           lineHeight: 1.3,
                         }}
                       >
-                        {renderTextWithSpaceBreaks(cell.text)}
+                        {cell.text}
                       </div>
                     )
                   })
@@ -634,8 +634,8 @@ export default function ComposePageParagraphLayer({
                                   borderBottom: borders.bottom,
 
                                   display: "flex",
-                                  alignItems: "flex-start",
-                                  justifyContent: toJustifyContent(textStyle?.align),
+                                  alignItems: "center",
+                                  justifyContent: "center",
                                   padding: "4px 8px",
 
                                   fontFamily: textStyle?.fontFamily ?? t.fontFamily ?? "Pretendard",
@@ -644,16 +644,19 @@ export default function ComposePageParagraphLayer({
                                   fontStyle: textStyle?.italic ? "italic" : "normal",
                                   textDecoration: textStyle?.underline ? "underline" : "none",
                                   color: toPreviewColor(textStyle?.fontColor ?? t.fontColor, "#334155"),
-                                  whiteSpace: "pre-wrap",
-                                  wordBreak: "break-word",
+
+                                  whiteSpace: "normal",
+                                  wordBreak: "keep-all",
+                                  overflowWrap: "break-word",
+                                  writingMode: "horizontal-tb",
                                   overflow: "hidden",
-                                  textAlign: toTextAlign(textStyle?.align),
+                                  textAlign: "center",
                                   boxSizing: "border-box",
                                   pointerEvents: "none",
                                   lineHeight: 1.3,
                                 }}
                               >
-                                {renderTextWithSpaceBreaks(cellText)}
+                                {cellText}
                               </div>
                             )
                           })}
