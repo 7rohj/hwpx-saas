@@ -25,11 +25,10 @@ public class ComposeDocumentViewService {
     private static final double PREVIEW_START_Y = 40.0;
 
     /**
-     * 블록 간 여백.
-     * 너무 크면 같은 페이지에 들어갈 요소도 다음 페이지로 넘어가므로
-     * 기존보다 줄여서 좀 더 촘촘하게 배치합니다.
+     * 페이지 간격이 너무 보수적이면 실제로 들어갈 수 있는 표도 다음 페이지로 넘어간다.
+     * 그래서 기본 block gap 을 더 줄여서 첫 페이지 수용력을 높인다.
      */
-    private static final double PREVIEW_BLOCK_GAP = 12.0;
+    private static final double PREVIEW_BLOCK_GAP = 8.0;
 
     private final ComposeService composeService;
     private final HwpxTableExtractor hwpxTableExtractor;
@@ -51,32 +50,23 @@ public class ComposeDocumentViewService {
             throw new IllegalArgumentException("hwpx file not found");
         }
 
-        // 1. 문단 추출
         List<ParagraphNodeDto> paragraphs =
                 composeService.extractFromHwpx(hwpxFile);
 
-        // 2. 표 추출
         List<TableNodeDto> tables =
                 hwpxTableExtractor.extract(hwpxFile);
 
-        // 3. 공통 레이아웃 계산
         List<PageLayoutBlockDto> layout =
                 composeLayoutService.buildLayout(paragraphs, tables);
 
-        // 4. paragraph 좌표 반영
         composeLayoutService.applyLayoutToParagraphs(paragraphs, layout);
-
-        // 5. table 좌표 반영
         composeLayoutService.applyLayoutToTables(tables, layout);
 
         /**
-         * 핵심 보완:
-         * 문단/표 순서를 원본 문서 등장 순서대로 다시 읽고,
-         * preview 전용 page / y 를 그 순서대로 재배치합니다.
+         * 문단 / 표 순서를 원본 HWPX XML 기준으로 다시 잡아 preview page/y 에 반영
          */
         reflowByDocumentOrder(hwpxFile, paragraphs, tables);
 
-        // 6. 결과 반환
         DocumentViewResult result = new DocumentViewResult();
         result.setParagraphs(paragraphs);
         result.setTables(tables);
@@ -111,7 +101,7 @@ public class ComposeDocumentViewService {
 
             if (key.startsWith("p")) {
                 if (paragraphCursor >= paragraphs.size()) {
-                    continue;
+                  continue;
                 }
 
                 ParagraphNodeDto p = paragraphs.get(paragraphCursor++);
@@ -135,16 +125,6 @@ public class ComposeDocumentViewService {
                 }
 
                 TableNodeDto t = tables.get(tableCursor++);
-
-                /**
-                 * 중요:
-                 * 프론트 preview에서는 표 셀 높이를 1/2 보정해서 렌더링합니다.
-                 * 그런데 백엔드가 page break 계산에서는 원래 큰 높이를 쓰면,
-                 * 실제로는 첫 페이지에 들어갈 표도 미리 다음 페이지로 밀어버립니다.
-                 *
-                 * 그래서 page break 계산용 blockHeight는
-                 * "preview에서 실제 보일 높이"와 유사하게 추정해서 사용합니다.
-                 */
                 double blockHeight = estimateTablePreviewHeight(t);
 
                 if (cursorY + blockHeight > PREVIEW_PAGE_HEIGHT_LIMIT) {
@@ -157,6 +137,38 @@ public class ComposeDocumentViewService {
 
                 cursorY += blockHeight + PREVIEW_BLOCK_GAP;
             }
+        }
+
+        /**
+         * sequence 추출에서 혹시 누락된 잔여 paragraph / table 이 있더라도
+         * 마지막에 이어서 배치해서 preview가 비지 않도록 보완
+         */
+        while (paragraphCursor < paragraphs.size()) {
+            ParagraphNodeDto p = paragraphs.get(paragraphCursor++);
+            double blockHeight = estimateParagraphPreviewHeight(p);
+
+            if (cursorY + blockHeight > PREVIEW_PAGE_HEIGHT_LIMIT) {
+                page++;
+                cursorY = PREVIEW_START_Y;
+            }
+
+            p.setPage(page);
+            p.setY(cursorY);
+            cursorY += blockHeight + PREVIEW_BLOCK_GAP;
+        }
+
+        while (tableCursor < tables.size()) {
+            TableNodeDto t = tables.get(tableCursor++);
+            double blockHeight = estimateTablePreviewHeight(t);
+
+            if (cursorY + blockHeight > PREVIEW_PAGE_HEIGHT_LIMIT) {
+                page++;
+                cursorY = PREVIEW_START_Y;
+            }
+
+            t.setPage(page);
+            t.setY(cursorY);
+            cursorY += blockHeight + PREVIEW_BLOCK_GAP;
         }
     }
 
@@ -197,15 +209,15 @@ public class ComposeDocumentViewService {
 
         double fullHeight = headerHeight + Math.max(0, rowCount - 1) * bodyHeight;
 
-        // preview에서는 각 셀 세로 길이를 기존 계산값의 1/2로 강제 보정
+        /**
+         * preview에서는 표 셀 세로 길이를 1/2로 보정해서 렌더하므로
+         * page break 판단도 같은 기준을 따라가야 한다.
+         */
         return fullHeight * 0.5;
     }
 
     /**
-     * 원본 HWPX 문서에서 "문단 / 표" 등장 순서를 그대로 추출
-     *
-     * 결과 예:
-     *   p, p, p, t, t, p, p, p, t
+     * 원본 HWPX 문서에서 문단 / 표 등장 순서를 그대로 추출
      */
     private List<String> extractDocumentSequence(File hwpxFile) {
         List<String> sequence = new ArrayList<>();
@@ -257,7 +269,22 @@ public class ComposeDocumentViewService {
                 return;
             }
 
-            if (containsTableDescendant(element)) {
+            /**
+             * 중요:
+             * 표를 감싸는 wrapper paragraph는 sequence에 "문단"으로 넣으면 안 되지만,
+             * 그 안에 실제 table child가 있으면 child traversal은 계속해야 한다.
+             *
+             * 이전에는 여기서 바로 return 해버리면 안쪽 table이 sequence에서 빠져서,
+             * 마지막 표가 재배치 대상에서 누락되고 원래 page 값(예: 2page)을 유지할 수 있었다.
+             */
+            if (containsDirectOrNestedTable(element)) {
+                NodeList children = element.getChildNodes();
+                for (int i = 0; i < children.getLength(); i++) {
+                    Node child = children.item(i);
+                    if (child instanceof Element childEl) {
+                        walkDocumentOrder(childEl, sequence);
+                    }
+                }
                 return;
             }
 
@@ -303,7 +330,7 @@ public class ComposeDocumentViewService {
         return false;
     }
 
-    private boolean containsTableDescendant(Element p) {
+    private boolean containsDirectOrNestedTable(Element p) {
         if (p == null) {
             return false;
         }
@@ -378,9 +405,6 @@ public class ComposeDocumentViewService {
         }
     }
 
-    // =========================
-    // 내부 DTO (응답용)
-    // =========================
     public static class DocumentViewResult {
         private List<ParagraphNodeDto> paragraphs;
         private List<TableNodeDto> tables;

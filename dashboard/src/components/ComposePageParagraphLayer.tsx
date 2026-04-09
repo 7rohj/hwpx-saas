@@ -104,6 +104,11 @@ type RenderTableBlock = {
 
 type RenderBlock = RenderParagraphBlock | RenderTableBlock
 
+const PAGE_INNER_WIDTH = 560
+const DEFAULT_LEFT_MARGIN = 40
+const DEFAULT_PARAGRAPH_WIDTH = 420
+const DEFAULT_PARAGRAPH_HEIGHT = 34
+
 function toPreviewColor(color?: string | null, fallback = "#111111") {
   if (!color || !color.trim()) return fallback
 
@@ -455,31 +460,37 @@ function calcParagraphRenderHeight(p: ParagraphItem) {
   const text = p.text ?? ""
   const lineCount = Math.max(1, text.split(/\r\n|\r|\n/).length)
   const fontSize = p.fontSize ?? 12
-
   const estimated = lineCount * (fontSize * 1.6 + 6)
   return Math.max(34, Math.min(64, estimated))
 }
 
-function getParagraphRenderRect(
-  p: ParagraphItem,
-  displayTop: number
-) {
+function getParagraphRenderRect(p: ParagraphItem, displayTop: number) {
   const align = (p.align ?? "").trim().toLowerCase()
   const renderHeight = calcParagraphRenderHeight(p)
+  const renderWidth = p.width ?? DEFAULT_PARAGRAPH_WIDTH
 
-  if (align === "center" || align === "right") {
+  if (align === "center") {
     return {
-      left: 40,
+      left: Math.round((PAGE_INNER_WIDTH - renderWidth) / 2),
       top: displayTop,
-      width: 480,
+      width: renderWidth,
+      height: renderHeight,
+    }
+  }
+
+  if (align === "right") {
+    return {
+      left: PAGE_INNER_WIDTH - DEFAULT_LEFT_MARGIN - renderWidth,
+      top: displayTop,
+      width: renderWidth,
       height: renderHeight,
     }
   }
 
   return {
-    left: p.x ?? 40,
+    left: p.x ?? DEFAULT_LEFT_MARGIN,
     top: displayTop,
-    width: p.width ?? 420,
+    width: renderWidth,
     height: renderHeight,
   }
 }
