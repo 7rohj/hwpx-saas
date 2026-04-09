@@ -53,12 +53,27 @@ type ExtractedTableStyle = {
   bodyLastRowBottomBorder?: BorderStyle | null
 }
 
+type TableCellItem = {
+  rowIndex: number
+  colIndex: number
+  rowSpan: number
+  colSpan: number
+  text: string
+  x?: number | null
+  y?: number | null
+  width?: number | null
+  height?: number | null
+  header?: boolean | null
+}
+
 type TableItem = {
   tableId: string
   page: number | null
   rowCount: number | null
   colCount: number | null
   cellTexts: string[][]
+  cells?: TableCellItem[] | null
+
   borderColor?: string | null
   borderWidth?: number | null
   backgroundColor?: string | null
@@ -104,11 +119,8 @@ type RenderTableBlock = {
 
 type RenderBlock = RenderParagraphBlock | RenderTableBlock
 
-const PAGE_INNER_WIDTH = 560
 const DEFAULT_LEFT_MARGIN = 40
 const DEFAULT_PARAGRAPH_WIDTH = 420
-const DEFAULT_PARAGRAPH_HEIGHT = 34
-// const PARAGRAPH_BOX_HORIZONTAL_PADDING = 18
 
 function toPreviewColor(color?: string | null, fallback = "#111111") {
   if (!color || !color.trim()) return fallback
@@ -196,20 +208,19 @@ function getCellBorderSet(
   rowIndex: number,
   colIndex: number,
   rowCount: number,
-  colCount: number
+  colCount: number,
+  rowSpan = 1,
+  colSpan = 1
 ) {
   const style = table.extractedStyle
 
   const isHeaderRow = rowIndex === 0
-  const isSingleCol = colCount === 1
-  const isFirstCol = colIndex === 0
-  const isLastCol = colIndex === colCount - 1
+  const endRowIndex = rowIndex + Math.max(1, rowSpan) - 1
+  const endColIndex = colIndex + Math.max(1, colSpan) - 1
 
-  const hasBody = rowCount >= 2
-  const isOnlyOneBodyRow = rowCount === 2 && rowIndex === 1
-  const isFirstBodyRow = rowIndex === 1 && rowCount > 2
-  const isLastBodyRow = rowIndex === rowCount - 1 && rowIndex > 1
-  const isMiddleBodyRow = rowIndex > 1 && rowIndex < rowCount - 1
+  const touchesLeft = colIndex === 0
+  const touchesRight = endColIndex === colCount - 1
+  const touchesBottom = endRowIndex === rowCount - 1
 
   const headerOuter = style?.headerOuterBorder
   const headerInner = style?.headerInnerBorder
@@ -221,203 +232,39 @@ function getCellBorderSet(
   const bodyLastBottom = style?.bodyLastRowBottomBorder ?? bodyInnerH
 
   if (isHeaderRow) {
-    if (isSingleCol) {
-      return {
-        left: makeBorderCss(headerOuter),
-        right: makeBorderCss(headerOuter),
-        top: makeBorderCss(headerInner),
-        bottom: makeBorderCss(headerInner),
-      }
-    }
-
-    if (isFirstCol) {
-      return {
-        left: makeBorderCss(headerOuter),
-        right: makeBorderCss(headerInner),
-        top: makeBorderCss(headerInner),
-        bottom: makeBorderCss(headerInner),
-      }
-    }
-
-    if (isLastCol) {
-      return {
-        left: makeBorderCss(headerInner),
-        right: makeBorderCss(headerOuter),
-        top: makeBorderCss(headerInner),
-        bottom: makeBorderCss(headerInner),
-      }
-    }
-
     return {
-      left: makeBorderCss(headerInner),
-      right: makeBorderCss(headerInner),
+      left: touchesLeft ? makeBorderCss(headerOuter) : makeBorderCss(headerInner),
+      right: touchesRight ? makeBorderCss(headerOuter) : makeBorderCss(headerInner),
       top: makeBorderCss(headerInner),
       bottom: makeBorderCss(headerInner),
     }
   }
 
-  if (!hasBody) {
-    return {
-      left: makeBorderCss(bodyOuter),
-      right: makeBorderCss(bodyOuter),
-      top: makeBorderCss(bodyFirstTop),
-      bottom: makeBorderCss(bodyLastBottom),
-    }
-  }
-
-  if (isOnlyOneBodyRow) {
-    if (isSingleCol) {
-      return {
-        left: makeBorderCss(bodyOuter),
-        right: makeBorderCss(bodyOuter),
-        top: makeBorderCss(bodyFirstTop),
-        bottom: makeBorderCss(bodyLastBottom),
-      }
-    }
-
-    if (isFirstCol) {
-      return {
-        left: makeBorderCss(bodyOuter),
-        right: makeBorderCss(bodyInnerV),
-        top: makeBorderCss(bodyFirstTop),
-        bottom: makeBorderCss(bodyLastBottom),
-      }
-    }
-
-    if (isLastCol) {
-      return {
-        left: makeBorderCss(bodyInnerV),
-        right: makeBorderCss(bodyOuter),
-        top: makeBorderCss(bodyFirstTop),
-        bottom: makeBorderCss(bodyLastBottom),
-      }
-    }
-
-    return {
-      left: makeBorderCss(bodyInnerV),
-      right: makeBorderCss(bodyInnerV),
-      top: makeBorderCss(bodyFirstTop),
-      bottom: makeBorderCss(bodyLastBottom),
-    }
-  }
-
-  if (isFirstBodyRow) {
-    if (isSingleCol) {
-      return {
-        left: makeBorderCss(bodyOuter),
-        right: makeBorderCss(bodyOuter),
-        top: makeBorderCss(bodyFirstTop),
-        bottom: makeBorderCss(bodyInnerH),
-      }
-    }
-
-    if (isFirstCol) {
-      return {
-        left: makeBorderCss(bodyOuter),
-        right: makeBorderCss(bodyInnerV),
-        top: makeBorderCss(bodyFirstTop),
-        bottom: makeBorderCss(bodyInnerH),
-      }
-    }
-
-    if (isLastCol) {
-      return {
-        left: makeBorderCss(bodyInnerV),
-        right: makeBorderCss(bodyOuter),
-        top: makeBorderCss(bodyFirstTop),
-        bottom: makeBorderCss(bodyInnerH),
-      }
-    }
-
-    return {
-      left: makeBorderCss(bodyInnerV),
-      right: makeBorderCss(bodyInnerV),
-      top: makeBorderCss(bodyFirstTop),
-      bottom: makeBorderCss(bodyInnerH),
-    }
-  }
-
-  if (isMiddleBodyRow) {
-    if (isSingleCol) {
-      return {
-        left: makeBorderCss(bodyOuter),
-        right: makeBorderCss(bodyOuter),
-        top: "none",
-        bottom: makeBorderCss(bodyInnerH),
-      }
-    }
-
-    if (isFirstCol) {
-      return {
-        left: makeBorderCss(bodyOuter),
-        right: makeBorderCss(bodyInnerV),
-        top: "none",
-        bottom: makeBorderCss(bodyInnerH),
-      }
-    }
-
-    if (isLastCol) {
-      return {
-        left: makeBorderCss(bodyInnerV),
-        right: makeBorderCss(bodyOuter),
-        top: "none",
-        bottom: makeBorderCss(bodyInnerH),
-      }
-    }
-
-    return {
-      left: makeBorderCss(bodyInnerV),
-      right: makeBorderCss(bodyInnerV),
-      top: "none",
-      bottom: makeBorderCss(bodyInnerH),
-    }
-  }
-
-  if (isLastBodyRow) {
-    if (isSingleCol) {
-      return {
-        left: makeBorderCss(bodyOuter),
-        right: makeBorderCss(bodyOuter),
-        top: "none",
-        bottom: makeBorderCss(bodyLastBottom),
-      }
-    }
-
-    if (isFirstCol) {
-      return {
-        left: makeBorderCss(bodyOuter),
-        right: makeBorderCss(bodyInnerV),
-        top: "none",
-        bottom: makeBorderCss(bodyLastBottom),
-      }
-    }
-
-    if (isLastCol) {
-      return {
-        left: makeBorderCss(bodyInnerV),
-        right: makeBorderCss(bodyOuter),
-        top: "none",
-        bottom: makeBorderCss(bodyLastBottom),
-      }
-    }
-
-    return {
-      left: makeBorderCss(bodyInnerV),
-      right: makeBorderCss(bodyInnerV),
-      top: "none",
-      bottom: makeBorderCss(bodyLastBottom),
-    }
-  }
+  const isFirstBodyRow = rowIndex === 1
 
   return {
-    left: makeBorderCss(bodyInnerV),
-    right: makeBorderCss(bodyInnerV),
-    top: makeBorderCss(bodyInnerH),
-    bottom: makeBorderCss(bodyInnerH),
+    left: touchesLeft ? makeBorderCss(bodyOuter) : makeBorderCss(bodyInnerV),
+    right: touchesRight ? makeBorderCss(bodyOuter) : makeBorderCss(bodyInnerV),
+    top: isFirstBodyRow ? makeBorderCss(bodyFirstTop) : "none",
+    bottom: touchesBottom ? makeBorderCss(bodyLastBottom) : makeBorderCss(bodyInnerH),
   }
 }
 
 function calcTableRenderedHeight(table: TableItem) {
+  if (table.cells && table.cells.length > 0) {
+    const maxBottom = table.cells.reduce((max, cell) => {
+      const bottom = (cell.y ?? 0) + (cell.height ?? 0)
+      return Math.max(max, bottom)
+    }, 0)
+
+    if (maxBottom > 0) {
+      return {
+        rowHeights: [],
+        renderedTableHeight: maxBottom * 0.5,
+      }
+    }
+  }
+
   const style = table.extractedStyle
   const rowCount = Math.max(1, table.rowCount ?? table.cellTexts?.length ?? 1)
   const originalHeight = (table.height ?? 120) * 0.5
@@ -464,40 +311,6 @@ function calcParagraphRenderHeight(p: ParagraphItem) {
   const estimated = lineCount * (fontSize * 1.6 + 6)
   return Math.max(34, Math.min(64, estimated))
 }
-
-/**
- * 중앙/우측 정렬 문단은 "박스 전체 폭"으로 고정하지 말고,
- * 실제 텍스트 폭에 가깝게 계산한 뒤 그 폭을 가운데/오른쪽에 배치한다.
- *
- * 이렇게 해야 visible box 시작점이 텍스트 시작점과 더 자연스럽게 맞는다.
- 
-function estimateTextContentWidth(text: string, fontSize: number) {
-  const safeText = text || ""
-  let units = 0
-
-  for (const ch of safeText) {
-    if (ch === " ") {
-      units += 0.35
-    } else if (/[A-Z]/.test(ch)) {
-      units += 0.75
-    } else if (/[a-z0-9]/.test(ch)) {
-      units += 0.62
-    } else if (/[가-힣]/.test(ch)) {
-      units += 1.0
-    } else {
-      units += 0.85
-    }
-  }
-
-  return Math.max(
-    80,
-    Math.min(
-      DEFAULT_PARAGRAPH_WIDTH,
-      Math.round(units * fontSize + PARAGRAPH_BOX_HORIZONTAL_PADDING * 2)
-    )
-  )
-}
-*/
 
 function getParagraphRenderRect(p: ParagraphItem, displayTop: number) {
   const renderHeight = calcParagraphRenderHeight(p)
@@ -609,6 +422,7 @@ export default function ComposePageParagraphLayer({
             const left = t.x ?? 56
             const top = block.displayTop
             const width = t.width ?? 420
+            const { rowHeights, renderedTableHeight } = calcTableRenderedHeight(t)
 
             const rowCount = Math.max(1, t.rowCount ?? t.cellTexts?.length ?? 1)
             const colCount = Math.max(
@@ -616,18 +430,7 @@ export default function ComposePageParagraphLayer({
               t.colCount ?? Math.max(...(t.cellTexts?.map((r) => r.length) ?? [1]))
             )
 
-            const tableRows = t.cellTexts ?? []
-            const { rowHeights, renderedTableHeight } = calcTableRenderedHeight(t)
-
-            const colWidths = Array.from({ length: colCount }).map((_, idx) => {
-              const raw = width / colCount
-              if (idx === colCount - 1) {
-                return width - Math.floor(raw) * (colCount - 1)
-              }
-              return Math.floor(raw)
-            })
-
-            let currentTop = 0
+            const hasStructuredCells = !!(t.cells && t.cells.length > 0)
 
             return (
               <button
@@ -646,80 +449,158 @@ export default function ComposePageParagraphLayer({
                   background: "transparent",
                 }}
               >
-                {Array.from({ length: rowCount }).map((_, rowIdx) => {
-                  const row = tableRows[rowIdx] ?? []
-                  const isHeader = rowIdx === 0
-                  const textStyle = isHeader
-                    ? style?.headerTextStyle
-                    : style?.bodyTextStyle
+                {hasStructuredCells ? (
+                  t.cells!.map((cell, idx) => {
+                    const textStyle = cell.header
+                      ? style?.headerTextStyle
+                      : style?.bodyTextStyle
 
-                  const rowHeight = rowHeights[rowIdx]
-                  const rowTop = currentTop
-                  currentTop += rowHeight
+                    const cellLeft = (cell.x ?? 0)
+                    const cellTop = (cell.y ?? 0) * 0.5
+                    const cellWidth = cell.width ?? 0
+                    const cellHeight = (cell.height ?? 0) * 0.5
 
-                  let currentLeft = 0
+                    const borders = getCellBorderSet(
+                      t,
+                      cell.rowIndex,
+                      cell.colIndex,
+                      rowCount,
+                      colCount,
+                      cell.rowSpan,
+                      cell.colSpan
+                    )
 
-                  return (
-                    <div
-                      key={`${t.tableId}-row-${rowIdx}`}
-                      className="absolute left-0 right-0"
-                      style={{
-                        top: rowTop,
-                        height: rowHeight,
-                      }}
-                    >
-                      {Array.from({ length: colCount }).map((_, colIdx) => {
-                        const cellText = row[colIdx] ?? ""
-                        const cellWidth = colWidths[colIdx]
-                        const cellLeft = currentLeft
-                        currentLeft += cellWidth
+                    return (
+                      <div
+                        key={`${t.tableId}-merged-cell-${idx}`}
+                        style={{
+                          position: "absolute",
+                          left: cellLeft,
+                          top: cellTop,
+                          width: cellWidth,
+                          height: cellHeight,
+                          background: cell.header
+                            ? toPreviewColor(style?.headerBackgroundColor, "rgba(148,163,184,0.10)")
+                            : toPreviewColor(style?.bodyBackgroundColor, "#ffffff"),
 
-                        const borders = getCellBorderSet(t, rowIdx, colIdx, rowCount, colCount)
+                          borderLeft: borders.left,
+                          borderRight: borders.right,
+                          borderTop: borders.top,
+                          borderBottom: borders.bottom,
 
-                        return (
-                          <div
-                            key={`${t.tableId}-cell-${rowIdx}-${colIdx}`}
-                            style={{
-                              position: "absolute",
-                              left: cellLeft,
-                              top: 0,
-                              width: cellWidth,
-                              height: rowHeight,
-                              background: isHeader
-                                ? toPreviewColor(style?.headerBackgroundColor, "rgba(148,163,184,0.10)")
-                                : toPreviewColor(style?.bodyBackgroundColor, "#ffffff"),
+                          display: "flex",
+                          alignItems: "center",
+                          justifyContent: toJustifyContent(textStyle?.align),
+                          padding: "0 8px",
 
-                              borderLeft: borders.left,
-                              borderRight: borders.right,
-                              borderTop: borders.top,
-                              borderBottom: borders.bottom,
+                          fontFamily: textStyle?.fontFamily ?? t.fontFamily ?? "Pretendard",
+                          fontSize: `${textStyle?.fontSize ?? t.fontSize ?? 11}px`,
+                          fontWeight: textStyle?.bold ? 700 : cell.header ? 700 : 400,
+                          fontStyle: textStyle?.italic ? "italic" : "normal",
+                          textDecoration: textStyle?.underline ? "underline" : "none",
+                          color: toPreviewColor(textStyle?.fontColor ?? t.fontColor, "#334155"),
+                          whiteSpace: "nowrap",
+                          overflow: "hidden",
+                          textOverflow: "ellipsis",
+                          textAlign: toTextAlign(textStyle?.align),
+                          boxSizing: "border-box",
+                          pointerEvents: "none",
+                        }}
+                      >
+                        {cell.text}
+                      </div>
+                    )
+                  })
+                ) : (
+                  (() => {
+                    const tableRows = t.cellTexts ?? []
 
-                              display: "flex",
-                              alignItems: "center",
-                              justifyContent: toJustifyContent(textStyle?.align),
-                              padding: "0 8px",
+                    const colWidths = Array.from({ length: colCount }).map((_, idx) => {
+                      const raw = width / colCount
+                      if (idx === colCount - 1) {
+                        return width - Math.floor(raw) * (colCount - 1)
+                      }
+                      return Math.floor(raw)
+                    })
 
-                              fontFamily: textStyle?.fontFamily ?? t.fontFamily ?? "Pretendard",
-                              fontSize: `${textStyle?.fontSize ?? t.fontSize ?? 11}px`,
-                              fontWeight: textStyle?.bold ? 700 : isHeader ? 700 : 400,
-                              fontStyle: textStyle?.italic ? "italic" : "normal",
-                              textDecoration: textStyle?.underline ? "underline" : "none",
-                              color: toPreviewColor(textStyle?.fontColor ?? t.fontColor, "#334155"),
-                              whiteSpace: "nowrap",
-                              overflow: "hidden",
-                              textOverflow: "ellipsis",
-                              textAlign: toTextAlign(textStyle?.align),
-                              boxSizing: "border-box",
-                              pointerEvents: "none",
-                            }}
-                          >
-                            {cellText}
-                          </div>
-                        )
-                      })}
-                    </div>
-                  )
-                })}
+                    let currentTop = 0
+
+                    return Array.from({ length: rowCount }).map((_, rowIdx) => {
+                      const row = tableRows[rowIdx] ?? []
+                      const isHeader = rowIdx === 0
+                      const textStyle = isHeader
+                        ? style?.headerTextStyle
+                        : style?.bodyTextStyle
+
+                      const rowHeight = rowHeights[rowIdx]
+                      const rowTop = currentTop
+                      currentTop += rowHeight
+
+                      let currentLeft = 0
+
+                      return (
+                        <div
+                          key={`${t.tableId}-row-${rowIdx}`}
+                          className="absolute left-0 right-0"
+                          style={{
+                            top: rowTop,
+                            height: rowHeight,
+                          }}
+                        >
+                          {Array.from({ length: colCount }).map((_, colIdx) => {
+                            const cellText = row[colIdx] ?? ""
+                            const cellWidth = colWidths[colIdx]
+                            const cellLeft = currentLeft
+                            currentLeft += cellWidth
+
+                            const borders = getCellBorderSet(t, rowIdx, colIdx, rowCount, colCount)
+
+                            return (
+                              <div
+                                key={`${t.tableId}-cell-${rowIdx}-${colIdx}`}
+                                style={{
+                                  position: "absolute",
+                                  left: cellLeft,
+                                  top: 0,
+                                  width: cellWidth,
+                                  height: rowHeight,
+                                  background: isHeader
+                                    ? toPreviewColor(style?.headerBackgroundColor, "rgba(148,163,184,0.10)")
+                                    : toPreviewColor(style?.bodyBackgroundColor, "#ffffff"),
+
+                                  borderLeft: borders.left,
+                                  borderRight: borders.right,
+                                  borderTop: borders.top,
+                                  borderBottom: borders.bottom,
+
+                                  display: "flex",
+                                  alignItems: "center",
+                                  justifyContent: toJustifyContent(textStyle?.align),
+                                  padding: "0 8px",
+
+                                  fontFamily: textStyle?.fontFamily ?? t.fontFamily ?? "Pretendard",
+                                  fontSize: `${textStyle?.fontSize ?? t.fontSize ?? 11}px`,
+                                  fontWeight: textStyle?.bold ? 700 : isHeader ? 700 : 400,
+                                  fontStyle: textStyle?.italic ? "italic" : "normal",
+                                  textDecoration: textStyle?.underline ? "underline" : "none",
+                                  color: toPreviewColor(textStyle?.fontColor ?? t.fontColor, "#334155"),
+                                  whiteSpace: "nowrap",
+                                  overflow: "hidden",
+                                  textOverflow: "ellipsis",
+                                  textAlign: toTextAlign(textStyle?.align),
+                                  boxSizing: "border-box",
+                                  pointerEvents: "none",
+                                }}
+                              >
+                                {cellText}
+                              </div>
+                            )
+                          })}
+                        </div>
+                      )
+                    })
+                  })()
+                )}
 
                 <div className="absolute left-0 top-0 rounded-br-md bg-white/90 px-2 py-0.5 text-[10px] font-semibold text-slate-700 shadow-sm pointer-events-none">
                   {t.tableId}

@@ -13,6 +13,10 @@ public class TableNodeDto {
 
     private List<List<String>> cellTexts;
 
+    // 추가:
+    // 병합/분할 표 대응용 셀 구조
+    private List<TableCellDto> cells;
+
     // 기존 대표 스타일 필드
     private String borderColor;
     private Integer borderWidth;
@@ -71,6 +75,14 @@ public class TableNodeDto {
 
     public void setCellTexts(List<List<String>> cellTexts) {
         this.cellTexts = cellTexts;
+    }
+
+    public List<TableCellDto> getCells() {
+        return cells;
+    }
+
+    public void setCells(List<TableCellDto> cells) {
+        this.cells = cells;
     }
 
     public String getBorderColor() {
@@ -169,7 +181,6 @@ public class TableNodeDto {
         this.height = height;
     }
 
-    // 추가:
     // extractedStyle getter / setter
     public ExtractedTableStyle getExtractedStyle() {
         return extractedStyle;

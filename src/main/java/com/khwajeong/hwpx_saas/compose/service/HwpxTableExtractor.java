@@ -1,6 +1,7 @@
 package com.khwajeong.hwpx_saas.compose.service;
 
 import com.khwajeong.hwpx_saas.compose.dto.StyleProfileDto;
+import com.khwajeong.hwpx_saas.compose.dto.TableCellDto;
 import com.khwajeong.hwpx_saas.compose.dto.TableNodeDto;
 import com.khwajeong.hwpx_saas.compose.model.ExtractedTableStyle;
 import org.springframework.stereotype.Service;
@@ -12,7 +13,9 @@ import java.io.ByteArrayInputStream;
 import java.io.File;
 import java.io.InputStream;
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.zip.ZipEntry;
 import java.util.zip.ZipFile;
 
@@ -62,25 +65,54 @@ public class HwpxTableExtractor {
                     TableNodeDto dto = new TableNodeDto();
                     dto.setTableId("t" + tableIndex);
 
-                    List<Element> rowElements = getElements(tblEl, "hp:tr");
-                    List<List<String>> cellTexts = new ArrayList<>();
+                    List<Element> rowElements = getDirectChildElements(tblEl, "hp:tr", "tr");
+                    List<TableCellDto> cells = new ArrayList<>();
 
+                    // 병합 셀 점유 상태 관리
+                    Map<Integer, Map<Integer, Boolean>> occupied = new HashMap<>();
+
+                    int rowIndex = 0;
                     int maxColCount = 0;
+
                     for (Element rowEl : rowElements) {
-                        List<Element> cellElements = getElements(rowEl, "hp:tc");
-                        List<String> rowTexts = new ArrayList<>();
+                        List<Element> cellElements = getDirectChildElements(rowEl, "hp:tc", "tc");
+                        int currentCol = 0;
 
                         for (Element cellEl : cellElements) {
-                            rowTexts.add(extractCellText(cellEl));
+                            currentCol = findNextAvailableCol(occupied, rowIndex, currentCol);
+
+                            int rowSpan = readSpan(cellEl, "rowSpan", "rowspan");
+                            int colSpan = readSpan(cellEl, "colSpan", "colspan");
+
+                            String cellText = extractCellText(cellEl);
+
+                            TableCellDto cell = new TableCellDto();
+                            cell.setRowIndex(rowIndex);
+                            cell.setColIndex(currentCol);
+                            cell.setRowSpan(rowSpan);
+                            cell.setColSpan(colSpan);
+                            cell.setText(cellText);
+                            cell.setHeader(rowIndex == 0);
+
+                            cells.add(cell);
+
+                            markOccupied(occupied, rowIndex, currentCol, rowSpan, colSpan);
+                            currentCol += colSpan;
+                            maxColCount = Math.max(maxColCount, currentCol);
                         }
 
-                        maxColCount = Math.max(maxColCount, rowTexts.size());
-                        cellTexts.add(rowTexts);
+                        rowIndex++;
                     }
 
-                    dto.setRowCount(cellTexts.size());
-                    dto.setColCount(maxColCount);
-                    dto.setCellTexts(cellTexts);
+                    int rowCount = Math.max(1, rowElements.size());
+                    int colCount = Math.max(1, maxColCount);
+
+                    dto.setRowCount(rowCount);
+                    dto.setColCount(colCount);
+                    dto.setCells(cells);
+
+                    // 기존 cellTexts도 fallback 용도로 유지
+                    dto.setCellTexts(buildCellTextsGrid(cells, rowCount, colCount));
 
                     ExtractedTableStyle extractedStyle = extractTableStyle(hwpxFile, headerDoc, tblEl);
                     dto.setExtractedStyle(extractedStyle);
@@ -94,12 +126,9 @@ public class HwpxTableExtractor {
                         dto.setBackgroundColor(extractedStyle.getHeaderBackgroundColor());
                     }
 
-                    int rowCount = dto.getRowCount() != null ? dto.getRowCount() : 1;
-                    int colCount = dto.getColCount() != null ? dto.getColCount() : 1;
-
                     int baseX = 56;
                     int baseY = virtualTopCursor;
-                    int tableWidth = Math.max(320, Math.min(520, colCount * 110));
+                    int tableWidth = Math.max(320, Math.min(520, colCount * 85));
                     int tableHeight = Math.max(80, rowCount * 44 + 16);
 
                     int pageHeightLimit = 680;
@@ -111,6 +140,9 @@ public class HwpxTableExtractor {
                     dto.setY((double) normalizedTop);
                     dto.setWidth((double) tableWidth);
                     dto.setHeight((double) tableHeight);
+
+                    // 셀 상대좌표 계산
+                    populateCellRelativeGeometry(dto);
 
                     virtualTopCursor += tableHeight + 24;
 
@@ -124,6 +156,99 @@ public class HwpxTableExtractor {
         }
 
         return result;
+    }
+
+    private void populateCellRelativeGeometry(TableNodeDto dto) {
+        if (dto.getCells() == null || dto.getCells().isEmpty()) {
+            return;
+        }
+
+        int colCount = dto.getColCount() != null ? dto.getColCount() : 1;
+        int rowCount = dto.getRowCount() != null ? dto.getRowCount() : 1;
+        double tableWidth = dto.getWidth() != null ? dto.getWidth() : 420.0;
+        double tableHeight = dto.getHeight() != null ? dto.getHeight() : 120.0;
+
+        double colUnit = tableWidth / Math.max(1, colCount);
+        double rowUnit = tableHeight / Math.max(1, rowCount);
+
+        for (TableCellDto cell : dto.getCells()) {
+            double x = cell.getColIndex() * colUnit;
+            double y = cell.getRowIndex() * rowUnit;
+            double width = Math.max(colUnit, colUnit * Math.max(1, cell.getColSpan()));
+            double height = Math.max(rowUnit, rowUnit * Math.max(1, cell.getRowSpan()));
+
+            cell.setX(x);
+            cell.setY(y);
+            cell.setWidth(width);
+            cell.setHeight(height);
+        }
+    }
+
+    private List<List<String>> buildCellTextsGrid(List<TableCellDto> cells, int rowCount, int colCount) {
+        List<List<String>> grid = new ArrayList<>();
+
+        for (int r = 0; r < rowCount; r++) {
+            List<String> row = new ArrayList<>();
+            for (int c = 0; c < colCount; c++) {
+                row.add("");
+            }
+            grid.add(row);
+        }
+
+        for (TableCellDto cell : cells) {
+            int r = cell.getRowIndex();
+            int c = cell.getColIndex();
+
+            if (r >= 0 && r < rowCount && c >= 0 && c < colCount) {
+                grid.get(r).set(c, cell.getText() == null ? "" : cell.getText());
+            }
+        }
+
+        return grid;
+    }
+
+    private int readSpan(Element el, String... attrNames) {
+        String value = readAnyAttr(el, attrNames);
+        if (value == null || value.isBlank()) {
+            return 1;
+        }
+
+        try {
+            return Math.max(1, Integer.parseInt(value.trim()));
+        } catch (Exception e) {
+            return 1;
+        }
+    }
+
+    private int findNextAvailableCol(
+            Map<Integer, Map<Integer, Boolean>> occupied,
+            int rowIndex,
+            int startCol
+    ) {
+        int col = startCol;
+
+        while (occupied
+                .getOrDefault(rowIndex, Map.of())
+                .getOrDefault(col, false)) {
+            col++;
+        }
+
+        return col;
+    }
+
+    private void markOccupied(
+            Map<Integer, Map<Integer, Boolean>> occupied,
+            int rowIndex,
+            int colIndex,
+            int rowSpan,
+            int colSpan
+    ) {
+        for (int r = rowIndex; r < rowIndex + rowSpan; r++) {
+            Map<Integer, Boolean> rowMap = occupied.computeIfAbsent(r, k -> new HashMap<>());
+            for (int c = colIndex; c < colIndex + colSpan; c++) {
+                rowMap.put(c, true);
+            }
+        }
     }
 
     private Document loadHeaderDoc(ZipFile zipFile) {
@@ -154,7 +279,7 @@ public class HwpxTableExtractor {
     private ExtractedTableStyle extractTableStyle(File hwpxFile, Document headerDoc, Element tblEl) {
         ExtractedTableStyle style = new ExtractedTableStyle();
 
-        List<Element> rows = getElements(tblEl, "hp:tr");
+        List<Element> rows = getDirectChildElements(tblEl, "hp:tr", "tr");
 
         Element headerCell = findFirstCellOfRow(rows, 0);
         Element firstBodyCell = findFirstCellOfRow(rows, 1);
@@ -176,7 +301,6 @@ public class HwpxTableExtractor {
         style.setHeaderBackgroundColor(parseBackgroundColorFromHeader(headerDoc, headerBorderFillId, "#FFFFFFFF"));
         style.setBodyBackgroundColor(parseBackgroundColorFromHeader(headerDoc, firstBodyBorderFillId, "#FFFFFFFF"));
 
-        // 헤더
         style.setHeaderOuterBorder(parseBorderStyleFromHeader(
                 headerDoc, headerBorderFillId, "hh:leftBorder", "#000000", "0.12 mm", "SOLID"
         ));
@@ -184,28 +308,22 @@ public class HwpxTableExtractor {
                 headerDoc, headerBorderFillId, "hh:topBorder", "#000000", "0.12 mm", "SOLID"
         ));
 
-        // 핵심 수정:
-        // 표 바디 외부 세로선 = 첫 번째 바디 셀의 leftBorder
         style.setBodyOuterBorder(parseBorderStyleFromHeader(
                 headerDoc, firstBodyBorderFillId, "hh:leftBorder", "#000000", "0.12 mm", "SOLID"
         ));
 
-        // 표 바디 내부 세로선 = 첫 번째 바디 셀의 rightBorder
         style.setBodyInnerVerticalBorder(parseBorderStyleFromHeader(
                 headerDoc, firstBodyBorderFillId, "hh:rightBorder", "#000000", "0.12 mm", "SOLID"
         ));
 
-        // 표 바디 내부 가로선 = 첫 번째 바디 셀의 bottomBorder
         style.setBodyInnerHorizontalBorder(parseBorderStyleFromHeader(
                 headerDoc, firstBodyBorderFillId, "hh:bottomBorder", "#000000", "0.12 mm", "SOLID"
         ));
 
-        // 첫 번째 바디 row의 top
         style.setBodyFirstRowTopBorder(parseBorderStyleFromHeader(
                 headerDoc, firstBodyBorderFillId, "hh:topBorder", "#000000", "0.12 mm", "SOLID"
         ));
 
-        // 마지막 바디 row의 bottom
         style.setBodyLastRowBottomBorder(parseBorderStyleFromHeader(
                 headerDoc, lastBodyBorderFillId, "hh:bottomBorder", "#000000", "0.12 mm", "SOLID"
         ));
@@ -348,7 +466,7 @@ public class HwpxTableExtractor {
         }
 
         Element rowEl = rows.get(rowIndex);
-        List<Element> cellElements = getElements(rowEl, "hp:tc");
+        List<Element> cellElements = getDirectChildElements(rowEl, "hp:tc", "tc");
         if (cellElements.isEmpty()) {
             return null;
         }
@@ -373,7 +491,7 @@ public class HwpxTableExtractor {
             return null;
         }
         Element rowEl = rows.get(rows.size() - 1);
-        List<Element> cellElements = getElements(rowEl, "hp:tc");
+        List<Element> cellElements = getDirectChildElements(rowEl, "hp:tc", "tc");
         if (cellElements.isEmpty()) {
             return null;
         }
@@ -409,6 +527,30 @@ public class HwpxTableExtractor {
         return result;
     }
 
+    private List<Element> getDirectChildElements(Element root, String tagName, String localFallback) {
+        List<Element> result = new ArrayList<>();
+        if (root == null) {
+            return result;
+        }
+
+        NodeList list = root.getChildNodes();
+        for (int i = 0; i < list.getLength(); i++) {
+            Node node = list.item(i);
+            if (!(node instanceof Element el)) {
+                continue;
+            }
+
+            String nodeName = el.getNodeName();
+            String localName = el.getLocalName();
+
+            if (tagName.equalsIgnoreCase(nodeName) || localFallback.equalsIgnoreCase(localName)) {
+                result.add(el);
+            }
+        }
+
+        return result;
+    }
+
     private String extractCellText(Element cellEl) {
         NodeList textNodes = cellEl.getElementsByTagName("hp:t");
         StringBuilder sb = new StringBuilder();
@@ -417,10 +559,13 @@ public class HwpxTableExtractor {
             Node node = textNodes.item(i);
             String text = node.getTextContent();
             if (text != null) {
-                if (!sb.isEmpty()) {
-                    sb.append(" ");
+                String trimmed = text.trim();
+                if (!trimmed.isEmpty()) {
+                    if (!sb.isEmpty()) {
+                        sb.append(" ");
+                    }
+                    sb.append(trimmed);
                 }
-                sb.append(text.trim());
             }
         }
 
