@@ -102,10 +102,6 @@ type RenderTableBlock = {
 
 type RenderBlock = RenderParagraphBlock | RenderTableBlock
 
-/**
- * preview 색상 반전 보정
- * HWPX 색상이 BGR 계열로 저장된 경우가 있어서 CSS 표시용으로 RGB 순서를 뒤집는다.
- */
 function toPreviewColor(color?: string | null, fallback = "#111111") {
   if (!color || !color.trim()) return fallback
 
@@ -416,7 +412,7 @@ function getCellBorderSet(
 function calcTableRenderedHeight(table: TableItem) {
   const style = table.extractedStyle
   const rowCount = Math.max(1, table.rowCount ?? table.cellTexts?.length ?? 1)
-  const originalHeight = table.height ?? 120
+  const originalHeight = (table.height ?? 120) * 0.5
 
   const headerFontSize = style?.headerTextStyle?.fontSize ?? table.fontSize ?? 11
   const bodyFontSize = style?.bodyTextStyle?.fontSize ?? table.fontSize ?? 11
@@ -493,19 +489,6 @@ export default function ComposePageParagraphLayer({
 
       const prevOriginalBottom = prev.y + prev.renderHeight
       const originalGap = Math.max(0, curr.y - prevOriginalBottom)
-
-      /**
-       * 요구사항:
-       * 하늘색 네모 영역처럼 보이는 "표와 텍스트 사이의 여백" 자체를 줄인다.
-       *
-       * 즉 block 높이를 줄이는 게 아니라,
-       * 이전 block bottom 과 다음 block top 사이의 gap만 강제로 압축한다.
-       *
-       * 현재 gap의 20%만 남기도록 보정:
-       *   newGap = oldGap * 0.2
-       *
-       * 필요하면 0.2 -> 0.1 로 더 줄일 수 있다.
-       */
       const compactedGap = originalGap * 0.2
 
       const prevDisplayBottom = prev.displayTop + prev.renderHeight
@@ -514,6 +497,58 @@ export default function ComposePageParagraphLayer({
 
     return rawBlocks
   }, [paragraphs, tables])
+
+  /**
+   * 문단/표가 실제 preview에서 렌더링되는 위치를 맵으로 보관
+   * overlay box는 부모에서 저장한 기존 좌표가 아니라
+   * "현재 화면에 그려진 실제 좌표"를 따라가도록 보정한다.
+   *
+   * 이걸 안 하면:
+   * - 본문/표는 displayTop 기준으로 그려지고
+   * - box는 예전 y 기준으로 그려져서
+   *   클릭 시 상자 위치가 어긋난다.
+   */
+  const paragraphBoxMap = useMemo(() => {
+    const map = new Map<
+      string,
+      { left: number; top: number; width: number; height: number }
+    >()
+
+    for (const block of renderBlocks) {
+      if (block.kind !== "paragraph") continue
+      const p = block.paragraph
+
+      map.set(p.paragraphId, {
+        left: p.x ?? 40,
+        top: block.displayTop,
+        width: p.width ?? 420,
+        height: p.height ?? 34,
+      })
+    }
+
+    return map
+  }, [renderBlocks])
+
+  const tableBoxMap = useMemo(() => {
+    const map = new Map<
+      string,
+      { left: number; top: number; width: number; height: number }
+    >()
+
+    for (const block of renderBlocks) {
+      if (block.kind !== "table") continue
+      const t = block.table
+
+      map.set(t.tableId, {
+        left: t.x ?? 56,
+        top: block.displayTop,
+        width: t.width ?? 420,
+        height: block.renderHeight,
+      })
+    }
+
+    return map
+  }, [renderBlocks])
 
   return (
     <div className="relative h-[720px] w-full overflow-hidden rounded-[24px] border border-[#dbe7ff] bg-[#eef4ff] p-6">
@@ -534,7 +569,6 @@ export default function ComposePageParagraphLayer({
             )
 
             const tableRows = t.cellTexts ?? []
-
             const { rowHeights, renderedTableHeight } = calcTableRenderedHeight(t)
 
             const colWidths = Array.from({ length: colCount }).map((_, idx) => {
@@ -684,6 +718,37 @@ export default function ComposePageParagraphLayer({
         {boxes.map((box) => {
           const selected = selectedBoxId === box.id
 
+          let resolvedLeft = box.x
+          let resolvedTop = box.y
+          let resolvedWidth = box.width
+          let resolvedHeight = box.height
+
+          // 문단 box는 paragraphId로 실제 렌더 좌표에 맞춤
+          if (box.paragraphId) {
+            const rect = paragraphBoxMap.get(box.paragraphId)
+            if (rect) {
+              resolvedLeft = rect.left
+              resolvedTop = rect.top
+              resolvedWidth = rect.width
+              resolvedHeight = rect.height
+            }
+          } else {
+            // table box는 보통 id가 `${tableId}-box` 형태라서 그 규칙으로 매칭
+            const matchedTableId = Array.from(tableBoxMap.keys()).find(
+              (tableId) => box.id === `${tableId}-box`
+            )
+
+            if (matchedTableId) {
+              const rect = tableBoxMap.get(matchedTableId)
+              if (rect) {
+                resolvedLeft = rect.left
+                resolvedTop = rect.top
+                resolvedWidth = rect.width
+                resolvedHeight = rect.height
+              }
+            }
+          }
+
           return (
             <button
               key={box.id}
@@ -698,10 +763,10 @@ export default function ComposePageParagraphLayer({
                   : "border-red-500 bg-red-500/10 hover:bg-red-500/15"
               }`}
               style={{
-                left: box.x,
-                top: box.y,
-                width: box.width,
-                height: box.height,
+                left: resolvedLeft,
+                top: resolvedTop,
+                width: resolvedWidth,
+                height: resolvedHeight,
                 zIndex: 30,
               }}
             >
