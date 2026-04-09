@@ -46,7 +46,6 @@ type ExtractedTableStyle = {
   bodyOuterBorder?: BorderStyle | null
   bodyInnerBorder?: BorderStyle | null
 
-  // 백엔드 실제 모델 확장 대응
   bodyInnerVerticalBorder?: BorderStyle | null
   bodyInnerHorizontalBorder?: BorderStyle | null
   bodyFirstRowTopBorder?: BorderStyle | null
@@ -84,9 +83,42 @@ type ComposePageParagraphLayerProps = {
   onSelectBox: (boxId: string) => void
 }
 
-function toCssColor(color?: string | null, fallback = "#111111") {
+/**
+ * HWPX 색상은 내부적으로 BGR 계열로 들어오는 경우가 있어서
+ * preview(CSS)에서는 RGB로 다시 뒤집어 보여준다.
+ *
+ * 예:
+ *   #00D7FF -> #FFD700
+ *   #5B81D5 -> #D5815B
+ */
+function toPreviewColor(color?: string | null, fallback = "#111111") {
   if (!color || !color.trim()) return fallback
-  return color
+
+  let v = color.trim().replace("##", "#")
+  if (!v.startsWith("#")) {
+    v = `#${v}`
+  }
+
+  const hex = v.slice(1)
+
+  // #RRGGBB 로 보이지만 실제는 #BBGGRR 로 저장된 값을 preview용으로 뒤집음
+  if (hex.length === 6) {
+    const bb = hex.slice(0, 2)
+    const gg = hex.slice(2, 4)
+    const rr = hex.slice(4, 6)
+    return `#${rr}${gg}${bb}`
+  }
+
+  // #AABBGGRR -> #AARRGGBB
+  if (hex.length === 8) {
+    const aa = hex.slice(0, 2)
+    const bb = hex.slice(2, 4)
+    const gg = hex.slice(4, 6)
+    const rr = hex.slice(6, 8)
+    return `#${aa}${rr}${gg}${bb}`
+  }
+
+  return v
 }
 
 function toTextAlign(align?: string | null): "left" | "center" | "right" {
@@ -116,7 +148,6 @@ function normalizeBorderWidth(width?: number | string | null, fallback = 1) {
 
     const n = Number.parseFloat(raw.replace(/[^\d.]/g, ""))
     if (Number.isFinite(n)) {
-      // mm 문자열이 와도 preview에서는 대략 px로 보정
       return Math.max(0.5, Math.min(4, n * 2))
     }
   }
@@ -130,8 +161,12 @@ function borderEnabled(lineStyle?: string | null) {
   return v !== "NONE"
 }
 
-function makeBorderCss(border?: BorderStyle | null, fallbackColor = "#94a3b8", fallbackWidth = 1) {
-  const color = toCssColor(border?.color, fallbackColor)
+function makeBorderCss(
+  border?: BorderStyle | null,
+  fallbackColor = "#94a3b8",
+  fallbackWidth = 1
+) {
+  const color = toPreviewColor(border?.color, fallbackColor)
   const width = borderEnabled(border?.lineStyle)
     ? normalizeBorderWidth(border?.width, fallbackWidth)
     : 0
@@ -398,7 +433,7 @@ export default function ComposePageParagraphLayer({
             const left = t.x ?? 56
             const top = t.y ?? 80
             const width = t.width ?? 420
-            const height = t.height ?? 120
+            const originalHeight = t.height ?? 120
 
             const rowCount = Math.max(1, t.rowCount ?? t.cellTexts?.length ?? 1)
             const colCount = Math.max(
@@ -411,6 +446,13 @@ export default function ComposePageParagraphLayer({
             const headerFontSize = style?.headerTextStyle?.fontSize ?? t.fontSize ?? 11
             const bodyFontSize = style?.bodyTextStyle?.fontSize ?? t.fontSize ?? 11
 
+            /**
+             * 요구사항:
+             * preview에서는 표의 각 셀 세로 길이를 기존 계산값의 1/2로 강제 보정합니다.
+             * 그래서 row 높이 산출에 사용할 전체 높이도 1/2로 먼저 줄여서 계산합니다.
+             */
+            const compactedTableHeight = originalHeight * 0.5
+
             const headerMinHeight = Math.max(30, Math.round((headerFontSize + 10) * 1.5))
             const bodyMinHeight = Math.max(28, Math.round((bodyFontSize + 10) * 1.45))
 
@@ -420,21 +462,23 @@ export default function ComposePageParagraphLayer({
 
             const totalMinHeight = tentativeHeights.reduce((sum, v) => sum + v, 0)
             const effectiveHeights =
-              totalMinHeight <= height
+              totalMinHeight <= compactedTableHeight
                 ? (() => {
-                    const remain = height - totalMinHeight
+                    const remain = compactedTableHeight - totalMinHeight
                     const addPerRow = Math.floor(remain / rowCount)
                     const extra = remain % rowCount
                     return tentativeHeights.map((h, idx) => h + addPerRow + (idx < extra ? 1 : 0))
                   })()
                 : (() => {
-                    const raw = height / rowCount
+                    const raw = compactedTableHeight / rowCount
                     return Array.from({ length: rowCount }).map((_, idx) =>
                       idx === rowCount - 1
-                        ? height - Math.floor(raw) * (rowCount - 1)
+                        ? compactedTableHeight - Math.floor(raw) * (rowCount - 1)
                         : Math.floor(raw)
                     )
                   })()
+
+            const renderedTableHeight = effectiveHeights.reduce((sum, v) => sum + v, 0)
 
             const colWidths = Array.from({ length: colCount }).map((_, idx) => {
               const raw = width / colCount
@@ -454,7 +498,7 @@ export default function ComposePageParagraphLayer({
                   left,
                   top,
                   width,
-                  height,
+                  height: renderedTableHeight,
                   zIndex: 10,
                 }}
               >
@@ -498,8 +542,8 @@ export default function ComposePageParagraphLayer({
                               width: cellWidth,
                               height: rowHeight,
                               background: isHeader
-                                ? style?.headerBackgroundColor || "rgba(148,163,184,0.10)"
-                                : style?.bodyBackgroundColor || "#ffffff",
+                                ? toPreviewColor(style?.headerBackgroundColor, "rgba(148,163,184,0.10)")
+                                : toPreviewColor(style?.bodyBackgroundColor, "#ffffff"),
 
                               borderLeft: borders.left,
                               borderRight: borders.right,
@@ -516,7 +560,7 @@ export default function ComposePageParagraphLayer({
                               fontWeight: textStyle?.bold ? 700 : isHeader ? 700 : 400,
                               fontStyle: textStyle?.italic ? "italic" : "normal",
                               textDecoration: textStyle?.underline ? "underline" : "none",
-                              color: toCssColor(textStyle?.fontColor ?? t.fontColor, "#334155"),
+                              color: toPreviewColor(textStyle?.fontColor ?? t.fontColor, "#334155"),
                               whiteSpace: "nowrap",
                               overflow: "hidden",
                               textOverflow: "ellipsis",
@@ -561,7 +605,7 @@ export default function ComposePageParagraphLayer({
                 fontWeight: p.bold ? 700 : 400,
                 fontStyle: p.italic ? "italic" : "normal",
                 textDecoration: p.underline ? "underline" : "none",
-                color: p.color ?? "#111111",
+                color: toPreviewColor(p.color, "#111111"),
                 textAlign:
                   p.align === "center"
                     ? "center"
