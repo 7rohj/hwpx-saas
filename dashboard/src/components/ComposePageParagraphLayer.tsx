@@ -108,6 +108,7 @@ const PAGE_INNER_WIDTH = 560
 const DEFAULT_LEFT_MARGIN = 40
 const DEFAULT_PARAGRAPH_WIDTH = 420
 const DEFAULT_PARAGRAPH_HEIGHT = 34
+// const PARAGRAPH_BOX_HORIZONTAL_PADDING = 18
 
 function toPreviewColor(color?: string | null, fallback = "#111111") {
   if (!color || !color.trim()) return fallback
@@ -464,33 +465,47 @@ function calcParagraphRenderHeight(p: ParagraphItem) {
   return Math.max(34, Math.min(64, estimated))
 }
 
+/**
+ * 중앙/우측 정렬 문단은 "박스 전체 폭"으로 고정하지 말고,
+ * 실제 텍스트 폭에 가깝게 계산한 뒤 그 폭을 가운데/오른쪽에 배치한다.
+ *
+ * 이렇게 해야 visible box 시작점이 텍스트 시작점과 더 자연스럽게 맞는다.
+ 
+function estimateTextContentWidth(text: string, fontSize: number) {
+  const safeText = text || ""
+  let units = 0
+
+  for (const ch of safeText) {
+    if (ch === " ") {
+      units += 0.35
+    } else if (/[A-Z]/.test(ch)) {
+      units += 0.75
+    } else if (/[a-z0-9]/.test(ch)) {
+      units += 0.62
+    } else if (/[가-힣]/.test(ch)) {
+      units += 1.0
+    } else {
+      units += 0.85
+    }
+  }
+
+  return Math.max(
+    80,
+    Math.min(
+      DEFAULT_PARAGRAPH_WIDTH,
+      Math.round(units * fontSize + PARAGRAPH_BOX_HORIZONTAL_PADDING * 2)
+    )
+  )
+}
+*/
+
 function getParagraphRenderRect(p: ParagraphItem, displayTop: number) {
-  const align = (p.align ?? "").trim().toLowerCase()
   const renderHeight = calcParagraphRenderHeight(p)
-  const renderWidth = p.width ?? DEFAULT_PARAGRAPH_WIDTH
-
-  if (align === "center") {
-    return {
-      left: Math.round((PAGE_INNER_WIDTH - renderWidth) / 2),
-      top: displayTop,
-      width: renderWidth,
-      height: renderHeight,
-    }
-  }
-
-  if (align === "right") {
-    return {
-      left: PAGE_INNER_WIDTH - DEFAULT_LEFT_MARGIN - renderWidth,
-      top: displayTop,
-      width: renderWidth,
-      height: renderHeight,
-    }
-  }
 
   return {
     left: p.x ?? DEFAULT_LEFT_MARGIN,
     top: displayTop,
-    width: renderWidth,
+    width: p.width ?? DEFAULT_PARAGRAPH_WIDTH,
     height: renderHeight,
   }
 }
