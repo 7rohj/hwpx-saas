@@ -7,6 +7,9 @@ public class TableCellDto {
     private int rowSpan;
     private int colSpan;
 
+    /**
+     * 줄바꿈 포함 셀 텍스트
+     */
     private String text;
 
     /**
@@ -21,11 +24,20 @@ public class TableCellDto {
     private Boolean header;
 
     /**
-     * 셀별 배경색 구분용
-     * - 색상 있는 셀 / 없는 셀 구분
-     * - preview 에서 header/body 공통색보다 우선 사용
+     * 셀별 배경색
      */
     private String backgroundColor;
+
+    /**
+     * 셀별 텍스트 스타일
+     */
+    private String fontFamily;
+    private Integer fontSize;
+    private Boolean bold;
+    private Boolean italic;
+    private Boolean underline;
+    private String fontColor;
+    private String align;
 
     public int getRowIndex() {
         return rowIndex;
@@ -113,5 +125,61 @@ public class TableCellDto {
 
     public void setBackgroundColor(String backgroundColor) {
         this.backgroundColor = backgroundColor;
+    }
+
+    public String getFontFamily() {
+        return fontFamily;
+    }
+
+    public void setFontFamily(String fontFamily) {
+        this.fontFamily = fontFamily;
+    }
+
+    public Integer getFontSize() {
+        return fontSize;
+    }
+
+    public void setFontSize(Integer fontSize) {
+        this.fontSize = fontSize;
+    }
+
+    public Boolean getBold() {
+        return bold;
+    }
+
+    public void setBold(Boolean bold) {
+        this.bold = bold;
+    }
+
+    public Boolean getItalic() {
+        return italic;
+    }
+
+    public void setItalic(Boolean italic) {
+        this.italic = italic;
+    }
+
+    public Boolean getUnderline() {
+        return underline;
+    }
+
+    public void setUnderline(Boolean underline) {
+        this.underline = underline;
+    }
+
+    public String getFontColor() {
+        return fontColor;
+    }
+
+    public void setFontColor(String fontColor) {
+        this.fontColor = fontColor;
+    }
+
+    public String getAlign() {
+        return align;
+    }
+
+    public void setAlign(String align) {
+        this.align = align;
     }
 }

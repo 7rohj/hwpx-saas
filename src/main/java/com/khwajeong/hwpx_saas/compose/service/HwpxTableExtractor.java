@@ -22,6 +22,11 @@ import java.util.zip.ZipFile;
 @Service
 public class HwpxTableExtractor {
 
+    private static final int PREVIEW_MAX_TABLE_WIDTH = 520;
+    private static final int PREVIEW_MIN_TABLE_WIDTH = 320;
+    private static final int DEFAULT_COL_WIDTH = 56;
+    private static final int DEFAULT_ROW_HEIGHT = 44;
+
     private final HwpxStyleExtractor hwpxStyleExtractor;
 
     public HwpxTableExtractor(HwpxStyleExtractor hwpxStyleExtractor) {
@@ -68,12 +73,7 @@ public class HwpxTableExtractor {
                     List<Element> rowElements = getDirectChildElements(tblEl, "hp:tr", "tr");
                     List<TableCellDto> cells = new ArrayList<>();
 
-                    /**
-                     * 병합 셀 점유 상태
-                     * vertical merge / horizontal merge 모두 반영하기 위한 grid 점유표
-                     */
                     Map<Integer, Map<Integer, Boolean>> occupied = new HashMap<>();
-
                     int maxColCount = 0;
 
                     for (int rowIndex = 0; rowIndex < rowElements.size(); rowIndex++) {
@@ -101,6 +101,7 @@ public class HwpxTableExtractor {
                                     "horzSpan", "hSpan", "colMerge");
 
                             String cellText = extractCellText(cellEl);
+                            StyleProfileDto cellStyle = extractCellRepresentativeStyle(hwpxFile, cellEl);
 
                             TableCellDto cell = new TableCellDto();
                             cell.setRowIndex(actualRow);
@@ -116,6 +117,16 @@ public class HwpxTableExtractor {
                             );
                             cell.setBackgroundColor(backgroundColor);
 
+                            if (cellStyle != null) {
+                                cell.setFontFamily(cellStyle.getFontFamily());
+                                cell.setFontSize(cellStyle.getFontSize());
+                                cell.setBold(cellStyle.getBold());
+                                cell.setItalic(cellStyle.getItalic());
+                                cell.setUnderline(cellStyle.getUnderline());
+                                cell.setFontColor(cellStyle.getColor());
+                                cell.setAlign(cellStyle.getAlign());
+                            }
+
                             cells.add(cell);
 
                             markOccupied(occupied, actualRow, currentCol, rowSpan, colSpan);
@@ -130,8 +141,6 @@ public class HwpxTableExtractor {
                     dto.setRowCount(rowCount);
                     dto.setColCount(colCount);
                     dto.setCells(cells);
-
-                    // fallback 용 2차원 텍스트 그리드도 유지
                     dto.setCellTexts(buildCellTextsGrid(cells, rowCount, colCount));
 
                     ExtractedTableStyle extractedStyle = extractTableStyle(hwpxFile, headerDoc, tblEl);
@@ -150,12 +159,14 @@ public class HwpxTableExtractor {
                     int baseY = virtualTopCursor;
 
                     /**
-                     * 각 row의 총 가로 길이를 동일하게 맞추기 위해
-                     * table 전체 width를 먼저 정하고,
-                     * colCount 기준의 공통 그리드로 셀 상대좌표를 계산한다.
+                     * preview 화면 밖으로 표가 나가지 않도록
+                     * table 전체 width를 상한선 내로 제한합니다.
                      */
-                    int tableWidth = Math.max(420, Math.min(560, colCount * 60));
-                    int tableHeight = Math.max(80, rowCount * 44 + 16);
+                    int tableWidth = Math.max(
+                            PREVIEW_MIN_TABLE_WIDTH,
+                            Math.min(PREVIEW_MAX_TABLE_WIDTH, colCount * DEFAULT_COL_WIDTH)
+                    );
+                    int tableHeight = Math.max(80, rowCount * DEFAULT_ROW_HEIGHT + 16);
 
                     int pageHeightLimit = 680;
                     int page = (baseY / pageHeightLimit) + 1;
@@ -167,6 +178,12 @@ public class HwpxTableExtractor {
                     dto.setWidth((double) tableWidth);
                     dto.setHeight((double) tableHeight);
 
+                    /**
+                     * 핵심:
+                     * - 같은 column index 는 항상 같은 width
+                     * - row 가 달라도 공통 column grid 를 사용
+                     * - rowSpan / colSpan 은 그 grid 를 합쳐서 표현
+                     */
                     populateCellRelativeGeometry(dto);
 
                     virtualTopCursor += tableHeight + 24;
@@ -205,17 +222,47 @@ public class HwpxTableExtractor {
         double tableHeight = dto.getHeight() != null ? dto.getHeight() : 120.0;
 
         /**
-         * 모든 row의 총 가로 길이를 같게 맞추기 위해
-         * "공통 열 그리드" 기준으로 셀 좌표를 만든다.
+         * 1) 같은 column 번호면 항상 같은 폭 사용
+         * 2) row 가 달라도 같은 grid 위에 올라가도록 함
+         * 3) 마지막 column / row 가 오차를 흡수하도록 계산
          */
-        double colUnit = tableWidth / Math.max(1, colCount);
-        double rowUnit = tableHeight / Math.max(1, rowCount);
+        double baseColWidth = tableWidth / Math.max(1, colCount);
+        double baseRowHeight = tableHeight / Math.max(1, rowCount);
+
+        double[] colLefts = new double[colCount];
+        double[] colWidths = new double[colCount];
+
+        for (int c = 0; c < colCount; c++) {
+            colLefts[c] = c == 0 ? 0 : colLefts[c - 1] + colWidths[c - 1];
+            if (c == colCount - 1) {
+                colWidths[c] = tableWidth - colLefts[c];
+            } else {
+                colWidths[c] = Math.floor(baseColWidth);
+            }
+        }
+
+        double[] rowTops = new double[rowCount];
+        double[] rowHeights = new double[rowCount];
+
+        for (int r = 0; r < rowCount; r++) {
+            rowTops[r] = r == 0 ? 0 : rowTops[r - 1] + rowHeights[r - 1];
+            if (r == rowCount - 1) {
+                rowHeights[r] = tableHeight - rowTops[r];
+            } else {
+                rowHeights[r] = Math.floor(baseRowHeight);
+            }
+        }
 
         for (TableCellDto cell : dto.getCells()) {
-            double x = cell.getColIndex() * colUnit;
-            double y = cell.getRowIndex() * rowUnit;
-            double width = Math.max(colUnit, colUnit * Math.max(1, cell.getColSpan()));
-            double height = Math.max(rowUnit, rowUnit * Math.max(1, cell.getRowSpan()));
+            int startCol = Math.max(0, Math.min(colCount - 1, cell.getColIndex()));
+            int startRow = Math.max(0, Math.min(rowCount - 1, cell.getRowIndex()));
+            int endCol = Math.min(colCount - 1, startCol + Math.max(1, cell.getColSpan()) - 1);
+            int endRow = Math.min(rowCount - 1, startRow + Math.max(1, cell.getRowSpan()) - 1);
+
+            double x = colLefts[startCol];
+            double y = rowTops[startRow];
+            double width = (colLefts[endCol] + colWidths[endCol]) - x;
+            double height = (rowTops[endRow] + rowHeights[endRow]) - y;
 
             cell.setX(x);
             cell.setY(y);
@@ -257,7 +304,6 @@ public class HwpxTableExtractor {
             }
         }
 
-        // 혹시 span 관련 하위 태그가 있을 경우 보조 탐색
         Integer nested = readNestedSpan(el, attrNames);
         return nested != null ? nested : 1;
     }
@@ -353,6 +399,34 @@ public class HwpxTableExtractor {
         } catch (Exception e) {
             return null;
         }
+    }
+
+    private StyleProfileDto extractCellRepresentativeStyle(File hwpxFile, Element cellEl) {
+        if (cellEl == null) {
+            return null;
+        }
+
+        List<Element> paraList = getElements(cellEl, "hp:p");
+        for (Element paraEl : paraList) {
+            String paraPrIdRef = readAnyAttr(paraEl, "paraPrIDRef", "paraPrIdRef");
+
+            List<Element> runList = getElements(paraEl, "hp:run");
+            for (Element runEl : runList) {
+                String charPrIdRef = readAnyAttr(runEl, "charPrIDRef", "charPrIdRef");
+
+                if (paraPrIdRef != null && !paraPrIdRef.isBlank()
+                        && charPrIdRef != null && !charPrIdRef.isBlank()) {
+
+                    return hwpxStyleExtractor.extractStyle(
+                            new HwpxStyleExtractor.FileWrapper(hwpxFile),
+                            paraPrIdRef,
+                            charPrIdRef
+                    );
+                }
+            }
+        }
+
+        return null;
     }
 
     private ExtractedTableStyle extractTableStyle(File hwpxFile, Document headerDoc, Element tblEl) {
@@ -630,24 +704,28 @@ public class HwpxTableExtractor {
     }
 
     private String extractCellText(Element cellEl) {
-        NodeList textNodes = cellEl.getElementsByTagName("hp:t");
-        StringBuilder sb = new StringBuilder();
+        List<Element> paraList = getElements(cellEl, "hp:p");
+        List<String> lines = new ArrayList<>();
 
-        for (int i = 0; i < textNodes.getLength(); i++) {
-            Node node = textNodes.item(i);
-            String text = node.getTextContent();
-            if (text != null) {
-                String trimmed = text.trim();
-                if (!trimmed.isEmpty()) {
-                    if (!sb.isEmpty()) {
-                        sb.append(" ");
-                    }
-                    sb.append(trimmed);
+        for (Element paraEl : paraList) {
+            NodeList textNodes = paraEl.getElementsByTagName("hp:t");
+            StringBuilder line = new StringBuilder();
+
+            for (int i = 0; i < textNodes.getLength(); i++) {
+                Node node = textNodes.item(i);
+                String text = node.getTextContent();
+                if (text != null) {
+                    line.append(text);
                 }
+            }
+
+            String normalized = line.toString().trim();
+            if (!normalized.isEmpty()) {
+                lines.add(normalized);
             }
         }
 
-        return sb.toString().trim();
+        return String.join("\n", lines);
     }
 
     private String readAnyAttr(Element el, String... names) {

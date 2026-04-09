@@ -37,16 +37,12 @@ type BorderStyle = {
 type ExtractedTableStyle = {
   headerTextStyle?: TableTextStyle | null
   bodyTextStyle?: TableTextStyle | null
-
   headerBackgroundColor?: string | null
   bodyBackgroundColor?: string | null
-
   headerOuterBorder?: BorderStyle | null
   headerInnerBorder?: BorderStyle | null
-
   bodyOuterBorder?: BorderStyle | null
   bodyInnerBorder?: BorderStyle | null
-
   bodyInnerVerticalBorder?: BorderStyle | null
   bodyInnerHorizontalBorder?: BorderStyle | null
   bodyFirstRowTopBorder?: BorderStyle | null
@@ -65,6 +61,13 @@ type TableCellItem = {
   height?: number | null
   header?: boolean | null
   backgroundColor?: string | null
+  fontFamily?: string | null
+  fontSize?: number | null
+  bold?: boolean | null
+  italic?: boolean | null
+  underline?: boolean | null
+  fontColor?: string | null
+  align?: string | null
 }
 
 type TableItem = {
@@ -74,7 +77,6 @@ type TableItem = {
   colCount: number | null
   cellTexts: string[][]
   cells?: TableCellItem[] | null
-
   borderColor?: string | null
   borderWidth?: number | null
   backgroundColor?: string | null
@@ -172,7 +174,6 @@ function normalizeBorderWidth(width?: number | string | null, fallback = 1) {
 
   if (typeof width === "string") {
     const raw = width.trim().toLowerCase()
-
     if (!raw || raw === "0") return 0
     if (raw.includes("none")) return 0
 
@@ -315,13 +316,73 @@ function calcParagraphRenderHeight(p: ParagraphItem) {
 
 function getParagraphRenderRect(p: ParagraphItem, displayTop: number) {
   const renderHeight = calcParagraphRenderHeight(p)
-
   return {
     left: p.x ?? DEFAULT_LEFT_MARGIN,
     top: displayTop,
     width: p.width ?? DEFAULT_PARAGRAPH_WIDTH,
     height: renderHeight,
   }
+}
+
+function getCellTextStyle(table: TableItem, cell: TableCellItem) {
+  if (
+    cell.fontFamily ||
+    cell.fontSize ||
+    cell.bold != null ||
+    cell.italic != null ||
+    cell.underline != null ||
+    cell.fontColor ||
+    cell.align
+  ) {
+    return {
+      fontFamily: cell.fontFamily ?? table.fontFamily ?? "Pretendard",
+      fontSize: cell.fontSize ?? table.fontSize ?? 11,
+      bold: cell.bold ?? (cell.header ? true : false),
+      italic: cell.italic ?? false,
+      underline: cell.underline ?? false,
+      fontColor: cell.fontColor ?? table.fontColor ?? "#334155",
+      align: cell.align ?? "left",
+    }
+  }
+
+  const fallback = cell.header
+    ? table.extractedStyle?.headerTextStyle
+    : table.extractedStyle?.bodyTextStyle
+
+  return {
+    fontFamily: fallback?.fontFamily ?? table.fontFamily ?? "Pretendard",
+    fontSize: fallback?.fontSize ?? table.fontSize ?? 11,
+    bold: fallback?.bold ?? (cell.header ? true : false),
+    italic: fallback?.italic ?? false,
+    underline: fallback?.underline ?? false,
+    fontColor: fallback?.fontColor ?? table.fontColor ?? "#334155",
+    align: fallback?.align ?? "left",
+  }
+}
+
+/**
+ * 1) 셀 텍스트의 기존 줄바꿈(\n)은 유지
+ * 2) 각 줄은 스페이스바 기준으로 우선 줄바꿈되도록 <br> 기회 제공
+ * 3) 너무 긴 토큰은 CSS break-word 가 보조
+ */
+function renderTextWithSpaceBreaks(text: string) {
+  const lines = (text ?? "").split("\n")
+
+  return lines.map((line, lineIdx) => {
+    const parts = line.split(" ")
+    return (
+      <span key={`line-${lineIdx}`}>
+        {parts.map((part, idx) => (
+          <span key={`part-${lineIdx}-${idx}`}>
+            {idx > 0 ? " " : ""}
+            {part}
+            {idx < parts.length - 1 ? <wbr /> : null}
+          </span>
+        ))}
+        {lineIdx < lines.length - 1 ? <br /> : null}
+      </span>
+    )
+  })
 }
 
 export default function ComposePageParagraphLayer({
@@ -376,10 +437,7 @@ export default function ComposePageParagraphLayer({
   }, [paragraphs, tables])
 
   const paragraphBoxMap = useMemo(() => {
-    const map = new Map<
-      string,
-      { left: number; top: number; width: number; height: number }
-    >()
+    const map = new Map<string, { left: number; top: number; width: number; height: number }>()
 
     for (const block of renderBlocks) {
       if (block.kind !== "paragraph") continue
@@ -391,10 +449,7 @@ export default function ComposePageParagraphLayer({
   }, [renderBlocks])
 
   const tableBoxMap = useMemo(() => {
-    const map = new Map<
-      string,
-      { left: number; top: number; width: number; height: number }
-    >()
+    const map = new Map<string, { left: number; top: number; width: number; height: number }>()
 
     for (const block of renderBlocks) {
       if (block.kind !== "table") continue
@@ -452,9 +507,7 @@ export default function ComposePageParagraphLayer({
               >
                 {hasStructuredCells ? (
                   t.cells!.map((cell, idx) => {
-                    const textStyle = cell.header
-                      ? style?.headerTextStyle
-                      : style?.bodyTextStyle
+                    const textStyle = getCellTextStyle(t, cell)
 
                     const cellLeft = cell.x ?? 0
                     const cellTop = (cell.y ?? 0) * 0.5
@@ -495,25 +548,26 @@ export default function ComposePageParagraphLayer({
                           borderBottom: borders.bottom,
 
                           display: "flex",
-                          alignItems: "center",
-                          justifyContent: toJustifyContent(textStyle?.align),
-                          padding: "0 8px",
+                          alignItems: "flex-start",
+                          justifyContent: toJustifyContent(textStyle.align),
+                          padding: "4px 8px",
 
-                          fontFamily: textStyle?.fontFamily ?? t.fontFamily ?? "Pretendard",
-                          fontSize: `${textStyle?.fontSize ?? t.fontSize ?? 11}px`,
-                          fontWeight: textStyle?.bold ? 700 : cell.header ? 700 : 400,
-                          fontStyle: textStyle?.italic ? "italic" : "normal",
-                          textDecoration: textStyle?.underline ? "underline" : "none",
-                          color: toPreviewColor(textStyle?.fontColor ?? t.fontColor, "#334155"),
-                          whiteSpace: "nowrap",
+                          fontFamily: textStyle.fontFamily,
+                          fontSize: `${textStyle.fontSize}px`,
+                          fontWeight: textStyle.bold ? 700 : 400,
+                          fontStyle: textStyle.italic ? "italic" : "normal",
+                          textDecoration: textStyle.underline ? "underline" : "none",
+                          color: toPreviewColor(textStyle.fontColor, "#334155"),
+                          whiteSpace: "pre-wrap",
+                          wordBreak: "break-word",
                           overflow: "hidden",
-                          textOverflow: "ellipsis",
-                          textAlign: toTextAlign(textStyle?.align),
+                          textAlign: toTextAlign(textStyle.align),
                           boxSizing: "border-box",
                           pointerEvents: "none",
+                          lineHeight: 1.3,
                         }}
                       >
-                        {cell.text}
+                        {renderTextWithSpaceBreaks(cell.text)}
                       </div>
                     )
                   })
@@ -580,9 +634,9 @@ export default function ComposePageParagraphLayer({
                                   borderBottom: borders.bottom,
 
                                   display: "flex",
-                                  alignItems: "center",
+                                  alignItems: "flex-start",
                                   justifyContent: toJustifyContent(textStyle?.align),
-                                  padding: "0 8px",
+                                  padding: "4px 8px",
 
                                   fontFamily: textStyle?.fontFamily ?? t.fontFamily ?? "Pretendard",
                                   fontSize: `${textStyle?.fontSize ?? t.fontSize ?? 11}px`,
@@ -590,15 +644,16 @@ export default function ComposePageParagraphLayer({
                                   fontStyle: textStyle?.italic ? "italic" : "normal",
                                   textDecoration: textStyle?.underline ? "underline" : "none",
                                   color: toPreviewColor(textStyle?.fontColor ?? t.fontColor, "#334155"),
-                                  whiteSpace: "nowrap",
+                                  whiteSpace: "pre-wrap",
+                                  wordBreak: "break-word",
                                   overflow: "hidden",
-                                  textOverflow: "ellipsis",
                                   textAlign: toTextAlign(textStyle?.align),
                                   boxSizing: "border-box",
                                   pointerEvents: "none",
+                                  lineHeight: 1.3,
                                 }}
                               >
-                                {cellText}
+                                {renderTextWithSpaceBreaks(cellText)}
                               </div>
                             )
                           })}
