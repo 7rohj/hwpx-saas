@@ -68,50 +68,70 @@ public class HwpxTableExtractor {
                     List<Element> rowElements = getDirectChildElements(tblEl, "hp:tr", "tr");
                     List<TableCellDto> cells = new ArrayList<>();
 
-                    // 병합 셀 점유 상태 관리
+                    /**
+                     * 병합 셀 점유 상태
+                     * vertical merge / horizontal merge 모두 반영하기 위한 grid 점유표
+                     */
                     Map<Integer, Map<Integer, Boolean>> occupied = new HashMap<>();
 
-                    int rowIndex = 0;
                     int maxColCount = 0;
 
-                    for (Element rowEl : rowElements) {
+                    for (int rowIndex = 0; rowIndex < rowElements.size(); rowIndex++) {
+                        Element rowEl = rowElements.get(rowIndex);
                         List<Element> cellElements = getDirectChildElements(rowEl, "hp:tc", "tc");
+
                         int currentCol = 0;
 
                         for (Element cellEl : cellElements) {
-                            currentCol = findNextAvailableCol(occupied, rowIndex, currentCol);
+                            Integer explicitRowAddr = readIntAttr(cellEl,
+                                    "rowAddr", "rowaddr", "row", "rowIndex");
+                            Integer explicitColAddr = readIntAttr(cellEl,
+                                    "colAddr", "coladdr", "col", "colIndex");
 
-                            int rowSpan = readSpan(cellEl, "rowSpan", "rowspan");
-                            int colSpan = readSpan(cellEl, "colSpan", "colspan");
+                            int actualRow = explicitRowAddr != null ? explicitRowAddr : rowIndex;
+                            currentCol = explicitColAddr != null
+                                    ? explicitColAddr
+                                    : findNextAvailableCol(occupied, actualRow, currentCol);
+
+                            int rowSpan = readSpan(cellEl,
+                                    "rowSpan", "rowspan", "rowSpanCount",
+                                    "vertSpan", "vSpan", "rowMerge");
+                            int colSpan = readSpan(cellEl,
+                                    "colSpan", "colspan", "colSpanCount",
+                                    "horzSpan", "hSpan", "colMerge");
 
                             String cellText = extractCellText(cellEl);
 
                             TableCellDto cell = new TableCellDto();
-                            cell.setRowIndex(rowIndex);
+                            cell.setRowIndex(actualRow);
                             cell.setColIndex(currentCol);
                             cell.setRowSpan(rowSpan);
                             cell.setColSpan(colSpan);
                             cell.setText(cellText);
-                            cell.setHeader(rowIndex == 0);
+                            cell.setHeader(actualRow == 0);
+
+                            String borderFillId = readAnyAttr(cellEl, "borderFillIDRef", "borderFillIdRef");
+                            String backgroundColor = parseBackgroundColorFromHeader(
+                                    headerDoc, borderFillId, null
+                            );
+                            cell.setBackgroundColor(backgroundColor);
 
                             cells.add(cell);
 
-                            markOccupied(occupied, rowIndex, currentCol, rowSpan, colSpan);
+                            markOccupied(occupied, actualRow, currentCol, rowSpan, colSpan);
                             currentCol += colSpan;
                             maxColCount = Math.max(maxColCount, currentCol);
                         }
-
-                        rowIndex++;
                     }
 
-                    int rowCount = Math.max(1, rowElements.size());
+                    int rowCount = calculateRowCount(cells, rowElements.size());
                     int colCount = Math.max(1, maxColCount);
 
                     dto.setRowCount(rowCount);
                     dto.setColCount(colCount);
                     dto.setCells(cells);
 
-                    // 기존 cellTexts도 fallback 용도로 유지
+                    // fallback 용 2차원 텍스트 그리드도 유지
                     dto.setCellTexts(buildCellTextsGrid(cells, rowCount, colCount));
 
                     ExtractedTableStyle extractedStyle = extractTableStyle(hwpxFile, headerDoc, tblEl);
@@ -128,7 +148,13 @@ public class HwpxTableExtractor {
 
                     int baseX = 56;
                     int baseY = virtualTopCursor;
-                    int tableWidth = Math.max(320, Math.min(520, colCount * 85));
+
+                    /**
+                     * 각 row의 총 가로 길이를 동일하게 맞추기 위해
+                     * table 전체 width를 먼저 정하고,
+                     * colCount 기준의 공통 그리드로 셀 상대좌표를 계산한다.
+                     */
+                    int tableWidth = Math.max(420, Math.min(560, colCount * 60));
                     int tableHeight = Math.max(80, rowCount * 44 + 16);
 
                     int pageHeightLimit = 680;
@@ -141,7 +167,6 @@ public class HwpxTableExtractor {
                     dto.setWidth((double) tableWidth);
                     dto.setHeight((double) tableHeight);
 
-                    // 셀 상대좌표 계산
                     populateCellRelativeGeometry(dto);
 
                     virtualTopCursor += tableHeight + 24;
@@ -158,6 +183,17 @@ public class HwpxTableExtractor {
         return result;
     }
 
+    private int calculateRowCount(List<TableCellDto> cells, int fallback) {
+        int max = fallback;
+
+        for (TableCellDto cell : cells) {
+            int endRow = cell.getRowIndex() + Math.max(1, cell.getRowSpan());
+            max = Math.max(max, endRow);
+        }
+
+        return Math.max(1, max);
+    }
+
     private void populateCellRelativeGeometry(TableNodeDto dto) {
         if (dto.getCells() == null || dto.getCells().isEmpty()) {
             return;
@@ -168,6 +204,10 @@ public class HwpxTableExtractor {
         double tableWidth = dto.getWidth() != null ? dto.getWidth() : 420.0;
         double tableHeight = dto.getHeight() != null ? dto.getHeight() : 120.0;
 
+        /**
+         * 모든 row의 총 가로 길이를 같게 맞추기 위해
+         * "공통 열 그리드" 기준으로 셀 좌표를 만든다.
+         */
         double colUnit = tableWidth / Math.max(1, colCount);
         double rowUnit = tableHeight / Math.max(1, rowCount);
 
@@ -209,14 +249,53 @@ public class HwpxTableExtractor {
 
     private int readSpan(Element el, String... attrNames) {
         String value = readAnyAttr(el, attrNames);
+
+        if (value != null && !value.isBlank()) {
+            try {
+                return Math.max(1, Integer.parseInt(value.trim()));
+            } catch (Exception ignored) {
+            }
+        }
+
+        // 혹시 span 관련 하위 태그가 있을 경우 보조 탐색
+        Integer nested = readNestedSpan(el, attrNames);
+        return nested != null ? nested : 1;
+    }
+
+    private Integer readNestedSpan(Element el, String... attrNames) {
+        if (el == null) {
+            return null;
+        }
+
+        NodeList children = el.getElementsByTagName("*");
+        for (int i = 0; i < children.getLength(); i++) {
+            Node node = children.item(i);
+            if (!(node instanceof Element child)) {
+                continue;
+            }
+
+            String value = readAnyAttr(child, attrNames);
+            if (value != null && !value.isBlank()) {
+                try {
+                    return Math.max(1, Integer.parseInt(value.trim()));
+                } catch (Exception ignored) {
+                }
+            }
+        }
+
+        return null;
+    }
+
+    private Integer readIntAttr(Element el, String... names) {
+        String value = readAnyAttr(el, names);
         if (value == null || value.isBlank()) {
-            return 1;
+            return null;
         }
 
         try {
-            return Math.max(1, Integer.parseInt(value.trim()));
+            return Integer.parseInt(value.trim());
         } catch (Exception e) {
-            return 1;
+            return null;
         }
     }
 
@@ -295,7 +374,6 @@ public class HwpxTableExtractor {
 
         String headerBorderFillId = readAnyAttr(headerCell, "borderFillIDRef", "borderFillIdRef");
         String firstBodyBorderFillId = readAnyAttr(firstBodyCell, "borderFillIDRef", "borderFillIdRef");
-        String middleBodyBorderFillId = readAnyAttr(middleBodyCell, "borderFillIDRef", "borderFillIdRef");
         String lastBodyBorderFillId = readAnyAttr(lastBodyCell, "borderFillIDRef", "borderFillIdRef");
 
         style.setHeaderBackgroundColor(parseBackgroundColorFromHeader(headerDoc, headerBorderFillId, "#FFFFFFFF"));

@@ -13,8 +13,9 @@ public class TableNodeDto {
 
     private List<List<String>> cellTexts;
 
-    // 추가:
-    // 병합/분할 표 대응용 셀 구조
+    /**
+     * 병합/분할 표 대응용 셀 구조
+     */
     private List<TableCellDto> cells;
 
     // 기존 대표 스타일 필드
@@ -33,7 +34,6 @@ public class TableNodeDto {
     private Double width;
     private Double height;
 
-    // 추가:
     // 헤더/바디 구분 포함한 추출 스타일 세트
     private ExtractedTableStyle extractedStyle;
 
@@ -181,7 +181,6 @@ public class TableNodeDto {
         this.height = height;
     }
 
-    // extractedStyle getter / setter
     public ExtractedTableStyle getExtractedStyle() {
         return extractedStyle;
     }

@@ -10,9 +10,8 @@ public class TableCellDto {
     private String text;
 
     /**
-     * 표 내부 상대좌표 기준
-     * - table wrapper 기준 left/top
-     * - preview 에서는 table.x / table.y 위에 더해서 absolute 렌더링
+     * 표 내부 상대좌표
+     * table.x / table.y 를 기준으로 배치되는 상대값
      */
     private Double x;
     private Double y;
@@ -20,6 +19,13 @@ public class TableCellDto {
     private Double height;
 
     private Boolean header;
+
+    /**
+     * 셀별 배경색 구분용
+     * - 색상 있는 셀 / 없는 셀 구분
+     * - preview 에서 header/body 공통색보다 우선 사용
+     */
+    private String backgroundColor;
 
     public int getRowIndex() {
         return rowIndex;
@@ -99,5 +105,13 @@ public class TableCellDto {
 
     public void setHeader(Boolean header) {
         this.header = header;
+    }
+
+    public String getBackgroundColor() {
+        return backgroundColor;
+    }
+
+    public void setBackgroundColor(String backgroundColor) {
+        this.backgroundColor = backgroundColor;
     }
 }

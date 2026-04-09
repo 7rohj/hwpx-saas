@@ -64,6 +64,7 @@ type TableCellItem = {
   width?: number | null
   height?: number | null
   header?: boolean | null
+  backgroundColor?: string | null
 }
 
 type TableItem = {
@@ -253,14 +254,14 @@ function getCellBorderSet(
 function calcTableRenderedHeight(table: TableItem) {
   if (table.cells && table.cells.length > 0) {
     const maxBottom = table.cells.reduce((max, cell) => {
-      const bottom = (cell.y ?? 0) + (cell.height ?? 0)
+      const bottom = ((cell.y ?? 0) + (cell.height ?? 0)) * 0.5
       return Math.max(max, bottom)
     }, 0)
 
     if (maxBottom > 0) {
       return {
         rowHeights: [],
-        renderedTableHeight: maxBottom * 0.5,
+        renderedTableHeight: maxBottom,
       }
     }
   }
@@ -455,7 +456,7 @@ export default function ComposePageParagraphLayer({
                       ? style?.headerTextStyle
                       : style?.bodyTextStyle
 
-                    const cellLeft = (cell.x ?? 0)
+                    const cellLeft = cell.x ?? 0
                     const cellTop = (cell.y ?? 0) * 0.5
                     const cellWidth = cell.width ?? 0
                     const cellHeight = (cell.height ?? 0) * 0.5
@@ -470,6 +471,13 @@ export default function ComposePageParagraphLayer({
                       cell.colSpan
                     )
 
+                    const resolvedBg =
+                      cell.backgroundColor != null
+                        ? toPreviewColor(cell.backgroundColor, "#ffffff")
+                        : cell.header
+                        ? toPreviewColor(style?.headerBackgroundColor, "rgba(148,163,184,0.10)")
+                        : toPreviewColor(style?.bodyBackgroundColor, "#ffffff")
+
                     return (
                       <div
                         key={`${t.tableId}-merged-cell-${idx}`}
@@ -479,9 +487,7 @@ export default function ComposePageParagraphLayer({
                           top: cellTop,
                           width: cellWidth,
                           height: cellHeight,
-                          background: cell.header
-                            ? toPreviewColor(style?.headerBackgroundColor, "rgba(148,163,184,0.10)")
-                            : toPreviewColor(style?.bodyBackgroundColor, "#ffffff"),
+                          background: resolvedBg,
 
                           borderLeft: borders.left,
                           borderRight: borders.right,
