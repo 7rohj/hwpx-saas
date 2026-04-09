@@ -3,6 +3,7 @@ package com.khwajeong.hwpx_saas.compose.service;
 import com.khwajeong.hwpx_saas.compose.dto.PageLayoutBlockDto;
 import com.khwajeong.hwpx_saas.compose.dto.ParagraphNodeDto;
 import com.khwajeong.hwpx_saas.compose.dto.TableNodeDto;
+import com.khwajeong.hwpx_saas.compose.model.ExtractedTableStyle;
 import org.springframework.stereotype.Service;
 import org.w3c.dom.*;
 import org.xml.sax.InputSource;
@@ -22,7 +23,13 @@ public class ComposeDocumentViewService {
 
     private static final double PREVIEW_PAGE_HEIGHT_LIMIT = 680.0;
     private static final double PREVIEW_START_Y = 40.0;
-    private static final double PREVIEW_BLOCK_GAP = 22.0;
+
+    /**
+     * 블록 간 여백.
+     * 너무 크면 같은 페이지에 들어갈 요소도 다음 페이지로 넘어가므로
+     * 기존보다 줄여서 좀 더 촘촘하게 배치합니다.
+     */
+    private static final double PREVIEW_BLOCK_GAP = 12.0;
 
     private final ComposeService composeService;
     private final HwpxTableExtractor hwpxTableExtractor;
@@ -64,21 +71,8 @@ public class ComposeDocumentViewService {
 
         /**
          * 핵심 보완:
-         * 기존에는 paragraph / table 이 서로 다른 좌표 기준을 가진 상태에서
-         * 프론트가 y 값만 보고 합쳐 정렬하다 보니,
-         * 실제 문서 순서와 preview 순서가 뒤섞이는 문제가 있었습니다.
-         *
-         * 그래서 여기서 원본 HWPX XML의 실제 등장 순서를 다시 읽고,
-         * preview용 page/y 를 그 순서대로 재배치합니다.
-         *
-         * 결과:
-         * - 제1장 heading1
-         * - 1. 개요 heading2
-         * - 본문내용입니다 body
-         * - 표1
-         * - 표2
-         * - 2. 내용설명 heading2
-         * 같은 원문 순서가 preview에서도 유지됩니다.
+         * 문단/표 순서를 원본 문서 등장 순서대로 다시 읽고,
+         * preview 전용 page / y 를 그 순서대로 재배치합니다.
          */
         reflowByDocumentOrder(hwpxFile, paragraphs, tables);
 
@@ -121,7 +115,7 @@ public class ComposeDocumentViewService {
                 }
 
                 ParagraphNodeDto p = paragraphs.get(paragraphCursor++);
-                double blockHeight = p.getHeight() != null ? p.getHeight() : 34.0;
+                double blockHeight = estimateParagraphPreviewHeight(p);
 
                 if (cursorY + blockHeight > PREVIEW_PAGE_HEIGHT_LIMIT) {
                     page++;
@@ -141,7 +135,17 @@ public class ComposeDocumentViewService {
                 }
 
                 TableNodeDto t = tables.get(tableCursor++);
-                double blockHeight = t.getHeight() != null ? t.getHeight() : 120.0;
+
+                /**
+                 * 중요:
+                 * 프론트 preview에서는 표 셀 높이를 1/2 보정해서 렌더링합니다.
+                 * 그런데 백엔드가 page break 계산에서는 원래 큰 높이를 쓰면,
+                 * 실제로는 첫 페이지에 들어갈 표도 미리 다음 페이지로 밀어버립니다.
+                 *
+                 * 그래서 page break 계산용 blockHeight는
+                 * "preview에서 실제 보일 높이"와 유사하게 추정해서 사용합니다.
+                 */
+                double blockHeight = estimateTablePreviewHeight(t);
 
                 if (cursorY + blockHeight > PREVIEW_PAGE_HEIGHT_LIMIT) {
                     page++;
@@ -156,16 +160,52 @@ public class ComposeDocumentViewService {
         }
     }
 
+    private double estimateParagraphPreviewHeight(ParagraphNodeDto p) {
+        String text = p.getText() == null ? "" : p.getText();
+        int lineCount = Math.max(1, text.split("\\R", -1).length);
+        int fontSize = (p.getFontSize() == null || p.getFontSize() <= 0) ? 12 : p.getFontSize();
+
+        double estimated = lineCount * (fontSize * 1.6 + 6);
+        return Math.max(34.0, Math.min(64.0, estimated));
+    }
+
+    private double estimateTablePreviewHeight(TableNodeDto t) {
+        int rowCount = Math.max(1, t.getRowCount() != null ? t.getRowCount() : 1);
+
+        int headerFontSize = 11;
+        int bodyFontSize = 11;
+
+        ExtractedTableStyle style = t.getExtractedStyle();
+        if (style != null) {
+            if (style.getHeaderTextStyle() != null
+                    && style.getHeaderTextStyle().getFontSize() != null
+                    && style.getHeaderTextStyle().getFontSize() > 0) {
+                headerFontSize = style.getHeaderTextStyle().getFontSize();
+            }
+            if (style.getBodyTextStyle() != null
+                    && style.getBodyTextStyle().getFontSize() != null
+                    && style.getBodyTextStyle().getFontSize() > 0) {
+                bodyFontSize = style.getBodyTextStyle().getFontSize();
+            }
+        } else if (t.getFontSize() != null && t.getFontSize() > 0) {
+            headerFontSize = t.getFontSize();
+            bodyFontSize = t.getFontSize();
+        }
+
+        double headerHeight = Math.max(30.0, (headerFontSize + 10) * 1.5);
+        double bodyHeight = Math.max(28.0, (bodyFontSize + 10) * 1.45);
+
+        double fullHeight = headerHeight + Math.max(0, rowCount - 1) * bodyHeight;
+
+        // preview에서는 각 셀 세로 길이를 기존 계산값의 1/2로 강제 보정
+        return fullHeight * 0.5;
+    }
+
     /**
      * 원본 HWPX 문서에서 "문단 / 표" 등장 순서를 그대로 추출
      *
      * 결과 예:
      *   p, p, p, t, t, p, p, p, t
-     *
-     * 여기서는 문단 ID / 표 ID 자체를 XML에서 읽는 게 아니라
-     * extractor와 동일한 순서 규칙으로 카운트만 맞춥니다.
-     * 실제 preview 좌표 재배치는 paragraphs/tables 정렬된 리스트를
-     * 순서대로 소모하는 방식으로 처리합니다.
      */
     private List<String> extractDocumentSequence(File hwpxFile) {
         List<String> sequence = new ArrayList<>();
@@ -213,12 +253,10 @@ public class ComposeDocumentViewService {
         }
 
         if (isParagraphElement(nodeName, localName)) {
-            // 표 내부 문단 제외
             if (isInsideTable(element)) {
                 return;
             }
 
-            // 표를 감싸는 wrapper 문단 제외
             if (containsTableDescendant(element)) {
                 return;
             }

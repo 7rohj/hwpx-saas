@@ -449,6 +449,52 @@ function calcTableRenderedHeight(table: TableItem) {
   }
 }
 
+function calcParagraphRenderHeight(p: ParagraphItem) {
+  const text = p.text ?? ""
+  const lineCount = Math.max(1, text.split(/\r\n|\r|\n/).length)
+  const fontSize = p.fontSize ?? 12
+
+  const estimated = lineCount * (fontSize * 1.6 + 6)
+
+  /**
+   * raw p.height 값이 비정상적으로 큰 경우가 있어서
+   * preview에서는 텍스트/폰트 기준으로 높이를 다시 계산하고
+   * 과도한 box 높이는 clamp로 제한합니다.
+   */
+  return Math.max(34, Math.min(64, estimated))
+}
+
+function getParagraphRenderRect(
+  p: ParagraphItem,
+  displayTop: number
+) {
+  const align = (p.align ?? "").trim().toLowerCase()
+  const renderHeight = calcParagraphRenderHeight(p)
+
+  /**
+   * 중앙 정렬 문단은 좁은 왼쪽 박스 안에서 center 처리하면
+   * "문서 전체 기준 가운데"처럼 안 보입니다.
+   *
+   * 그래서 preview에서는 center/right 정렬 문단에 대해
+   * 페이지 본문 폭 전체를 사용하도록 박스를 넓게 잡습니다.
+   */
+  if (align === "center" || align === "right") {
+    return {
+      left: 40,
+      top: displayTop,
+      width: 480,
+      height: renderHeight,
+    }
+  }
+
+  return {
+    left: p.x ?? 40,
+    top: displayTop,
+    width: p.width ?? 420,
+    height: renderHeight,
+  }
+}
+
 export default function ComposePageParagraphLayer({
   paragraphs,
   tables,
@@ -471,7 +517,7 @@ export default function ComposePageParagraphLayer({
         kind: "paragraph" as const,
         y: p.y ?? 0,
         displayTop: p.y ?? 0,
-        renderHeight: p.height ?? 34,
+        renderHeight: calcParagraphRenderHeight(p),
         paragraph: p,
       })),
     ].sort((a, b) => a.y - b.y)
@@ -498,16 +544,6 @@ export default function ComposePageParagraphLayer({
     return rawBlocks
   }, [paragraphs, tables])
 
-  /**
-   * 문단/표가 실제 preview에서 렌더링되는 위치를 맵으로 보관
-   * overlay box는 부모에서 저장한 기존 좌표가 아니라
-   * "현재 화면에 그려진 실제 좌표"를 따라가도록 보정한다.
-   *
-   * 이걸 안 하면:
-   * - 본문/표는 displayTop 기준으로 그려지고
-   * - box는 예전 y 기준으로 그려져서
-   *   클릭 시 상자 위치가 어긋난다.
-   */
   const paragraphBoxMap = useMemo(() => {
     const map = new Map<
       string,
@@ -517,13 +553,7 @@ export default function ComposePageParagraphLayer({
     for (const block of renderBlocks) {
       if (block.kind !== "paragraph") continue
       const p = block.paragraph
-
-      map.set(p.paragraphId, {
-        left: p.x ?? 40,
-        top: block.displayTop,
-        width: p.width ?? 420,
-        height: p.height ?? 34,
-      })
+      map.set(p.paragraphId, getParagraphRenderRect(p, block.displayTop))
     }
 
     return map
@@ -573,7 +603,7 @@ export default function ComposePageParagraphLayer({
 
             const colWidths = Array.from({ length: colCount }).map((_, idx) => {
               const raw = width / colCount
-              if (idx === colCount - 1) {
+              if (idx == colCount - 1) {
                 return width - Math.floor(raw) * (colCount - 1)
               }
               return Math.floor(raw)
@@ -676,33 +706,29 @@ export default function ComposePageParagraphLayer({
 
           const p = block.paragraph
           const selected = selectedParagraphId === p.paragraphId
+          const rect = getParagraphRenderRect(p, block.displayTop)
 
           return (
             <button
               key={p.paragraphId}
               type="button"
               onClick={() => onSelectParagraph(p.paragraphId)}
-              className={`absolute rounded-md px-2 py-1 text-left transition ${
+              className={`absolute rounded-md px-2 py-1 transition ${
                 selected
                   ? "bg-[#e8f1ff] ring-1 ring-[#1f69ef]"
                   : "hover:bg-slate-50"
               } ${(p.fontSize ?? 12) >= 14 ? "font-semibold" : ""}`}
               style={{
-                left: p.x ?? 40,
-                top: block.displayTop,
-                width: p.width ?? 420,
-                height: p.height ?? 34,
+                left: rect.left,
+                top: rect.top,
+                width: rect.width,
+                height: rect.height,
                 fontSize: `${p.fontSize ?? 12}px`,
                 fontWeight: p.bold ? 700 : 400,
                 fontStyle: p.italic ? "italic" : "normal",
                 textDecoration: p.underline ? "underline" : "none",
                 color: toPreviewColor(p.color, "#111111"),
-                textAlign:
-                  p.align === "center"
-                    ? "center"
-                    : p.align === "right"
-                    ? "right"
-                    : "left",
+                textAlign: toTextAlign(p.align),
                 lineHeight: 1.6,
                 fontFamily: p.fontFamily ?? "Pretendard",
                 whiteSpace: "pre-wrap",
@@ -723,7 +749,6 @@ export default function ComposePageParagraphLayer({
           let resolvedWidth = box.width
           let resolvedHeight = box.height
 
-          // 문단 box는 paragraphId로 실제 렌더 좌표에 맞춤
           if (box.paragraphId) {
             const rect = paragraphBoxMap.get(box.paragraphId)
             if (rect) {
@@ -733,7 +758,6 @@ export default function ComposePageParagraphLayer({
               resolvedHeight = rect.height
             }
           } else {
-            // table box는 보통 id가 `${tableId}-box` 형태라서 그 규칙으로 매칭
             const matchedTableId = Array.from(tableBoxMap.keys()).find(
               (tableId) => box.id === `${tableId}-box`
             )
