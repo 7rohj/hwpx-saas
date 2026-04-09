@@ -78,9 +78,11 @@ type ComposePageParagraphLayerProps = {
   paragraphs: ParagraphItem[]
   tables: TableItem[]
   selectedParagraphId: string | null
+  selectedTableId?: string | null
   selectedBoxId: string | null
   boxes: OverlayBox[]
   onSelectParagraph: (paragraphId: string) => void
+  onSelectTable: (tableId: string) => void
   onSelectBox: (boxId: string) => void
 }
 
@@ -455,12 +457,6 @@ function calcParagraphRenderHeight(p: ParagraphItem) {
   const fontSize = p.fontSize ?? 12
 
   const estimated = lineCount * (fontSize * 1.6 + 6)
-
-  /**
-   * raw p.height 값이 비정상적으로 큰 경우가 있어서
-   * preview에서는 텍스트/폰트 기준으로 높이를 다시 계산하고
-   * 과도한 box 높이는 clamp로 제한합니다.
-   */
   return Math.max(34, Math.min(64, estimated))
 }
 
@@ -471,13 +467,6 @@ function getParagraphRenderRect(
   const align = (p.align ?? "").trim().toLowerCase()
   const renderHeight = calcParagraphRenderHeight(p)
 
-  /**
-   * 중앙 정렬 문단은 좁은 왼쪽 박스 안에서 center 처리하면
-   * "문서 전체 기준 가운데"처럼 안 보입니다.
-   *
-   * 그래서 preview에서는 center/right 정렬 문단에 대해
-   * 페이지 본문 폭 전체를 사용하도록 박스를 넓게 잡습니다.
-   */
   if (align === "center" || align === "right") {
     return {
       left: 40,
@@ -499,9 +488,11 @@ export default function ComposePageParagraphLayer({
   paragraphs,
   tables,
   selectedParagraphId,
+  selectedTableId,
   boxes,
   selectedBoxId,
   onSelectParagraph,
+  onSelectTable,
   onSelectBox,
 }: ComposePageParagraphLayerProps) {
   const renderBlocks = useMemo<RenderBlock[]>(() => {
@@ -587,6 +578,7 @@ export default function ComposePageParagraphLayer({
           if (block.kind === "table") {
             const t = block.table
             const style = t.extractedStyle
+            const selected = selectedTableId === t.tableId
 
             const left = t.x ?? 56
             const top = block.displayTop
@@ -603,7 +595,7 @@ export default function ComposePageParagraphLayer({
 
             const colWidths = Array.from({ length: colCount }).map((_, idx) => {
               const raw = width / colCount
-              if (idx == colCount - 1) {
+              if (idx === colCount - 1) {
                 return width - Math.floor(raw) * (colCount - 1)
               }
               return Math.floor(raw)
@@ -612,15 +604,20 @@ export default function ComposePageParagraphLayer({
             let currentTop = 0
 
             return (
-              <div
+              <button
                 key={t.tableId}
-                className="absolute"
+                type="button"
+                onClick={() => onSelectTable(t.tableId)}
+                className={`absolute text-left transition ${
+                  selected ? "ring-2 ring-[#1f69ef]" : "hover:bg-slate-50/20"
+                }`}
                 style={{
                   left,
                   top,
                   width,
                   height: renderedTableHeight,
                   zIndex: 10,
+                  background: "transparent",
                 }}
               >
                 {Array.from({ length: rowCount }).map((_, rowIdx) => {
@@ -687,6 +684,7 @@ export default function ComposePageParagraphLayer({
                               textOverflow: "ellipsis",
                               textAlign: toTextAlign(textStyle?.align),
                               boxSizing: "border-box",
+                              pointerEvents: "none",
                             }}
                           >
                             {cellText}
@@ -697,10 +695,10 @@ export default function ComposePageParagraphLayer({
                   )
                 })}
 
-                <div className="absolute left-0 top-0 rounded-br-md bg-white/90 px-2 py-0.5 text-[10px] font-semibold text-slate-700 shadow-sm">
+                <div className="absolute left-0 top-0 rounded-br-md bg-white/90 px-2 py-0.5 text-[10px] font-semibold text-slate-700 shadow-sm pointer-events-none">
                   {t.tableId}
                 </div>
-              </div>
+              </button>
             )
           }
 

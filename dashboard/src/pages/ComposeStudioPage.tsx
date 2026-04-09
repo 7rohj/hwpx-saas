@@ -145,24 +145,6 @@ function fakePageCount(paragraphs: ParagraphItem[], tables: TableItem[]) {
   return Math.max(...pageValues)
 }
 
-function createAutoBox(index: number, paragraphId: string, label: string): OverlayBox {
-  const row = index % 8
-  const col = Math.floor(index / 8)
-
-  const baseX = 36 + col * 260
-  const baseY = 40 + row * 58
-
-  return {
-    id: `${paragraphId}-box`,
-    x: baseX,
-    y: baseY,
-    width: 220,
-    height: 42,
-    label,
-    paragraphId,
-  }
-}
-
 function findBoxByParagraphId(boxes: OverlayBox[], paragraphId: string) {
   return boxes.find((box) => box.paragraphId === paragraphId) ?? null
 }
@@ -230,6 +212,37 @@ export default function ComposeStudioPage({
     return currentTables.filter((t) => t.page == null || t.page === currentPage)
   }, [currentTables, currentPage])
 
+  const currentPageParagraphIdSet = useMemo(
+    () => new Set(visibleParagraphs.map((p) => p.paragraphId)),
+    [visibleParagraphs]
+  )
+
+  const currentPageTableIdSet = useMemo(
+    () => new Set(visibleTables.map((t) => t.tableId)),
+    [visibleTables]
+  )
+
+  /**
+   * 현재 페이지에 해당하는 box만 렌더링
+   * - 문단 box: paragraphId 기준
+   * - 표 box: `${tableId}-box` 규칙 기준
+   *
+   * 이렇게 해야 페이지를 넘겼을 때 1페이지의 box가
+   * 2페이지에 그대로 남아 보이지 않습니다.
+   */
+  const visibleBoxes = useMemo(() => {
+    return currentBoxes.filter((box) => {
+      if (box.paragraphId) {
+        return currentPageParagraphIdSet.has(box.paragraphId)
+      }
+
+      const matchedTableId = Array.from(currentPageTableIdSet).find(
+        (tableId) => box.id === `${tableId}-box`
+      )
+      return Boolean(matchedTableId)
+    })
+  }, [currentBoxes, currentPageParagraphIdSet, currentPageTableIdSet])
+
   const orderedPageBlocks = useMemo<PageBlockItem[]>(() => {
     const paragraphBlocks: PageBlockItem[] = visibleParagraphs.map((p) => ({
       kind: "paragraph",
@@ -265,6 +278,22 @@ export default function ComposeStudioPage({
     setCurrentPage(1)
     setSelectedBoxId(null)
   }, [activeSide])
+
+  /**
+   * 페이지가 바뀌면 현재 페이지 선택 상태 clear
+   * - 사용자가 원하는 동작: 다음 페이지로 넘어가면 이전 페이지 선택 박스가 사라져야 함
+   */
+  useEffect(() => {
+    setSelectedBoxId(null)
+
+    if (activeSide === "template") {
+      setSelectedTemplateParagraphId("")
+      setSelectedTemplateTableId("")
+    } else {
+      setSelectedSourceParagraphId("")
+      setSelectedSourceTableId("")
+    }
+  }, [currentPage, activeSide])
 
   useEffect(() => {
     if (!selectedBoxId) return
@@ -515,22 +544,6 @@ export default function ComposeStudioPage({
     URL.revokeObjectURL(objectUrl)
   }
 
-  function createOverlayBox(box: Omit<OverlayBox, "id">) {
-    const newBox: OverlayBox = {
-      id: `${activeSide}-box-${Date.now()}`,
-      ...box,
-      label: currentRole,
-    }
-
-    if (activeSide === "template") {
-      setTemplateBoxes((prev) => [...prev, newBox])
-    } else {
-      setSourceBoxes((prev) => [...prev, newBox])
-    }
-
-    setSelectedBoxId(newBox.id)
-  }
-
   return (
     <>
       <TopNav onNavigate={onNavigate} currentPage="composeStudio" onLogout={onLogout} />
@@ -671,15 +684,18 @@ export default function ComposeStudioPage({
                 paragraphs={visibleParagraphs}
                 tables={visibleTables}
                 selectedParagraphId={currentSelectedId || null}
-                boxes={currentBoxes}
+                selectedTableId={currentSelectedTableId || null}
+                boxes={visibleBoxes}
                 selectedBoxId={selectedBoxId}
                 onSelectParagraph={(paragraphId) => {
                   const existingBox = currentBoxes.find((box) => box.paragraphId === paragraphId)
 
                   if (activeSide === "template") {
                     setSelectedTemplateParagraphId(paragraphId)
+                    setSelectedTemplateTableId("")
                   } else {
                     setSelectedSourceParagraphId(paragraphId)
+                    setSelectedSourceTableId("")
                   }
 
                   if (existingBox) {
@@ -708,16 +724,70 @@ export default function ComposeStudioPage({
 
                   setSelectedBoxId(autoBox.id)
                 }}
+                onSelectTable={(tableId) => {
+                  if (activeSide === "template") {
+                    setSelectedTemplateTableId(tableId)
+                    setSelectedTemplateParagraphId("")
+                  } else {
+                    setSelectedSourceTableId(tableId)
+                    setSelectedSourceParagraphId("")
+                  }
+
+                  const table = visibleTables.find((t) => t.tableId === tableId)
+                  if (!table) return
+
+                  const tableBox: OverlayBox = {
+                    id: `${table.tableId}-box`,
+                    x: table.x ?? 56,
+                    y: table.y ?? 80,
+                    width: table.width ?? 420,
+                    height: table.height ?? 120,
+                    label: "table",
+                  }
+
+                  if (activeSide === "template") {
+                    setTemplateBoxes((prev) => {
+                      const exists = prev.find((b) => b.id === tableBox.id)
+                      return exists ? prev : [...prev, tableBox]
+                    })
+                  } else {
+                    setSourceBoxes((prev) => {
+                      const exists = prev.find((b) => b.id === tableBox.id)
+                      return exists ? prev : [...prev, tableBox]
+                    })
+                  }
+
+                  setSelectedBoxId(tableBox.id)
+                }}
                 onSelectBox={(boxId) => {
                   setSelectedBoxId(boxId)
 
                   const clickedBox = currentBoxes.find((box) => box.id === boxId)
-                  if (!clickedBox?.paragraphId) return
+                  if (!clickedBox) return
 
-                  if (activeSide === "template") {
-                    setSelectedTemplateParagraphId(clickedBox.paragraphId)
-                  } else {
-                    setSelectedSourceParagraphId(clickedBox.paragraphId)
+                  if (clickedBox.paragraphId) {
+                    if (activeSide === "template") {
+                      setSelectedTemplateParagraphId(clickedBox.paragraphId)
+                      setSelectedTemplateTableId("")
+                    } else {
+                      setSelectedSourceParagraphId(clickedBox.paragraphId)
+                      setSelectedSourceTableId("")
+                    }
+                    return
+                  }
+
+                  const matchedTableId = Array.from(currentPageTableIdSet).find(
+                    (tableId) => boxId === `${tableId}-box`
+                  )
+
+                  if (matchedTableId) {
+                    if (activeSide === "template") {
+                      setSelectedTemplateTableId(matchedTableId)
+                      setSelectedTemplateParagraphId("")
+                    } else {
+                      setSelectedSourceTableId(matchedTableId)
+                      setSelectedSourceParagraphId("")
+                    }
                   }
                 }}
               />
@@ -797,18 +867,16 @@ export default function ComposeStudioPage({
 
                             if (activeSide === "template") {
                               setSelectedTemplateParagraphId(p.paragraphId)
+                              setSelectedTemplateTableId("")
                             } else {
                               setSelectedSourceParagraphId(p.paragraphId)
+                              setSelectedSourceTableId("")
                             }
 
                             if (existingBox) {
                               setSelectedBoxId(existingBox.id)
                               return
                             }
-
-                            const paragraphIndex = visibleParagraphs.findIndex(
-                              (item) => item.paragraphId === p.paragraphId
-                            )
 
                             const autoBox = {
                               id: `${p.paragraphId}-box`,
@@ -858,8 +926,10 @@ export default function ComposeStudioPage({
                         onClick={() => {
                           if (activeSide === "template") {
                             setSelectedTemplateTableId(t.tableId)
+                            setSelectedTemplateParagraphId("")
                           } else {
                             setSelectedSourceTableId(t.tableId)
+                            setSelectedSourceParagraphId("")
                           }
 
                           const tableBox: OverlayBox = {
