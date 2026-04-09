@@ -1,3 +1,4 @@
+import { useMemo } from "react"
 import type { OverlayBox } from "./ComposePageOverlay"
 
 type ParagraphItem = {
@@ -83,13 +84,27 @@ type ComposePageParagraphLayerProps = {
   onSelectBox: (boxId: string) => void
 }
 
+type RenderParagraphBlock = {
+  kind: "paragraph"
+  y: number
+  displayTop: number
+  renderHeight: number
+  paragraph: ParagraphItem
+}
+
+type RenderTableBlock = {
+  kind: "table"
+  y: number
+  displayTop: number
+  renderHeight: number
+  table: TableItem
+}
+
+type RenderBlock = RenderParagraphBlock | RenderTableBlock
+
 /**
- * HWPX 색상은 내부적으로 BGR 계열로 들어오는 경우가 있어서
- * preview(CSS)에서는 RGB로 다시 뒤집어 보여준다.
- *
- * 예:
- *   #00D7FF -> #FFD700
- *   #5B81D5 -> #D5815B
+ * preview 색상 반전 보정
+ * HWPX 색상이 BGR 계열로 저장된 경우가 있어서 CSS 표시용으로 RGB 순서를 뒤집는다.
  */
 function toPreviewColor(color?: string | null, fallback = "#111111") {
   if (!color || !color.trim()) return fallback
@@ -101,7 +116,6 @@ function toPreviewColor(color?: string | null, fallback = "#111111") {
 
   const hex = v.slice(1)
 
-  // #RRGGBB 로 보이지만 실제는 #BBGGRR 로 저장된 값을 preview용으로 뒤집음
   if (hex.length === 6) {
     const bb = hex.slice(0, 2)
     const gg = hex.slice(2, 4)
@@ -109,7 +123,6 @@ function toPreviewColor(color?: string | null, fallback = "#111111") {
     return `#${rr}${gg}${bb}`
   }
 
-  // #AABBGGRR -> #AARRGGBB
   if (hex.length === 8) {
     const aa = hex.slice(0, 2)
     const bb = hex.slice(2, 4)
@@ -400,6 +413,46 @@ function getCellBorderSet(
   }
 }
 
+function calcTableRenderedHeight(table: TableItem) {
+  const style = table.extractedStyle
+  const rowCount = Math.max(1, table.rowCount ?? table.cellTexts?.length ?? 1)
+  const originalHeight = table.height ?? 120
+
+  const headerFontSize = style?.headerTextStyle?.fontSize ?? table.fontSize ?? 11
+  const bodyFontSize = style?.bodyTextStyle?.fontSize ?? table.fontSize ?? 11
+
+  const headerMinHeight = Math.max(30, Math.round((headerFontSize + 10) * 1.5))
+  const bodyMinHeight = Math.max(28, Math.round((bodyFontSize + 10) * 1.45))
+
+  const tentativeHeights = Array.from({ length: rowCount }).map((_, idx) =>
+    idx === 0 ? headerMinHeight : bodyMinHeight
+  )
+
+  const totalMinHeight = tentativeHeights.reduce((sum, v) => sum + v, 0)
+
+  const effectiveHeights =
+    totalMinHeight <= originalHeight
+      ? (() => {
+          const remain = originalHeight - totalMinHeight
+          const addPerRow = Math.floor(remain / rowCount)
+          const extra = remain % rowCount
+          return tentativeHeights.map((h, idx) => h + addPerRow + (idx < extra ? 1 : 0))
+        })()
+      : (() => {
+          const raw = originalHeight / rowCount
+          return Array.from({ length: rowCount }).map((_, idx) =>
+            idx === rowCount - 1
+              ? originalHeight - Math.floor(raw) * (rowCount - 1)
+              : Math.floor(raw)
+          )
+        })()
+
+  return {
+    rowHeights: effectiveHeights,
+    renderedTableHeight: effectiveHeights.reduce((sum, v) => sum + v, 0),
+  }
+}
+
 export default function ComposePageParagraphLayer({
   paragraphs,
   tables,
@@ -409,18 +462,58 @@ export default function ComposePageParagraphLayer({
   onSelectParagraph,
   onSelectBox,
 }: ComposePageParagraphLayerProps) {
-  const renderBlocks = [
-    ...tables.map((t) => ({
-      kind: "table" as const,
-      y: t.y ?? 0,
-      table: t,
-    })),
-    ...paragraphs.map((p) => ({
-      kind: "paragraph" as const,
-      y: p.y ?? 0,
-      paragraph: p,
-    })),
-  ].sort((a, b) => a.y - b.y)
+  const renderBlocks = useMemo<RenderBlock[]>(() => {
+    const rawBlocks: RenderBlock[] = [
+      ...tables.map((t) => ({
+        kind: "table" as const,
+        y: t.y ?? 0,
+        displayTop: t.y ?? 0,
+        renderHeight: calcTableRenderedHeight(t).renderedTableHeight,
+        table: t,
+      })),
+      ...paragraphs.map((p) => ({
+        kind: "paragraph" as const,
+        y: p.y ?? 0,
+        displayTop: p.y ?? 0,
+        renderHeight: p.height ?? 34,
+        paragraph: p,
+      })),
+    ].sort((a, b) => a.y - b.y)
+
+    if (rawBlocks.length === 0) {
+      return rawBlocks
+    }
+
+    const first = rawBlocks[0]
+    first.displayTop = first.y
+
+    for (let i = 1; i < rawBlocks.length; i++) {
+      const prev = rawBlocks[i - 1]
+      const curr = rawBlocks[i]
+
+      const prevOriginalBottom = prev.y + prev.renderHeight
+      const originalGap = Math.max(0, curr.y - prevOriginalBottom)
+
+      /**
+       * 요구사항:
+       * 하늘색 네모 영역처럼 보이는 "표와 텍스트 사이의 여백" 자체를 줄인다.
+       *
+       * 즉 block 높이를 줄이는 게 아니라,
+       * 이전 block bottom 과 다음 block top 사이의 gap만 강제로 압축한다.
+       *
+       * 현재 gap의 20%만 남기도록 보정:
+       *   newGap = oldGap * 0.2
+       *
+       * 필요하면 0.2 -> 0.1 로 더 줄일 수 있다.
+       */
+      const compactedGap = originalGap * 0.2
+
+      const prevDisplayBottom = prev.displayTop + prev.renderHeight
+      curr.displayTop = prevDisplayBottom + compactedGap
+    }
+
+    return rawBlocks
+  }, [paragraphs, tables])
 
   return (
     <div className="relative h-[720px] w-full overflow-hidden rounded-[24px] border border-[#dbe7ff] bg-[#eef4ff] p-6">
@@ -431,9 +524,8 @@ export default function ComposePageParagraphLayer({
             const style = t.extractedStyle
 
             const left = t.x ?? 56
-            const top = t.y ?? 80
+            const top = block.displayTop
             const width = t.width ?? 420
-            const originalHeight = t.height ?? 120
 
             const rowCount = Math.max(1, t.rowCount ?? t.cellTexts?.length ?? 1)
             const colCount = Math.max(
@@ -443,42 +535,7 @@ export default function ComposePageParagraphLayer({
 
             const tableRows = t.cellTexts ?? []
 
-            const headerFontSize = style?.headerTextStyle?.fontSize ?? t.fontSize ?? 11
-            const bodyFontSize = style?.bodyTextStyle?.fontSize ?? t.fontSize ?? 11
-
-            /**
-             * 요구사항:
-             * preview에서는 표의 각 셀 세로 길이를 기존 계산값의 1/2로 강제 보정합니다.
-             * 그래서 row 높이 산출에 사용할 전체 높이도 1/2로 먼저 줄여서 계산합니다.
-             */
-            const compactedTableHeight = originalHeight * 0.5
-
-            const headerMinHeight = Math.max(30, Math.round((headerFontSize + 10) * 1.5))
-            const bodyMinHeight = Math.max(28, Math.round((bodyFontSize + 10) * 1.45))
-
-            const tentativeHeights = Array.from({ length: rowCount }).map((_, idx) =>
-              idx === 0 ? headerMinHeight : bodyMinHeight
-            )
-
-            const totalMinHeight = tentativeHeights.reduce((sum, v) => sum + v, 0)
-            const effectiveHeights =
-              totalMinHeight <= compactedTableHeight
-                ? (() => {
-                    const remain = compactedTableHeight - totalMinHeight
-                    const addPerRow = Math.floor(remain / rowCount)
-                    const extra = remain % rowCount
-                    return tentativeHeights.map((h, idx) => h + addPerRow + (idx < extra ? 1 : 0))
-                  })()
-                : (() => {
-                    const raw = compactedTableHeight / rowCount
-                    return Array.from({ length: rowCount }).map((_, idx) =>
-                      idx === rowCount - 1
-                        ? compactedTableHeight - Math.floor(raw) * (rowCount - 1)
-                        : Math.floor(raw)
-                    )
-                  })()
-
-            const renderedTableHeight = effectiveHeights.reduce((sum, v) => sum + v, 0)
+            const { rowHeights, renderedTableHeight } = calcTableRenderedHeight(t)
 
             const colWidths = Array.from({ length: colCount }).map((_, idx) => {
               const raw = width / colCount
@@ -509,7 +566,7 @@ export default function ComposePageParagraphLayer({
                     ? style?.headerTextStyle
                     : style?.bodyTextStyle
 
-                  const rowHeight = effectiveHeights[rowIdx]
+                  const rowHeight = rowHeights[rowIdx]
                   const rowTop = currentTop
                   currentTop += rowHeight
 
@@ -598,7 +655,7 @@ export default function ComposePageParagraphLayer({
               } ${(p.fontSize ?? 12) >= 14 ? "font-semibold" : ""}`}
               style={{
                 left: p.x ?? 40,
-                top: p.y ?? 40,
+                top: block.displayTop,
                 width: p.width ?? 420,
                 height: p.height ?? 34,
                 fontSize: `${p.fontSize ?? 12}px`,
