@@ -28,6 +28,8 @@ public class HwpxTableExtractor {
     private static final int PREVIEW_MIN_TABLE_WIDTH = 320;
     private static final int DEFAULT_COL_WIDTH = 56;
     private static final int DEFAULT_ROW_HEIGHT = 44;
+    private static final int PREVIEW_PAGE_HEIGHT = 680;
+    private static final double LARGE_FORM_MIN_HEIGHT_RATIO = 0.85;
 
     private final HwpxStyleExtractor hwpxStyleExtractor;
 
@@ -179,9 +181,10 @@ public class HwpxTableExtractor {
                             PREVIEW_MIN_TABLE_WIDTH,
                             Math.min(PREVIEW_MAX_TABLE_WIDTH, colCount * DEFAULT_COL_WIDTH)
                     );
-                    int tableHeight = Math.max(80, rowCount * DEFAULT_ROW_HEIGHT + 16);
 
-                    int pageHeightLimit = 680;
+                    int tableHeight = estimatePreviewTableHeight(cells, rowCount, colCount);
+
+                    int pageHeightLimit = PREVIEW_PAGE_HEIGHT;
                     int page = (baseY / pageHeightLimit) + 1;
                     int normalizedTop = baseY % pageHeightLimit;
 
@@ -807,6 +810,156 @@ public class HwpxTableExtractor {
                 .replace("\n", " ")
                 .replaceAll("\\s+", " ")
                 .trim();
+    }
+
+    /**
+     * preview용 표 높이 추정
+     *
+     * 기본 아이디어:
+     * 1. 각 행 높이를 개별 추정
+     * 2. group 셀이 걸친 구간은 더 여유 있게
+     * 3. 긴 설명문/줄바꿈 많은 행은 더 크게
+     * 4. 혼합형 대형 폼 표는 페이지 높이의 일정 비율 이상을 최소 보장
+     */
+    
+    private int estimatePreviewTableHeight(List<TableCellDto> cells, int rowCount, int colCount) {
+        if (rowCount <= 0) {
+            return 80;
+        }
+
+        int[] rowHeights = new int[rowCount];
+
+        // 기본 행 높이
+        for (int r = 0; r < rowCount; r++) {
+            rowHeights[r] = 30;
+        }
+
+        for (TableCellDto cell : cells) {
+            String text = normalizeCellText(cell.getText());
+            int startRow = Math.max(0, cell.getRowIndex());
+            int span = Math.max(1, cell.getRowSpan());
+            int endRow = Math.min(rowCount - 1, startRow + span - 1);
+
+            // 대략적인 줄 수 추정
+            int explicitLines = countExplicitLines(cell.getText());
+            int wrappedLines = estimateWrappedLines(text);
+            int lineCount = Math.max(explicitLines, wrappedLines);
+
+            int heightScore = 0;
+
+            // 기본 텍스트 높이
+            if (!text.isBlank()) {
+                heightScore += 10;
+            }
+
+            // 줄 수 많을수록 더 키움
+            if (lineCount >= 2) {
+                heightScore += (lineCount - 1) * 8;
+            }
+
+            // 세로 병합 그룹 셀은 전체적으로 여유를 더 준다
+            if (span > 1) {
+                heightScore += 12;
+            }
+
+            // 긴 설명문 셀은 행 높이를 확실히 키운다
+            if (text.length() >= 25) {
+                heightScore += 10;
+            }
+            if (text.length() >= 50) {
+                heightScore += 12;
+            }
+
+            // bold + 회색 배경 라벨 셀은 약간 높이 가산
+            if (Boolean.TRUE.equals(cell.getBold())) {
+                heightScore += 4;
+            }
+            if (isGrayLike(normalizeColor(cell.getBackgroundColor()))) {
+                heightScore += 4;
+            }
+
+            // rowSpan == 1 이면 해당 행에 직접 반영
+            if (span == 1) {
+                rowHeights[startRow] = Math.max(rowHeights[startRow], 30 + heightScore);
+            } else {
+                // 여러 행에 걸친 group 셀은 해당 구간 전체 행에 조금씩 반영
+                int bonusPerRow = Math.max(4, heightScore / span);
+                for (int r = startRow; r <= endRow; r++) {
+                    rowHeights[r] = Math.max(rowHeights[r], rowHeights[r] + bonusPerRow);
+                }
+            }
+        }
+
+        int estimatedHeight = 16; // table padding 느낌
+        for (int h : rowHeights) {
+            estimatedHeight += h;
+        }
+
+        // 혼합형 대형 폼 표면 preview에서 최소 높이 보장
+        if (isLargeMixedFormTable(cells, rowCount, colCount)) {
+            int minLargeFormHeight = (int) (PREVIEW_PAGE_HEIGHT * LARGE_FORM_MIN_HEIGHT_RATIO);
+            estimatedHeight = Math.max(estimatedHeight, minLargeFormHeight);
+        }
+
+        return Math.max(80, estimatedHeight);
+    }
+
+    /**
+     * preview에서 크게 보여줘야 하는 "대형 혼합 폼 표"인지 판별
+     */
+    private boolean isLargeMixedFormTable(List<TableCellDto> cells, int rowCount, int colCount) {
+        int groupCellCount = 0;
+        int longTextCellCount = 0;
+        int boldGrayCellCount = 0;
+
+        for (TableCellDto cell : cells) {
+            String text = normalizeCellText(cell.getText());
+
+            if (cell.getRowSpan() > 1) {
+                groupCellCount++;
+            }
+
+            if (text.length() >= 20) {
+                longTextCellCount++;
+            }
+
+            if (Boolean.TRUE.equals(cell.getBold())
+                    && isGrayLike(normalizeColor(cell.getBackgroundColor()))) {
+                boldGrayCellCount++;
+            }
+        }
+
+        boolean manyRows = rowCount >= 10;
+        boolean hasGroups = groupCellCount >= 2;
+        boolean hasFormLikeLabels = boldGrayCellCount >= 5;
+        boolean hasLongTexts = longTextCellCount >= 3;
+
+        return manyRows && (hasGroups || hasFormLikeLabels || hasLongTexts);
+    }
+
+    private int countExplicitLines(String rawText) {
+        if (rawText == null || rawText.isBlank()) {
+            return 1;
+        }
+        return Math.max(1, rawText.split("\\r\\n|\\r|\\n").length);
+    }
+
+    /**
+     * 아주 대략적인 줄바꿈 추정
+     * preview 폭을 모르므로 텍스트 길이 기준으로만 계산
+     */
+    private int estimateWrappedLines(String text) {
+        if (text == null || text.isBlank()) {
+            return 1;
+        }
+
+        int len = text.length();
+
+        if (len <= 10) return 1;
+        if (len <= 22) return 2;
+        if (len <= 40) return 3;
+        if (len <= 65) return 4;
+        return 5;
     }
 
     private String normalizeColor(String color) {

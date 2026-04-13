@@ -135,6 +135,90 @@ const ROLE_OPTIONS = [
   { value: "table", label: "table" },
 ]
 
+function shimmerStyle(delay = "0s") {
+  return {
+    background:
+      "linear-gradient(90deg, #e5e7eb 25%, #f3f4f6 50%, #e5e7eb 75%)",
+    backgroundSize: "200% 100%",
+    animation: "panelShimmer 1.6s ease-in-out infinite",
+    animationDelay: delay,
+  } as const
+}
+
+function RightPanelLoadingSkeleton() {
+  return (
+    <>
+      <style>
+        {`
+          @keyframes panelShimmer {
+            0% { background-position: 200% 0; }
+            100% { background-position: -200% 0; }
+          }
+        `}
+      </style>
+
+      <div className="mb-4 flex items-center gap-2">
+        <div className="h-10 w-20 rounded-xl" style={shimmerStyle("0s")} />
+        <div className="h-10 w-16 rounded-xl" style={shimmerStyle("0.06s")} />
+      </div>
+
+      <div className="mb-4">
+        <div className="mb-2 h-4 w-20 rounded" style={shimmerStyle("0.1s")} />
+        <div className="h-[52px] w-full rounded-2xl" style={shimmerStyle("0.14s")} />
+      </div>
+
+      <div className="mb-4 max-h-[420px] space-y-3 overflow-hidden pr-1">
+        {[...Array(4)].map((_, idx) => (
+          <div
+            key={idx}
+            className="w-full rounded-[22px] border border-[#dbe7ff] bg-white p-4"
+          >
+            <div className="mb-2 flex items-center justify-between gap-3">
+              <div
+                className="h-6 w-12 rounded-full"
+                style={shimmerStyle(`${0.18 + idx * 0.05}s`)}
+              />
+              <div
+                className="h-5 w-24 rounded-full"
+                style={shimmerStyle(`${0.22 + idx * 0.05}s`)}
+              />
+            </div>
+
+            <div
+              className="mb-2 h-4 w-[68%] rounded"
+              style={shimmerStyle(`${0.26 + idx * 0.05}s`)}
+            />
+            <div
+              className="h-4 w-[42%] rounded"
+              style={shimmerStyle(`${0.3 + idx * 0.05}s`)}
+            />
+          </div>
+        ))}
+      </div>
+
+      <div
+        className="mb-4 h-[52px] w-full rounded-2xl"
+        style={shimmerStyle("0.38s")}
+      />
+
+      <div className="rounded-2xl border border-[#e5ecff] bg-[#fafcff] px-4 py-3">
+        {[...Array(6)].map((_, idx) => (
+          <div key={idx} className="mb-2 flex items-center gap-2 last:mb-0">
+            <div
+              className="h-4 w-20 rounded"
+              style={shimmerStyle(`${0.42 + idx * 0.04}s`)}
+            />
+            <div
+              className="h-4 w-16 rounded"
+              style={shimmerStyle(`${0.46 + idx * 0.04}s`)}
+            />
+          </div>
+        ))}
+      </div>
+    </>
+  )
+}
+
 function fakePageCount(paragraphs: ParagraphItem[], tables: TableItem[]) {
   const pageValues = [
     ...paragraphs.map((p) => p.page),
@@ -680,6 +764,10 @@ export default function ComposeStudioPage({
                 가상 페이지 위에 문단과 표 박스를 함께 표시합니다
               </div>
 
+              <div className="mb-3 pl-6 text-[11px] text-[#7a869f]">
+                기존 한글 문서와 완전히 동일하지 않을 수 있습니다.
+              </div>
+
               <ComposePageParagraphLayer
                 paragraphs={visibleParagraphs}
                 tables={visibleTables}
@@ -687,6 +775,7 @@ export default function ComposeStudioPage({
                 selectedTableId={currentSelectedTableId || null}
                 boxes={visibleBoxes}
                 selectedBoxId={selectedBoxId}
+                isLoading={uploading}
                 onSelectParagraph={(paragraphId) => {
                   const existingBox = currentBoxes.find((box) => box.paragraphId === paragraphId)
 
@@ -799,223 +888,229 @@ export default function ComposeStudioPage({
                 선택 패널
               </div>
 
-              <div className="mb-4 flex items-center gap-2">
-                <button
-                  onClick={() => setActivePanel("paragraph")}
-                  className={`inline-flex items-center gap-2 rounded-xl px-3 py-2 text-sm ${
-                    activePanel === "paragraph"
-                      ? "bg-[#1f69ef] text-white"
-                      : "border border-[#d7e5ff] bg-white text-slate-700"
-                  }`}
-                >
-                  <AlignLeft className="h-4 w-4" />
-                  문단
-                </button>
+              {uploading ? (
+                <RightPanelLoadingSkeleton />
+              ) : (
+                <>
+                  <div className="mb-4 flex items-center gap-2">
+                    <button
+                      onClick={() => setActivePanel("paragraph")}
+                      className={`inline-flex items-center gap-2 rounded-xl px-3 py-2 text-sm ${
+                        activePanel === "paragraph"
+                          ? "bg-[#1f69ef] text-white"
+                          : "border border-[#d7e5ff] bg-white text-slate-700"
+                      }`}
+                    >
+                      <AlignLeft className="h-4 w-4" />
+                      문단
+                    </button>
 
-                <button
-                  onClick={() => setActivePanel("table")}
-                  className={`inline-flex items-center gap-2 rounded-xl px-3 py-2 text-sm ${
-                    activePanel === "table"
-                      ? "bg-[#1f69ef] text-white"
-                      : "border border-[#d7e5ff] bg-white text-slate-700"
-                  }`}
-                >
-                  <Table2 className="h-4 w-4" />
-                  표
-                </button>
-              </div>
-
-              <div className="mb-4">
-                <label className="mb-2 block text-sm font-medium text-[#1a2540]">
-                  역할(label)
-                </label>
-                <select
-                  value={currentRole}
-                  onChange={(e) => {
-                    if (activeSide === "template") setTemplateRole(e.target.value)
-                    else setSourceRole(e.target.value)
-                  }}
-                  className="w-full rounded-2xl border border-[#d7e5ff] bg-white px-4 py-3 text-sm text-[#1a2540] outline-none"
-                >
-                  {ROLE_OPTIONS.map((item) => (
-                    <option key={item.value} value={item.value}>
-                      {item.label}
-                    </option>
-                  ))}
-                </select>
-              </div>
-
-              <div className="mb-4 max-h-[420px] space-y-3 overflow-y-auto pr-1">
-                {filteredPanelBlocks.length === 0 ? (
-                  <div className="rounded-2xl border border-dashed border-[#d7e5ff] px-4 py-8 text-center text-sm text-[#63708a]">
-                    현재 페이지에서 {activePanel === "paragraph" ? "문단" : "표"}를 찾지 못했습니다.
+                    <button
+                      onClick={() => setActivePanel("table")}
+                      className={`inline-flex items-center gap-2 rounded-xl px-3 py-2 text-sm ${
+                        activePanel === "table"
+                          ? "bg-[#1f69ef] text-white"
+                          : "border border-[#d7e5ff] bg-white text-slate-700"
+                      }`}
+                    >
+                      <Table2 className="h-4 w-4" />
+                      표
+                    </button>
                   </div>
-                ) : (
-                  filteredPanelBlocks.map((block) => {
-                    if (block.kind === "paragraph") {
-                      const p = block.paragraph
-                      const selected = currentSelectedId === p.paragraphId
 
-                      return (
-                        <button
-                          key={`p-${p.paragraphId}`}
-                          type="button"
-                          onClick={() => {
-                            const currentBoxesForSide =
-                              activeSide === "template" ? templateBoxes : sourceBoxes
-                            const existingBox = findBoxByParagraphId(currentBoxesForSide, p.paragraphId)
+                  <div className="mb-4">
+                    <label className="mb-2 block text-sm font-medium text-[#1a2540]">
+                      역할(label)
+                    </label>
+                    <select
+                      value={currentRole}
+                      onChange={(e) => {
+                        if (activeSide === "template") setTemplateRole(e.target.value)
+                        else setSourceRole(e.target.value)
+                      }}
+                      className="w-full rounded-2xl border border-[#d7e5ff] bg-white px-4 py-3 text-sm text-[#1a2540] outline-none"
+                    >
+                      {ROLE_OPTIONS.map((item) => (
+                        <option key={item.value} value={item.value}>
+                          {item.label}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
 
-                            if (activeSide === "template") {
-                              setSelectedTemplateParagraphId(p.paragraphId)
-                              setSelectedTemplateTableId("")
-                            } else {
-                              setSelectedSourceParagraphId(p.paragraphId)
-                              setSelectedSourceTableId("")
-                            }
+                  <div className="mb-4 max-h-[420px] space-y-3 overflow-y-auto pr-1">
+                    {filteredPanelBlocks.length === 0 ? (
+                      <div className="rounded-2xl border border-dashed border-[#d7e5ff] px-4 py-8 text-center text-sm text-[#63708a]">
+                        현재 페이지에서 {activePanel === "paragraph" ? "문단" : "표"}를 찾지 못했습니다.
+                      </div>
+                    ) : (
+                      filteredPanelBlocks.map((block) => {
+                        if (block.kind === "paragraph") {
+                          const p = block.paragraph
+                          const selected = currentSelectedId === p.paragraphId
 
-                            if (existingBox) {
-                              setSelectedBoxId(existingBox.id)
-                              return
-                            }
+                          return (
+                            <button
+                              key={`p-${p.paragraphId}`}
+                              type="button"
+                              onClick={() => {
+                                const currentBoxesForSide =
+                                  activeSide === "template" ? templateBoxes : sourceBoxes
+                                const existingBox = findBoxByParagraphId(currentBoxesForSide, p.paragraphId)
 
-                            const autoBox = {
-                              id: `${p.paragraphId}-box`,
-                              x: p.x ?? 40,
-                              y: p.y ?? 40,
-                              width: p.width ?? 420,
-                              height: p.height ?? 34,
-                              label: currentRole,
-                              paragraphId: p.paragraphId,
-                            }
+                                if (activeSide === "template") {
+                                  setSelectedTemplateParagraphId(p.paragraphId)
+                                  setSelectedTemplateTableId("")
+                                } else {
+                                  setSelectedSourceParagraphId(p.paragraphId)
+                                  setSelectedSourceTableId("")
+                                }
 
-                            if (activeSide === "template") {
-                              setTemplateBoxes((prev) => [...prev, autoBox])
-                            } else {
-                              setSourceBoxes((prev) => [...prev, autoBox])
-                            }
+                                if (existingBox) {
+                                  setSelectedBoxId(existingBox.id)
+                                  return
+                                }
 
-                            setSelectedBoxId(autoBox.id)
-                          }}
-                          className={`w-full rounded-[22px] border p-4 text-left transition ${
-                            selected
-                              ? "border-[#1f69ef] bg-[#eef4ff] shadow-[0_12px_30px_rgba(31,105,239,0.10)]"
-                              : "border-[#dbe7ff] bg-white hover:border-[#bcd2ff] hover:bg-[#f8fbff]"
-                          }`}
-                        >
-                          <div className="mb-2 flex items-center justify-between gap-3">
-                            <span className="rounded-full bg-white px-2.5 py-1 text-[11px] font-semibold text-[#1f69ef]">
-                              {p.paragraphId}
-                            </span>
-                            <span className="text-[11px] text-[#7a869f]">{block.fontInfo}</span>
-                          </div>
+                                const autoBox = {
+                                  id: `${p.paragraphId}-box`,
+                                  x: p.x ?? 40,
+                                  y: p.y ?? 40,
+                                  width: p.width ?? 420,
+                                  height: p.height ?? 34,
+                                  label: currentRole,
+                                  paragraphId: p.paragraphId,
+                                }
 
-                          <p className="line-clamp-3 text-sm font-medium text-[#1a2540]">
-                            {block.labelText}
-                          </p>
-                        </button>
-                      )
+                                if (activeSide === "template") {
+                                  setTemplateBoxes((prev) => [...prev, autoBox])
+                                } else {
+                                  setSourceBoxes((prev) => [...prev, autoBox])
+                                }
+
+                                setSelectedBoxId(autoBox.id)
+                              }}
+                              className={`w-full rounded-[22px] border p-4 text-left transition ${
+                                selected
+                                  ? "border-[#1f69ef] bg-[#eef4ff] shadow-[0_12px_30px_rgba(31,105,239,0.10)]"
+                                  : "border-[#dbe7ff] bg-white hover:border-[#bcd2ff] hover:bg-[#f8fbff]"
+                              }`}
+                            >
+                              <div className="mb-2 flex items-center justify-between gap-3">
+                                <span className="rounded-full bg-white px-2.5 py-1 text-[11px] font-semibold text-[#1f69ef]">
+                                  {p.paragraphId}
+                                </span>
+                                <span className="text-[11px] text-[#7a869f]">{block.fontInfo}</span>
+                              </div>
+
+                              <p className="line-clamp-3 text-sm font-medium text-[#1a2540]">
+                                {block.labelText}
+                              </p>
+                            </button>
+                          )
+                        }
+
+                        const t = block.table
+                        const selected = currentSelectedTableId === t.tableId
+
+                        return (
+                          <button
+                            key={`t-${t.tableId}`}
+                            type="button"
+                            onClick={() => {
+                              if (activeSide === "template") {
+                                setSelectedTemplateTableId(t.tableId)
+                                setSelectedTemplateParagraphId("")
+                              } else {
+                                setSelectedSourceTableId(t.tableId)
+                                setSelectedSourceParagraphId("")
+                              }
+
+                              const tableBox: OverlayBox = {
+                                id: `${t.tableId}-box`,
+                                x: t.x ?? 56,
+                                y: t.y ?? 80,
+                                width: t.width ?? 420,
+                                height: t.height ?? 120,
+                                label: "table",
+                              }
+
+                              if (activeSide === "template") {
+                                setTemplateBoxes((prev) => {
+                                  const exists = prev.find((b) => b.id === tableBox.id)
+                                  return exists ? prev : [...prev, tableBox]
+                                })
+                              } else {
+                                setSourceBoxes((prev) => {
+                                  const exists = prev.find((b) => b.id === tableBox.id)
+                                  return exists ? prev : [...prev, tableBox]
+                                })
+                              }
+
+                              setSelectedBoxId(tableBox.id)
+                            }}
+                            className={`w-full rounded-[22px] border p-4 text-left transition ${
+                              selected
+                                ? "border-[#1f69ef] bg-[#eef4ff] shadow-[0_12px_30px_rgba(31,105,239,0.10)]"
+                                : "border-[#dbe7ff] bg-white hover:border-[#bcd2ff] hover:bg-[#f8fbff]"
+                            }`}
+                          >
+                            <div className="mb-2 flex items-center justify-between gap-3">
+                              <span className="rounded-full bg-white px-2.5 py-1 text-[11px] font-semibold text-[#1f69ef]">
+                                {t.tableId}
+                              </span>
+                              <span className="text-[11px] text-[#7a869f]">{block.fontInfo}</span>
+                            </div>
+
+                            <p className="line-clamp-2 text-sm font-medium text-[#1a2540]">
+                              {block.labelText}
+                            </p>
+                          </button>
+                        )
+                      })
+                    )}
+                  </div>
+
+                  <button
+                    onClick={handleSaveSelection}
+                    disabled={
+                      activePanel === "paragraph"
+                        ? !currentSelectedId || saving
+                        : !currentSelectedTableId || saving
                     }
+                    className="flex w-full items-center justify-center gap-2 rounded-2xl bg-[#1f69ef] px-4 py-3 text-sm font-semibold text-white shadow-[0_10px_24px_rgba(31,105,239,0.22)] hover:bg-[#1859ca] disabled:cursor-not-allowed disabled:opacity-60"
+                  >
+                    <CheckCircle2 className="h-4 w-4" />
+                    {saving ? "저장 중..." : "선택 저장"}
+                  </button>
 
-                    const t = block.table
-                    const selected = currentSelectedTableId === t.tableId
+                  {savedMessage ? (
+                    <div className="mt-4 rounded-2xl border border-[#d7e5ff] bg-[#f3f8ff] px-4 py-3 text-sm text-[#1f69ef]">
+                      {savedMessage}
+                    </div>
+                  ) : null}
 
-                    return (
-                      <button
-                        key={`t-${t.tableId}`}
-                        type="button"
-                        onClick={() => {
-                          if (activeSide === "template") {
-                            setSelectedTemplateTableId(t.tableId)
-                            setSelectedTemplateParagraphId("")
-                          } else {
-                            setSelectedSourceTableId(t.tableId)
-                            setSelectedSourceParagraphId("")
-                          }
-
-                          const tableBox: OverlayBox = {
-                            id: `${t.tableId}-box`,
-                            x: t.x ?? 56,
-                            y: t.y ?? 80,
-                            width: t.width ?? 420,
-                            height: t.height ?? 120,
-                            label: "table",
-                          }
-
-                          if (activeSide === "template") {
-                            setTemplateBoxes((prev) => {
-                              const exists = prev.find((b) => b.id === tableBox.id)
-                              return exists ? prev : [...prev, tableBox]
-                            })
-                          } else {
-                            setSourceBoxes((prev) => {
-                              const exists = prev.find((b) => b.id === tableBox.id)
-                              return exists ? prev : [...prev, tableBox]
-                            })
-                          }
-
-                          setSelectedBoxId(tableBox.id)
-                        }}
-                        className={`w-full rounded-[22px] border p-4 text-left transition ${
-                          selected
-                            ? "border-[#1f69ef] bg-[#eef4ff] shadow-[0_12px_30px_rgba(31,105,239,0.10)]"
-                            : "border-[#dbe7ff] bg-white hover:border-[#bcd2ff] hover:bg-[#f8fbff]"
-                        }`}
-                      >
-                        <div className="mb-2 flex items-center justify-between gap-3">
-                          <span className="rounded-full bg-white px-2.5 py-1 text-[11px] font-semibold text-[#1f69ef]">
-                            {t.tableId}
-                          </span>
-                          <span className="text-[11px] text-[#7a869f]">{block.fontInfo}</span>
-                        </div>
-
-                        <p className="line-clamp-2 text-sm font-medium text-[#1a2540]">
-                          {block.labelText}
-                        </p>
-                      </button>
-                    )
-                  })
-                )}
-              </div>
-
-              <button
-                onClick={handleSaveSelection}
-                disabled={
-                  activePanel === "paragraph"
-                    ? !currentSelectedId || saving
-                    : !currentSelectedTableId || saving
-                }
-                className="flex w-full items-center justify-center gap-2 rounded-2xl bg-[#1f69ef] px-4 py-3 text-sm font-semibold text-white shadow-[0_10px_24px_rgba(31,105,239,0.22)] hover:bg-[#1859ca] disabled:cursor-not-allowed disabled:opacity-60"
-              >
-                <CheckCircle2 className="h-4 w-4" />
-                {saving ? "저장 중..." : "선택 저장"}
-              </button>
-
-              {savedMessage ? (
-                <div className="mt-4 rounded-2xl border border-[#d7e5ff] bg-[#f3f8ff] px-4 py-3 text-sm text-[#1f69ef]">
-                  {savedMessage}
-                </div>
-              ) : null}
-
-              <div className="mt-4 rounded-2xl border border-[#e5ecff] bg-[#fafcff] px-4 py-3 text-sm text-[#4b5875]">
-                <div>
-                  현재 side: <span className="font-semibold">{activeSide}</span>
-                </div>
-                <div>
-                  현재 panel: <span className="font-semibold">{activePanel}</span>
-                </div>
-                <div>
-                  현재 role: <span className="font-semibold">{currentRole}</span>
-                </div>
-                <div>
-                  현재 paragraph: <span className="font-semibold">{currentSelectedId || "-"}</span>
-                </div>
-                <div>
-                  현재 table: <span className="font-semibold">{currentSelectedTableId || "-"}</span>
-                </div>
-                <div>
-                  현재 overlay box: <span className="font-semibold">{selectedBoxId || "-"}</span>
-                </div>
-              </div>
+                  <div className="mt-4 rounded-2xl border border-[#e5ecff] bg-[#fafcff] px-4 py-3 text-sm text-[#4b5875]">
+                    <div>
+                      현재 side: <span className="font-semibold">{activeSide}</span>
+                    </div>
+                    <div>
+                      현재 panel: <span className="font-semibold">{activePanel}</span>
+                    </div>
+                    <div>
+                      현재 role: <span className="font-semibold">{currentRole}</span>
+                    </div>
+                    <div>
+                      현재 paragraph: <span className="font-semibold">{currentSelectedId || "-"}</span>
+                    </div>
+                    <div>
+                      현재 table: <span className="font-semibold">{currentSelectedTableId || "-"}</span>
+                    </div>
+                    <div>
+                      현재 overlay box: <span className="font-semibold">{selectedBoxId || "-"}</span>
+                    </div>
+                  </div>
+                </>
+              )}
             </div>
           </section>
 
