@@ -60,6 +60,7 @@ type TableCellItem = {
   width?: number | null
   height?: number | null
   header?: boolean | null
+  role?: string | null
   backgroundColor?: string | null
   fontFamily?: string | null
   fontSize?: number | null
@@ -360,6 +361,36 @@ function getCellTextStyle(table: TableItem, cell: TableCellItem) {
   }
 }
 
+function getRoleBadgeStyle(role?: string | null) {
+  switch ((role ?? "").toUpperCase()) {
+    case "HEADER_GROUP":
+      return {
+        label: "GROUP",
+        className: "bg-purple-600 text-white",
+      }
+    case "HEADER_ROW":
+      return {
+        label: "ROW",
+        className: "bg-blue-600 text-white",
+      }
+    case "HEADER_COLUMN":
+      return {
+        label: "COL",
+        className: "bg-emerald-600 text-white",
+      }
+    case "VALUE":
+      return {
+        label: "VALUE",
+        className: "bg-slate-600 text-white",
+      }
+    default:
+      return {
+        label: role || "-",
+        className: "bg-gray-500 text-white",
+      }
+  }
+}
+
 /**
  * 1) 셀 텍스트의 기존 줄바꿈(\n)은 유지
  * 2) 각 줄은 스페이스바 기준으로 우선 줄바꿈되도록 <br> 기회 제공
@@ -508,6 +539,7 @@ export default function ComposePageParagraphLayer({
                 {hasStructuredCells ? (
                   t.cells!.map((cell, idx) => {
                     const textStyle = getCellTextStyle(t, cell)
+                    const badge = getRoleBadgeStyle(cell.role)
 
                     const cellLeft = cell.x ?? 0
                     const cellTop = (cell.y ?? 0) * 0.5
@@ -548,7 +580,7 @@ export default function ComposePageParagraphLayer({
                           borderBottom: borders.bottom,
 
                           display: "flex",
-                          alignItems: "center", // "flex-start",
+                          alignItems: "center",
                           justifyContent: toJustifyContent(textStyle.align),
                           padding: "4px 8px",
 
@@ -558,16 +590,23 @@ export default function ComposePageParagraphLayer({
                           fontStyle: textStyle.italic ? "italic" : "normal",
                           textDecoration: textStyle.underline ? "underline" : "none",
                           color: toPreviewColor(textStyle.fontColor, "#334155"),
-                          whiteSpace: "pre-wrap", // "normal"
-                          wordBreak: "keep-all", // "break-word",
+                          whiteSpace: "pre-wrap",
+                          wordBreak: "keep-all",
                           overflow: "hidden",
-                          textAlign: toTextAlign(textStyle.align), // "center",
+                          textAlign: toTextAlign(textStyle.align),
                           boxSizing: "border-box",
                           pointerEvents: "none",
                           lineHeight: 1.3,
                         }}
                       >
                         {cell.text}
+
+                        <span
+                          className={`absolute right-1 top-1 rounded px-1 py-[1px] text-[9px] font-bold leading-none shadow-sm ${badge.className}`}
+                          style={{ pointerEvents: "none" }}
+                        >
+                          {badge.label}
+                        </span>
                       </div>
                     )
                   })

@@ -21,7 +21,25 @@ public class TableCellDto {
     private Double width;
     private Double height;
 
+    /**
+     * 기존 프론트 호환용 boolean 값
+     * - true  : 헤더 계열 셀
+     * - false : 일반 값 셀
+     *
+     * 이제는 role 이 더 중요한 기준이며,
+     * header 는 role 을 단순 boolean 으로 축약한 보조 값입니다.
+     */
     private Boolean header;
+
+    /**
+     * 셀 의미(role)
+     *
+     * HEADER_GROUP  : 섹션 그룹 헤더 (예: 기업현황, 대표자, 실무 담당자)
+     * HEADER_ROW    : 행 라벨 헤더   (예: 기업명, 홈페이지, 성명, 휴대전화)
+     * HEADER_COLUMN : 열/상단 밴드 헤더
+     * VALUE         : 실제 값 셀
+     */
+    private String role;
 
     /**
      * 셀별 배경색
@@ -117,6 +135,14 @@ public class TableCellDto {
 
     public void setHeader(Boolean header) {
         this.header = header;
+    }
+
+    public String getRole() {
+        return role;
+    }
+
+    public void setRole(String role) {
+        this.role = role;
     }
 
     public String getBackgroundColor() {
