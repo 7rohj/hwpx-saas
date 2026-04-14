@@ -83,6 +83,7 @@ type TableItem = {
   rowCount: number | null
   colCount: number | null
   cellTexts: string[][]
+  tableKind?: string | null
   borderColor?: string | null
   borderWidth?: number | null
   backgroundColor?: string | null
@@ -132,6 +133,7 @@ const ROLE_OPTIONS = [
   { value: "body", label: "body" },
   { value: "icon", label: "icon" },
   { value: "caption", label: "caption" },
+  { value: "oneline_box", label: "oneline_box" },
   { value: "table", label: "table" },
 ]
 
@@ -343,7 +345,10 @@ export default function ComposeStudioPage({
       id: t.tableId,
       page: t.page,
       y: t.y ?? 0,
-      labelText: t.cellTexts?.[0]?.join(" | ") || "(빈 표)",
+      labelText:
+        t.tableKind === "oneline_box"
+          ? `[ONELINE_BOX] ${t.cellTexts?.[0]?.join(" | ") || "(빈 표)"}`
+          : t.cellTexts?.[0]?.join(" | ") || "(빈 표)",
       fontInfo: `${t.rowCount ?? 0}행 × ${t.colCount ?? 0}열`,
       table: t,
     }))

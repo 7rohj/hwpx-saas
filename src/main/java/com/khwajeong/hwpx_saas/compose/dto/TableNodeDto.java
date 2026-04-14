@@ -37,6 +37,8 @@ public class TableNodeDto {
     // 헤더/바디 구분 포함한 추출 스타일 세트
     private ExtractedTableStyle extractedStyle;
 
+    private String tableKind;
+
     public String getTableId() {
         return tableId;
     }
@@ -187,5 +189,13 @@ public class TableNodeDto {
 
     public void setExtractedStyle(ExtractedTableStyle extractedStyle) {
         this.extractedStyle = extractedStyle;
+    }
+
+    public String getTableKind() {
+        return tableKind;
+    }
+
+    public void setTableKind(String tableKind) {
+        this.tableKind = tableKind;
     }
 }

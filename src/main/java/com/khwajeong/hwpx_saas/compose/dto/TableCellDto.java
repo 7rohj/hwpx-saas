@@ -57,6 +57,22 @@ public class TableCellDto {
     private String fontColor;
     private String align;
 
+    private String borderLeftStyle;
+    private String borderLeftColor;
+    private String borderLeftWidth;
+
+    private String borderRightStyle;
+    private String borderRightColor;
+    private String borderRightWidth;
+
+    private String borderTopStyle;
+    private String borderTopColor;
+    private String borderTopWidth;
+
+    private String borderBottomStyle;
+    private String borderBottomColor;
+    private String borderBottomWidth;
+
     public int getRowIndex() {
         return rowIndex;
     }
@@ -207,5 +223,101 @@ public class TableCellDto {
 
     public void setAlign(String align) {
         this.align = align;
+    }
+
+    public String getBorderLeftStyle() {
+        return borderLeftStyle;
+    }
+
+    public void setBorderLeftStyle(String borderLeftStyle) {
+        this.borderLeftStyle = borderLeftStyle;
+    }
+
+    public String getBorderLeftColor() {
+        return borderLeftColor;
+    }
+
+    public void setBorderLeftColor(String borderLeftColor) {
+        this.borderLeftColor = borderLeftColor;
+    }
+
+    public String getBorderLeftWidth() {
+        return borderLeftWidth;
+    }
+
+    public void setBorderLeftWidth(String borderLeftWidth) {
+        this.borderLeftWidth = borderLeftWidth;
+    }
+
+    public String getBorderRightStyle() {
+        return borderRightStyle;
+    }
+
+    public void setBorderRightStyle(String borderRightStyle) {
+        this.borderRightStyle = borderRightStyle;
+    }
+
+    public String getBorderRightColor() {
+        return borderRightColor;
+    }
+
+    public void setBorderRightColor(String borderRightColor) {
+        this.borderRightColor = borderRightColor;
+    }
+
+    public String getBorderRightWidth() {
+        return borderRightWidth;
+    }
+
+    public void setBorderRightWidth(String borderRightWidth) {
+        this.borderRightWidth = borderRightWidth;
+    }
+
+    public String getBorderTopStyle() {
+        return borderTopStyle;
+    }
+
+    public void setBorderTopStyle(String borderTopStyle) {
+        this.borderTopStyle = borderTopStyle;
+    }
+
+    public String getBorderTopColor() {
+        return borderTopColor;
+    }
+
+    public void setBorderTopColor(String borderTopColor) {
+        this.borderTopColor = borderTopColor;
+    }
+
+    public String getBorderTopWidth() {
+        return borderTopWidth;
+    }
+
+    public void setBorderTopWidth(String borderTopWidth) {
+        this.borderTopWidth = borderTopWidth;
+    }
+
+    public String getBorderBottomStyle() {
+        return borderBottomStyle;
+    }
+
+    public void setBorderBottomStyle(String borderBottomStyle) {
+        this.borderBottomStyle = borderBottomStyle;
+    }
+
+    public String getBorderBottomColor() {
+        return borderBottomColor;
+    }
+
+    public void setBorderBottomColor(String borderBottomColor) {
+        this.borderBottomColor = borderBottomColor;
+    }
+
+    public String getBorderBottomWidth() {
+        return borderBottomWidth;
+    }
+
+    public void setBorderBottomWidth(String borderBottomWidth) {
+        this.borderBottomWidth = borderBottomWidth;
     }
 }

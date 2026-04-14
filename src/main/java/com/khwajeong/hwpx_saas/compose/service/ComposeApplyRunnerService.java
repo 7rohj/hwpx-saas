@@ -78,6 +78,11 @@ public class ComposeApplyRunnerService {
             }
 
             if ("table".equalsIgnoreCase(templateSelection.getBlockType())
+                    && "oneline_box".equalsIgnoreCase(templateSelection.getLabel())) {
+                return runOnelineBoxApply(request, session, templateSelection, sourceSelection, session.getSourcePath());
+            }
+
+            if ("table".equalsIgnoreCase(templateSelection.getBlockType())
                     || "table".equalsIgnoreCase(sourceSelection.getBlockType())) {
                 return runTableApply(request, session, templateSelection, sourceSelection, session.getSourcePath());
             }
@@ -144,6 +149,7 @@ public class ComposeApplyRunnerService {
                     "body",
                     "icon",
                     "caption",
+                    "oneline_box",
                     "table"
             );
 
@@ -156,6 +162,29 @@ public class ComposeApplyRunnerService {
                 ComposeSelectionResponse sourceSel = sourceMap.get(label);
 
                 if (templateSel == null || sourceSel == null) {
+                    continue;
+                }
+
+                if ("oneline_box".equalsIgnoreCase(templateSel.getBlockType())) {
+                    ComposeRunApplyRequest singleRequest = new ComposeRunApplyRequest();
+                    singleRequest.setSessionId(request.getSessionId());
+                    singleRequest.setLabel(label);
+                    singleRequest.setFontPolicy(request.getFontPolicy());
+
+                    ComposeSelection templateModel = toModel(templateSel);
+                    ComposeSelection sourceModel = toModel(sourceSel);
+
+                    ComposeRunApplyResponse singleResponse = runOnelineBoxApply(
+                            singleRequest,
+                            session,
+                            templateModel,
+                            sourceModel,
+                            workingSourcePath
+                    );
+
+                    workingSourcePath = Path.of(singleResponse.getOutputPath());
+                    appliedLabels.add(label);
+                    appliedTargets.add("oneline_box:" + sourceSel.getParagraphId());
                     continue;
                 }
 
@@ -314,6 +343,40 @@ public class ComposeApplyRunnerService {
         return response;
     }
 
+    private ComposeRunApplyResponse runOnelineBoxApply(
+            ComposeRunApplyRequest request,
+            ComposeSessionService.SessionData session,
+            ComposeSelection templateSelection,
+            ComposeSelection sourceSelection,
+            Path sourceHwpxPath
+    ) throws Exception {
+
+        // 1차 단계:
+        // 아직 실제 HWPX 셀 반영은 하지 않고, oneline_box 매칭이 정상 분기되는지만 확인
+        ComposeRunApplyResponse response = new ComposeRunApplyResponse();
+        response.setSessionId(request.getSessionId());
+        response.setLabel(request.getLabel());
+        response.setTemplateSelectionSummary(
+                "template page=" + templateSelection.getPage()
+                        + ", label=" + templateSelection.getLabel()
+                        + ", tableId=" + templateSelection.getTableId()
+                        + ", blockType=" + templateSelection.getBlockType()
+        );
+        response.setSourceSelectionSummary(
+                "source page=" + sourceSelection.getPage()
+                        + ", label=" + sourceSelection.getLabel()
+                        + ", paragraphId=" + sourceSelection.getParagraphId()
+                        + ", blockType=" + sourceSelection.getBlockType()
+        );
+        response.setMatchedParagraphIds(List.of());
+        response.setStyledParagraphs(List.of());
+        response.setOutputPath(sourceHwpxPath.toString());
+        response.setFileId(sourceHwpxPath.getFileName().toString());
+        response.setDownloadUrl("/api/v1/compose/files/" + sourceHwpxPath.getFileName());
+
+        return response;
+    }
+
     private ComposeRunApplyResponse runTableApply(
             ComposeRunApplyRequest request,
             ComposeSessionService.SessionData session,
@@ -338,12 +401,13 @@ public class ComposeApplyRunnerService {
             throw new IllegalArgumentException("template extracted table style not found");
         }
 
-        ExtractedTableStyle style = templateTable.getExtractedStyle();
+        // ExtractedTableStyle style = templateTable.getExtractedStyle();
 
         Path outputPath = composeTableStyleApplyService.applyTableStyle(
                 sourceHwpxPath,
                 sourceSelection.getTableId(),
-                style
+                templateTable
+                // style
         );
 
         String fileId = outputPath.getFileName().toString();

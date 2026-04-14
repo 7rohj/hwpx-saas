@@ -1,5 +1,7 @@
 package com.khwajeong.hwpx_saas.compose.service;
 
+import com.khwajeong.hwpx_saas.compose.dto.TableCellDto;
+import com.khwajeong.hwpx_saas.compose.dto.TableNodeDto;
 import com.khwajeong.hwpx_saas.compose.model.ExtractedTableStyle;
 import org.springframework.stereotype.Service;
 import org.w3c.dom.Document;
@@ -21,6 +23,7 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.Enumeration;
+import java.util.HashMap;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
@@ -40,13 +43,21 @@ public class ComposeTableStyleApplyService {
     public Path applyTableStyle(
             Path sourceHwpxPath,
             String sourceTableId,
-            ExtractedTableStyle style
+            TableNodeDto templateTable
     ) throws Exception {
         if (sourceHwpxPath == null || !Files.exists(sourceHwpxPath)) {
             throw new IllegalArgumentException("source hwpx not found");
         }
-        if (style == null) {
-            throw new IllegalArgumentException("style is required");
+        if (templateTable == null) {
+            throw new IllegalArgumentException("templateTable is required");
+        }
+        if (sourceTableId == null || sourceTableId.isBlank()) {
+            throw new IllegalArgumentException("sourceTableId is required");
+        }
+
+        int targetTableIndex = parseTargetTableIndex(sourceTableId);
+        if (targetTableIndex < 0) {
+            throw new IllegalArgumentException("invalid sourceTableId: " + sourceTableId);
         }
 
         Path outputPath = Files.createTempFile("compose-table-applied-", ".hwpx");
@@ -57,7 +68,10 @@ public class ComposeTableStyleApplyService {
             Map<String, byte[]> updatedEntries = new LinkedHashMap<>();
             Map<String, Document> headerDocs = loadHeaderDocs(zipFile);
 
-            Map<String, RegisteredPair> registeredByHeader = registerStylesToHeaders(headerDocs, style);
+            Map<String, Map<String, RegisteredCellStyle>> registeredByHeader =
+                    registerStylesToHeaders(headerDocs, templateTable);
+
+            int[] currentTableIndexRef = new int[]{0};
 
             Enumeration<? extends ZipEntry> entries = zipFile.entries();
             while (entries.hasMoreElements()) {
@@ -75,17 +89,22 @@ public class ComposeTableStyleApplyService {
 
                 if (entry.getName().startsWith("Contents/section") && entry.getName().endsWith(".xml")) {
                     String headerName = toHeaderName(entry.getName());
-                    RegisteredPair pair = registeredByHeader.get(headerName);
+                    Map<String, RegisteredCellStyle> registeredCellMap = registeredByHeader.get(headerName);
 
-                    if (pair == null && registeredByHeader.containsKey("Contents/header0.xml")) {
-                        pair = registeredByHeader.get("Contents/header0.xml");
+                    if (registeredCellMap == null && registeredByHeader.containsKey("Contents/header0.xml")) {
+                        registeredCellMap = registeredByHeader.get("Contents/header0.xml");
                     }
-                    if (pair == null && registeredByHeader.containsKey("Contents/header.xml")) {
-                        pair = registeredByHeader.get("Contents/header.xml");
+                    if (registeredCellMap == null && registeredByHeader.containsKey("Contents/header.xml")) {
+                        registeredCellMap = registeredByHeader.get("Contents/header.xml");
                     }
 
-                    if (pair != null) {
-                        bytes = applyTableStyleToAllTablesInSectionXml(bytes, pair);
+                    if (registeredCellMap != null) {
+                        bytes = applyTableStyleToTargetTableInSectionXml(
+                                bytes,
+                                targetTableIndex,
+                                currentTableIndexRef,
+                                registeredCellMap
+                        );
                     }
                 }
 
@@ -130,242 +149,73 @@ public class ComposeTableStyleApplyService {
         return result;
     }
 
-    private Map<String, RegisteredPair> registerStylesToHeaders(
+    /**
+     * header.xml 별로 template 셀 스타일을 등록한다.
+     * key = "row:col"
+     */
+    private Map<String, Map<String, RegisteredCellStyle>> registerStylesToHeaders(
             Map<String, Document> headerDocs,
-            ExtractedTableStyle style
+            TableNodeDto templateTable
     ) {
-        Map<String, RegisteredPair> result = new LinkedHashMap<>();
+        Map<String, Map<String, RegisteredCellStyle>> result = new LinkedHashMap<>();
+        Map<String, TableCellDto> templateCellMap = buildTemplateCellMap(templateTable.getCells());
 
         for (Map.Entry<String, Document> e : headerDocs.entrySet()) {
             Document doc = e.getValue();
+            Map<String, RegisteredCellStyle> registeredCellMap = new LinkedHashMap<>();
 
-            HwpxStyleRegistryService.RegisteredStyleIds headerIds =
-                    hwpxStyleRegistryService.registerTableCellStyle(
-                            doc,
-                            style.getHeaderTextStyle(),
-                            style.getHeaderOuterBorder(),
-                            style.getHeaderInnerBorder(),
-                            style.getHeaderBackgroundColor()
-                    );
+            for (Map.Entry<String, TableCellDto> cellEntry : templateCellMap.entrySet()) {
+                TableCellDto templateCell = cellEntry.getValue();
 
-            HwpxStyleRegistryService.RegisteredStyleIds bodyIds =
-                    hwpxStyleRegistryService.registerTableCellStyle(
-                            doc,
-                            style.getBodyTextStyle(),
-                            style.getBodyInnerVerticalBorder(),
-                            style.getBodyInnerHorizontalBorder(),
-                            style.getBodyBackgroundColor()
-                    );
+                ExtractedTableStyle.CellTextStyle textStyle = toCellTextStyle(templateCell);
 
-            // ============================================
-            // HEADER borderFill
-            // 규칙:
-            // - 첫 칼럼 left = outer, right = inner
-            // - 중간 칼럼 left/right = inner
-            // - 마지막 칼럼 left = inner, right = outer
-            // - 한 칸짜리 헤더는 left/right 모두 outer
-            // ============================================
+                // char/para style 등록
+                HwpxStyleRegistryService.RegisteredStyleIds ids =
+                        hwpxStyleRegistryService.registerTableCellStyle(
+                                doc,
+                                textStyle,
+                                hiddenBorder(),
+                                hiddenBorder(),
+                                templateCell.getBackgroundColor()
+                        );
 
-            String headerFirstColBorderFillId =
-                    hwpxStyleRegistryService.registerCustomBorderFill(
-                            doc,
-                            style.getHeaderOuterBorder(),      // left = 헤더 외곽선
-                            style.getHeaderInnerBorder(),      // right = 헤더 내부선
-                            style.getHeaderInnerBorder(),      // top
-                            style.getHeaderInnerBorder(),      // bottom
-                            style.getHeaderBackgroundColor()
-                    );
+                // 4방향 borderFill 등록
+                String borderFillId = hwpxStyleRegistryService.registerCustomBorderFill(
+                        doc,
+                        toBorderStyle(
+                                templateCell.getBorderLeftStyle(),
+                                templateCell.getBorderLeftColor(),
+                                templateCell.getBorderLeftWidth()
+                        ),
+                        toBorderStyle(
+                                templateCell.getBorderRightStyle(),
+                                templateCell.getBorderRightColor(),
+                                templateCell.getBorderRightWidth()
+                        ),
+                        toBorderStyle(
+                                templateCell.getBorderTopStyle(),
+                                templateCell.getBorderTopColor(),
+                                templateCell.getBorderTopWidth()
+                        ),
+                        toBorderStyle(
+                                templateCell.getBorderBottomStyle(),
+                                templateCell.getBorderBottomColor(),
+                                templateCell.getBorderBottomWidth()
+                        ),
+                        templateCell.getBackgroundColor()
+                );
 
-            String headerOtherColBorderFillId =
-                    hwpxStyleRegistryService.registerCustomBorderFill(
-                            doc,
-                            style.getHeaderInnerBorder(),      // left = 헤더 내부선
-                            style.getHeaderInnerBorder(),      // right = 헤더 내부선
-                            style.getHeaderInnerBorder(),      // top
-                            style.getHeaderInnerBorder(),      // bottom
-                            style.getHeaderBackgroundColor()
-                    );
+                RegisteredCellStyle registered = new RegisteredCellStyle();
+                registered.ids = ids;
+                registered.borderFillId = borderFillId;
+                registered.fontSize = templateCell.getFontSize() != null && templateCell.getFontSize() > 0
+                        ? templateCell.getFontSize()
+                        : 10;
 
-            String headerLastColBorderFillId =
-                    hwpxStyleRegistryService.registerCustomBorderFill(
-                            doc,
-                            style.getHeaderInnerBorder(),      // left = 헤더 내부선
-                            style.getHeaderOuterBorder(),      // right = 헤더 외곽선
-                            style.getHeaderInnerBorder(),      // top
-                            style.getHeaderInnerBorder(),      // bottom
-                            style.getHeaderBackgroundColor()
-                    );
+                registeredCellMap.put(cellEntry.getKey(), registered);
+            }
 
-            String headerSingleColBorderFillId =
-                    hwpxStyleRegistryService.registerCustomBorderFill(
-                            doc,
-                            style.getHeaderOuterBorder(),      // left = 헤더 외곽선
-                            style.getHeaderOuterBorder(),      // right = 헤더 외곽선
-                            style.getHeaderInnerBorder(),      // top
-                            style.getHeaderInnerBorder(),      // bottom
-                            style.getHeaderBackgroundColor()
-                    );
-
-            // ============================================
-            // BODY borderFill
-            // 규칙:
-            // - 첫 칼럼 left = outer, right = inner
-            // - 중간 칼럼 left/right = inner
-            // - 마지막 칼럼 left = inner, right = outer
-            // - 한 칸짜리 바디는 left/right 모두 outer
-            // ============================================
-
-            // column = 0 전용 body borderFill
-            String bodyFirstRowFirstColBorderFillId =
-                    hwpxStyleRegistryService.registerCustomBorderFill(
-                            doc,
-                            style.getBodyOuterBorder(),
-                            style.getBodyInnerVerticalBorder(),
-                            style.getBodyFirstRowTopBorder(),
-                            style.getBodyInnerHorizontalBorder(),
-                            style.getBodyBackgroundColor()
-                    );
-
-            String bodyMiddleRowFirstColBorderFillId =
-                    hwpxStyleRegistryService.registerCustomBorderFill(
-                            doc,
-                            style.getBodyOuterBorder(),
-                            style.getBodyInnerVerticalBorder(),
-                            hiddenBorder(),
-                            style.getBodyInnerHorizontalBorder(),
-                            style.getBodyBackgroundColor()
-                    );
-
-            String bodyLastRowFirstColBorderFillId =
-                    hwpxStyleRegistryService.registerCustomBorderFill(
-                            doc,
-                            style.getBodyOuterBorder(),
-                            style.getBodyInnerVerticalBorder(),
-                            hiddenBorder(),
-                            style.getBodyLastRowBottomBorder(),
-                            style.getBodyBackgroundColor()
-                    );
-
-            String bodySingleRowFirstColBorderFillId =
-                    hwpxStyleRegistryService.registerCustomBorderFill(
-                            doc,
-                            style.getBodyOuterBorder(),
-                            style.getBodyInnerVerticalBorder(),
-                            style.getBodyFirstRowTopBorder(),
-                            style.getBodyLastRowBottomBorder(),
-                            style.getBodyBackgroundColor()
-                    );
-
-            // 중간 column 전용 body borderFill
-            String bodyFirstRowOtherColBorderFillId =
-                    hwpxStyleRegistryService.registerCustomBorderFill(
-                            doc,
-                            style.getBodyInnerVerticalBorder(),
-                            style.getBodyInnerVerticalBorder(),
-                            style.getBodyFirstRowTopBorder(),
-                            style.getBodyInnerHorizontalBorder(),
-                            style.getBodyBackgroundColor()
-                    );
-
-            String bodyMiddleRowOtherColBorderFillId =
-                    hwpxStyleRegistryService.registerCustomBorderFill(
-                            doc,
-                            style.getBodyInnerVerticalBorder(),
-                            style.getBodyInnerVerticalBorder(),
-                            hiddenBorder(),
-                            style.getBodyInnerHorizontalBorder(),
-                            style.getBodyBackgroundColor()
-                    );
-
-            String bodyLastRowOtherColBorderFillId =
-                    hwpxStyleRegistryService.registerCustomBorderFill(
-                            doc,
-                            style.getBodyInnerVerticalBorder(),
-                            style.getBodyInnerVerticalBorder(),
-                            hiddenBorder(),
-                            style.getBodyLastRowBottomBorder(),
-                            style.getBodyBackgroundColor()
-                    );
-
-            String bodySingleRowOtherColBorderFillId =
-                    hwpxStyleRegistryService.registerCustomBorderFill(
-                            doc,
-                            style.getBodyInnerVerticalBorder(),
-                            style.getBodyInnerVerticalBorder(),
-                            style.getBodyFirstRowTopBorder(),
-                            style.getBodyLastRowBottomBorder(),
-                            style.getBodyBackgroundColor()
-                    );
-
-            // 마지막 column 전용 body borderFill
-            String bodyFirstRowLastColBorderFillId =
-                    hwpxStyleRegistryService.registerCustomBorderFill(
-                            doc,
-                            style.getBodyInnerVerticalBorder(),
-                            style.getBodyOuterBorder(),
-                            style.getBodyFirstRowTopBorder(),
-                            style.getBodyInnerHorizontalBorder(),
-                            style.getBodyBackgroundColor()
-                    );
-
-            String bodyMiddleRowLastColBorderFillId =
-                    hwpxStyleRegistryService.registerCustomBorderFill(
-                            doc,
-                            style.getBodyInnerVerticalBorder(),
-                            style.getBodyOuterBorder(),
-                            hiddenBorder(),
-                            style.getBodyInnerHorizontalBorder(),
-                            style.getBodyBackgroundColor()
-                    );
-
-            String bodyLastRowLastColBorderFillId =
-                    hwpxStyleRegistryService.registerCustomBorderFill(
-                            doc,
-                            style.getBodyInnerVerticalBorder(),
-                            style.getBodyOuterBorder(),
-                            hiddenBorder(),
-                            style.getBodyLastRowBottomBorder(),
-                            style.getBodyBackgroundColor()
-                    );
-
-            String bodySingleRowLastColBorderFillId =
-                    hwpxStyleRegistryService.registerCustomBorderFill(
-                            doc,
-                            style.getBodyInnerVerticalBorder(),
-                            style.getBodyOuterBorder(),
-                            style.getBodyFirstRowTopBorder(),
-                            style.getBodyLastRowBottomBorder(),
-                            style.getBodyBackgroundColor()
-                    );
-
-            RegisteredPair pair = new RegisteredPair();
-            pair.headerIds = headerIds;
-            pair.bodyIds = bodyIds;
-
-            pair.headerFirstColBorderFillId = headerFirstColBorderFillId;
-            pair.headerOtherColBorderFillId = headerOtherColBorderFillId;
-            pair.headerLastColBorderFillId = headerLastColBorderFillId;
-            pair.headerSingleColBorderFillId = headerSingleColBorderFillId;
-
-            pair.bodyFirstRowFirstColBorderFillId = bodyFirstRowFirstColBorderFillId;
-            pair.bodyMiddleRowFirstColBorderFillId = bodyMiddleRowFirstColBorderFillId;
-            pair.bodyLastRowFirstColBorderFillId = bodyLastRowFirstColBorderFillId;
-            pair.bodySingleRowFirstColBorderFillId = bodySingleRowFirstColBorderFillId;
-
-            pair.bodyFirstRowOtherColBorderFillId = bodyFirstRowOtherColBorderFillId;
-            pair.bodyMiddleRowOtherColBorderFillId = bodyMiddleRowOtherColBorderFillId;
-            pair.bodyLastRowOtherColBorderFillId = bodyLastRowOtherColBorderFillId;
-            pair.bodySingleRowOtherColBorderFillId = bodySingleRowOtherColBorderFillId;
-
-            pair.bodyFirstRowLastColBorderFillId = bodyFirstRowLastColBorderFillId;
-            pair.bodyMiddleRowLastColBorderFillId = bodyMiddleRowLastColBorderFillId;
-            pair.bodyLastRowLastColBorderFillId = bodyLastRowLastColBorderFillId;
-            pair.bodySingleRowLastColBorderFillId = bodySingleRowLastColBorderFillId;
-
-            pair.headerFontSize = extractFontSize(style.getHeaderTextStyle(), 12);
-            pair.bodyFontSize = extractFontSize(style.getBodyTextStyle(), 10);
-
-            result.put(e.getKey(), pair);
+            result.put(e.getKey(), registeredCellMap);
         }
 
         return result;
@@ -379,16 +229,56 @@ public class ComposeTableStyleApplyService {
         return border;
     }
 
-    private int extractFontSize(ExtractedTableStyle.CellTextStyle textStyle, int defaultValue) {
-        if (textStyle == null || textStyle.getFontSize() == null || textStyle.getFontSize() <= 0) {
-            return defaultValue;
-        }
-        return textStyle.getFontSize();
+    private ExtractedTableStyle.BorderStyle toBorderStyle(String lineStyle, String color, String width) {
+        ExtractedTableStyle.BorderStyle border = new ExtractedTableStyle.BorderStyle();
+        border.setLineStyle(
+                lineStyle != null && !lineStyle.isBlank()
+                        ? lineStyle
+                        : "NONE"
+        );
+        border.setColor(
+                color != null && !color.isBlank()
+                        ? color
+                        : "#000000"
+        );
+        border.setWidth(
+                width != null && !width.isBlank()
+                        ? width
+                        : "0.12 mm"
+        );
+        return border;
     }
 
-    private byte[] applyTableStyleToAllTablesInSectionXml(
+    private ExtractedTableStyle.CellTextStyle toCellTextStyle(TableCellDto templateCell) {
+        ExtractedTableStyle.CellTextStyle textStyle = new ExtractedTableStyle.CellTextStyle();
+        textStyle.setFontFamily(templateCell.getFontFamily());
+        textStyle.setFontSize(templateCell.getFontSize());
+        textStyle.setBold(templateCell.getBold());
+        textStyle.setItalic(templateCell.getItalic());
+        textStyle.setUnderline(templateCell.getUnderline());
+        textStyle.setFontColor(templateCell.getFontColor());
+        textStyle.setAlign(templateCell.getAlign());
+        return textStyle;
+    }
+
+    private Map<String, TableCellDto> buildTemplateCellMap(List<TableCellDto> cells) {
+        Map<String, TableCellDto> map = new LinkedHashMap<>();
+        if (cells == null) {
+            return map;
+        }
+
+        for (TableCellDto cell : cells) {
+            map.put(cell.getRowIndex() + ":" + cell.getColIndex(), cell);
+        }
+
+        return map;
+    }
+
+    private byte[] applyTableStyleToTargetTableInSectionXml(
             byte[] sectionXmlBytes,
-            RegisteredPair pair
+            int targetTableIndex,
+            int[] currentTableIndexRef,
+            Map<String, RegisteredCellStyle> registeredCellMap
     ) throws Exception {
         Document doc = DocumentBuilderFactory.newInstance()
                 .newDocumentBuilder()
@@ -398,108 +288,75 @@ public class ComposeTableStyleApplyService {
 
         for (int i = 0; i < tblList.getLength(); i++) {
             Node node = tblList.item(i);
-            if (!(node instanceof Element tblEl)) continue;
+            if (!(node instanceof Element tblEl)) {
+                continue;
+            }
 
-            applyStyleToTable(tblEl, pair);
+            int currentIndex = currentTableIndexRef[0];
+            if (currentIndex == targetTableIndex) {
+                applyStyleToTable(tblEl, registeredCellMap);
+            }
+
+            currentTableIndexRef[0] = currentIndex + 1;
         }
 
         return documentToBytes(doc);
     }
 
-    private void applyStyleToTable(Element tblEl, RegisteredPair pair) {
+    /**
+     * source table의 각 셀(row,col)에 대응하는 template cell 스타일 적용
+     */
+    private void applyStyleToTable(
+            Element tblEl,
+            Map<String, RegisteredCellStyle> registeredCellMap
+    ) {
         List<Element> rows = getElements(tblEl, "hp:tr");
-        int rowCount = rows.size();
-        int lastRowIndex = rowCount - 1;
+        Map<Integer, Map<Integer, Boolean>> occupied = new HashMap<>();
 
-        for (int rowIndex = 0; rowIndex < rowCount; rowIndex++) {
+        for (int rowIndex = 0; rowIndex < rows.size(); rowIndex++) {
             Element rowEl = rows.get(rowIndex);
             List<Element> cells = getElements(rowEl, "hp:tc");
 
-            boolean isHeaderRow = rowIndex == 0;
-            boolean isOnlyOneBodyRow = rowCount == 2 && rowIndex == 1;
-            boolean isFirstBodyRow = rowIndex == 1 && rowCount > 2;
-            boolean isLastBodyRow = rowIndex == lastRowIndex && rowIndex > 1;
-            boolean isMiddleBodyRow = rowIndex > 1 && rowIndex < lastRowIndex;
+            int currentCol = 0;
 
-            int lastColIndex = cells.size() - 1;
-            boolean isSingleCol = cells.size() == 1;
+            for (Element cellEl : cells) {
+                Integer explicitRowAddr = readIntAttr(
+                        cellEl,
+                        "rowAddr", "rowaddr", "row", "rowIndex"
+                );
+                Integer explicitColAddr = readIntAttr(
+                        cellEl,
+                        "colAddr", "coladdr", "col", "colIndex"
+                );
 
-            for (int colIndex = 0; colIndex < cells.size(); colIndex++) {
-                Element cellEl = cells.get(colIndex);
-                boolean isFirstCol = colIndex == 0;
-                boolean isLastCol = colIndex == lastColIndex;
+                int actualRow = explicitRowAddr != null ? explicitRowAddr : rowIndex;
+                currentCol = explicitColAddr != null
+                        ? explicitColAddr
+                        : findNextAvailableCol(occupied, actualRow, currentCol);
 
-                if (isHeaderRow) {
-                    String headerBorderFillId;
+                int rowSpan = readSpan(
+                        cellEl,
+                        "rowSpan", "rowspan", "rowSpanCount",
+                        "vertSpan", "vSpan", "rowMerge"
+                );
+                int colSpan = readSpan(
+                        cellEl,
+                        "colSpan", "colspan", "colSpanCount",
+                        "horzSpan", "hSpan", "colMerge"
+                );
 
-                    if (isSingleCol) {
-                        headerBorderFillId = pair.headerSingleColBorderFillId;
-                    } else if (isFirstCol) {
-                        headerBorderFillId = pair.headerFirstColBorderFillId;
-                    } else if (isLastCol) {
-                        headerBorderFillId = pair.headerLastColBorderFillId;
-                    } else {
-                        headerBorderFillId = pair.headerOtherColBorderFillId;
-                    }
-
-                    applyCellFullStyle(cellEl, pair.headerIds, pair.headerFontSize, headerBorderFillId);
-                    continue;
-                }
-
-                if (isOnlyOneBodyRow) {
+                RegisteredCellStyle registered = registeredCellMap.get(actualRow + ":" + currentCol);
+                if (registered != null) {
                     applyCellFullStyle(
                             cellEl,
-                            pair.bodyIds,
-                            pair.bodyFontSize,
-                            isFirstCol
-                                    ? pair.bodySingleRowFirstColBorderFillId
-                                    : isLastCol
-                                        ? pair.bodySingleRowLastColBorderFillId
-                                        : pair.bodySingleRowOtherColBorderFillId
+                            registered.ids,
+                            registered.fontSize,
+                            registered.borderFillId
                     );
-                    continue;
                 }
 
-                if (isFirstBodyRow) {
-                    applyCellFullStyle(
-                            cellEl,
-                            pair.bodyIds,
-                            pair.bodyFontSize,
-                            isFirstCol
-                                    ? pair.bodyFirstRowFirstColBorderFillId
-                                    : isLastCol
-                                        ? pair.bodyFirstRowLastColBorderFillId
-                                        : pair.bodyFirstRowOtherColBorderFillId
-                    );
-                    continue;
-                }
-
-                if (isMiddleBodyRow) {
-                    applyCellFullStyle(
-                            cellEl,
-                            pair.bodyIds,
-                            pair.bodyFontSize,
-                            isFirstCol
-                                    ? pair.bodyMiddleRowFirstColBorderFillId
-                                    : isLastCol
-                                        ? pair.bodyMiddleRowLastColBorderFillId
-                                        : pair.bodyMiddleRowOtherColBorderFillId
-                    );
-                    continue;
-                }
-
-                if (isLastBodyRow) {
-                    applyCellFullStyle(
-                            cellEl,
-                            pair.bodyIds,
-                            pair.bodyFontSize,
-                            isFirstCol
-                                    ? pair.bodyLastRowFirstColBorderFillId
-                                    : isLastCol
-                                        ? pair.bodyLastRowLastColBorderFillId
-                                        : pair.bodyLastRowOtherColBorderFillId
-                    );
-                }
+                markOccupied(occupied, actualRow, currentCol, rowSpan, colSpan);
+                currentCol += colSpan;
             }
         }
     }
@@ -640,6 +497,133 @@ public class ComposeTableStyleApplyService {
         return result;
     }
 
+    private int parseTargetTableIndex(String sourceTableId) {
+        if (sourceTableId == null || sourceTableId.isBlank()) {
+            return -1;
+        }
+        if (!sourceTableId.startsWith("t")) {
+            return -1;
+        }
+        try {
+            return Integer.parseInt(sourceTableId.substring(1));
+        } catch (Exception e) {
+            return -1;
+        }
+    }
+
+    private Integer readIntAttr(Element el, String... names) {
+        String value = readAnyAttr(el, names);
+        if (value == null || value.isBlank()) {
+            return null;
+        }
+
+        try {
+            return Integer.parseInt(value.trim());
+        } catch (Exception e) {
+            return null;
+        }
+    }
+
+    private int readSpan(Element el, String... attrNames) {
+        String value = readAnyAttr(el, attrNames);
+
+        if (value != null && !value.isBlank()) {
+            try {
+                return Math.max(1, Integer.parseInt(value.trim()));
+            } catch (Exception ignored) {
+            }
+        }
+
+        Integer nested = readNestedSpan(el, attrNames);
+        return nested != null ? nested : 1;
+    }
+
+    private Integer readNestedSpan(Element el, String... attrNames) {
+        if (el == null) {
+            return null;
+        }
+
+        NodeList children = el.getElementsByTagName("*");
+        for (int i = 0; i < children.getLength(); i++) {
+            Node node = children.item(i);
+            if (!(node instanceof Element child)) {
+                continue;
+            }
+
+            String value = readAnyAttr(child, attrNames);
+            if (value != null && !value.isBlank()) {
+                try {
+                    return Math.max(1, Integer.parseInt(value.trim()));
+                } catch (Exception ignored) {
+                }
+            }
+        }
+
+        return null;
+    }
+
+    private String readAnyAttr(Element el, String... names) {
+        if (el == null || names == null) {
+            return null;
+        }
+
+        if (el.getAttributes() == null) {
+            return null;
+        }
+
+        for (String name : names) {
+            Node node = el.getAttributes().getNamedItem(name);
+            if (node != null) {
+                return node.getNodeValue();
+            }
+
+            for (int i = 0; i < el.getAttributes().getLength(); i++) {
+                Node attr = el.getAttributes().item(i);
+                if (attr == null) continue;
+
+                String nodeName = attr.getNodeName();
+                String localName = attr.getLocalName();
+
+                if (name.equalsIgnoreCase(nodeName) || name.equalsIgnoreCase(localName)) {
+                    return attr.getNodeValue();
+                }
+            }
+        }
+
+        return null;
+    }
+
+    private int findNextAvailableCol(
+            Map<Integer, Map<Integer, Boolean>> occupied,
+            int rowIndex,
+            int startCol
+    ) {
+        int col = startCol;
+
+        while (occupied
+                .getOrDefault(rowIndex, Map.of())
+                .getOrDefault(col, false)) {
+            col++;
+        }
+
+        return col;
+    }
+
+    private void markOccupied(
+            Map<Integer, Map<Integer, Boolean>> occupied,
+            int rowIndex,
+            int colIndex,
+            int rowSpan,
+            int colSpan
+    ) {
+        for (int r = rowIndex; r < rowIndex + rowSpan; r++) {
+            Map<Integer, Boolean> rowMap = occupied.computeIfAbsent(r, k -> new HashMap<>());
+            for (int c = colIndex; c < colIndex + colSpan; c++) {
+                rowMap.put(c, true);
+            }
+        }
+    }
+
     private byte[] documentToBytes(Document doc) throws Exception {
         Transformer transformer = TransformerFactory.newInstance().newTransformer();
         transformer.setOutputProperty(OutputKeys.ENCODING, "UTF-8");
@@ -650,31 +634,9 @@ public class ComposeTableStyleApplyService {
         return baos.toByteArray();
     }
 
-    private static class RegisteredPair {
-        private HwpxStyleRegistryService.RegisteredStyleIds headerIds;
-        private HwpxStyleRegistryService.RegisteredStyleIds bodyIds;
-
-        private String headerFirstColBorderFillId;
-        private String headerOtherColBorderFillId;
-        private String headerLastColBorderFillId;
-        private String headerSingleColBorderFillId;
-
-        private String bodyFirstRowFirstColBorderFillId;
-        private String bodyMiddleRowFirstColBorderFillId;
-        private String bodyLastRowFirstColBorderFillId;
-        private String bodySingleRowFirstColBorderFillId;
-
-        private String bodyFirstRowOtherColBorderFillId;
-        private String bodyMiddleRowOtherColBorderFillId;
-        private String bodyLastRowOtherColBorderFillId;
-        private String bodySingleRowOtherColBorderFillId;
-
-        private String bodyFirstRowLastColBorderFillId;
-        private String bodyMiddleRowLastColBorderFillId;
-        private String bodyLastRowLastColBorderFillId;
-        private String bodySingleRowLastColBorderFillId;
-
-        private int headerFontSize;
-        private int bodyFontSize;
+    private static class RegisteredCellStyle {
+        private HwpxStyleRegistryService.RegisteredStyleIds ids;
+        private String borderFillId;
+        private int fontSize;
     }
 }

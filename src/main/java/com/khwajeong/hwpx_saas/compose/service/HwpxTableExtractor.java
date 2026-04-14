@@ -18,6 +18,7 @@ import java.util.HashMap;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 import java.util.zip.ZipEntry;
 import java.util.zip.ZipFile;
 
@@ -40,7 +41,8 @@ public class HwpxTableExtractor {
     private enum TableType {
         HORIZONTAL_TABLE,
         VERTICAL_FORM,
-        MIXED_FORM
+        MIXED_FORM,
+        ONELINE_BOX
     }
 
     public List<TableNodeDto> extract(File hwpxFile) {
@@ -134,6 +136,41 @@ public class HwpxTableExtractor {
                             );
                             cell.setBackgroundColor(backgroundColor);
 
+                            // 셀별 4방향 border 저장
+                            ExtractedTableStyle.BorderStyle leftBorder = parseBorderStyleFromHeader(
+                                    headerDoc, borderFillId, "hh:leftBorder", "#000000", "0.12 mm", "SOLID"
+                            );
+                            ExtractedTableStyle.BorderStyle rightBorder = parseBorderStyleFromHeader(
+                                    headerDoc, borderFillId, "hh:rightBorder", "#000000", "0.12 mm", "SOLID"
+                            );
+                            ExtractedTableStyle.BorderStyle topBorder = parseBorderStyleFromHeader(
+                                    headerDoc, borderFillId, "hh:topBorder", "#000000", "0.12 mm", "SOLID"
+                            );
+                            ExtractedTableStyle.BorderStyle bottomBorder = parseBorderStyleFromHeader(
+                                    headerDoc, borderFillId, "hh:bottomBorder", "#000000", "0.12 mm", "SOLID"
+                            );
+
+                            if (leftBorder != null) {
+                                cell.setBorderLeftStyle(leftBorder.getLineStyle());
+                                cell.setBorderLeftColor(leftBorder.getColor());
+                                cell.setBorderLeftWidth(leftBorder.getWidth());
+                            }
+                            if (rightBorder != null) {
+                                cell.setBorderRightStyle(rightBorder.getLineStyle());
+                                cell.setBorderRightColor(rightBorder.getColor());
+                                cell.setBorderRightWidth(rightBorder.getWidth());
+                            }
+                            if (topBorder != null) {
+                                cell.setBorderTopStyle(topBorder.getLineStyle());
+                                cell.setBorderTopColor(topBorder.getColor());
+                                cell.setBorderTopWidth(topBorder.getWidth());
+                            }
+                            if (bottomBorder != null) {
+                                cell.setBorderBottomStyle(bottomBorder.getLineStyle());
+                                cell.setBorderBottomColor(bottomBorder.getColor());
+                                cell.setBorderBottomWidth(bottomBorder.getWidth());
+                            }
+
                             if (cellStyle != null) {
                                 cell.setFontFamily(cellStyle.getFontFamily());
                                 cell.setFontSize(cellStyle.getFontSize());
@@ -155,7 +192,14 @@ public class HwpxTableExtractor {
                     int rowCount = calculateRowCount(cells, rowElements.size());
                     int colCount = Math.max(1, maxColCount);
 
+                    TableType tableType = detectTableType(cells, rowCount, colCount);
                     assignSemanticRoles(cells, rowCount, colCount);
+
+                    if (tableType == TableType.ONELINE_BOX) {
+                        dto.setTableKind("oneline_box");
+                    } else {
+                        dto.setTableKind("table");
+                    }
 
                     dto.setRowCount(rowCount);
                     dto.setColCount(colCount);
@@ -229,6 +273,7 @@ public class HwpxTableExtractor {
         TableType tableType = detectTableType(cells, rowCount, colCount);
 
         switch (tableType) {
+            case ONELINE_BOX -> assignOnelineBoxRoles(cells);
             case HORIZONTAL_TABLE -> assignHorizontalRoles(cells);
             case VERTICAL_FORM -> assignVerticalRoles(cells, rowCount);
             case MIXED_FORM -> assignMixedRoles(cells, rowCount);
@@ -242,6 +287,12 @@ public class HwpxTableExtractor {
         int horizontalScore = 0;
         int verticalScore = 0;
         int mixedScore = 0;
+        int onelineBoxScore = 0;
+
+        // 1행 장식형 박스 우선 판별
+        if (isOnelineBoxCandidate(cells, rowCount, colCount)) {
+            onelineBoxScore += 10;
+        }
 
         if (hasAnyRowSpanGreaterThanOne(cells)) {
             mixedScore += 5;
@@ -265,6 +316,10 @@ public class HwpxTableExtractor {
 
         if (isMostlyLeftLabelRightValue(cells, rowCount)) {
             verticalScore += 3;
+        }
+
+        if (onelineBoxScore > 0) {
+            return TableType.ONELINE_BOX;
         }
 
         if (mixedScore >= horizontalScore && mixedScore >= verticalScore) {
@@ -297,6 +352,29 @@ public class HwpxTableExtractor {
             } else {
                 cell.setRole("VALUE");
                 cell.setHeader(false);
+            }
+        }
+    }
+
+    /**
+     * 1행 장식형 박스 전용 규칙
+     *
+     * 예:
+     * [별첨] [빈칸] [증빙서류 제출목록 안내] [※ 본 페이지는 삭제 후 제출]
+     *
+     * - text 있는 셀  -> HEADER_COLUMN
+     * - text 없는 셀  -> VALUE
+     */
+    private void assignOnelineBoxRoles(List<TableCellDto> cells) {
+        for (TableCellDto cell : cells) {
+            String text = normalizeCellText(cell.getText());
+
+            if (text.isBlank()) {
+                cell.setRole("VALUE");
+                cell.setHeader(false);
+            } else {
+                cell.setRole("HEADER_COLUMN");
+                cell.setHeader(true);
             }
         }
     }
@@ -404,13 +482,10 @@ public class HwpxTableExtractor {
             boolean rowHasDirectGroup = row.stream().anyMatch(c -> "HEADER_GROUP".equals(c.getRole()));
 
             if (!rowCoveredByGroup && !rowHasDirectGroup) {
-                // 혼합형이라도 일반 행이 있을 수 있음:
-                // 첫 의미 있는 셀은 row, 나머지는 value
                 assignSimpleRowValuePattern(row);
                 continue;
             }
 
-            // group 자신은 제외하고 의미 있는 셀만 추출
             List<TableCellDto> nonGroupCells = new ArrayList<>();
             for (TableCellDto cell : row) {
                 if ("HEADER_GROUP".equals(cell.getRole())) {
@@ -423,12 +498,9 @@ public class HwpxTableExtractor {
                 continue;
             }
 
-            // 이 행에서 row 스타일 후보 signature 찾기
             String dominantRowStyle = findDominantRowStyleSignature(nonGroupCells);
 
             if (dominantRowStyle != null && countCellsWithSignature(nonGroupCells, dominantRowStyle) >= 2) {
-                // 반복형: 같은 row 스타일이 2개 이상 반복됨
-                // 예: 1순위 / 3인실 / 2순위 / 5인실 ...
                 for (TableCellDto cell : nonGroupCells) {
                     if (normalizeCellText(cell.getText()).isBlank()) {
                         if (cell.getRole() == null) {
@@ -447,9 +519,6 @@ public class HwpxTableExtractor {
                     }
                 }
             } else {
-                // 단일형: 첫 row 스타일 셀 하나만 row, 나머지 value
-                // 예: 입주형태(예정) | □ | 본사 이전 | □ | 부설연구소 이전 등
-                // 예: 상주인원(현재) | 대표자 포함 | 명
                 TableCellDto firstRowLike = findFirstRowLikeCell(nonGroupCells);
 
                 for (TableCellDto cell : nonGroupCells) {
@@ -470,6 +539,73 @@ public class HwpxTableExtractor {
                 cell.setHeader(false);
             }
         }
+    }
+
+    /**
+     * 1행 장식형 박스 판별
+     *
+     * 조건:
+     * - rowCount == 1
+     * - colCount >= 2
+     * - text 있는 셀이 1개 이상
+     * - 숫자 데이터 반복 표는 제외
+     * - 셀 간 스타일 차이(배경색/글씨크기/굵기/글씨색)가 있으면 oneline_box
+     */
+    private boolean isOnelineBoxCandidate(List<TableCellDto> cells, int rowCount, int colCount) {
+        if (rowCount != 1) {
+            return false;
+        }
+
+        if (colCount < 2) {
+            return false;
+        }
+
+        int textCount = 0;
+        int numericCount = 0;
+        boolean hasStyleDiff = false;
+
+        String baseBg = null;
+        Integer baseFontSize = null;
+        Boolean baseBold = null;
+        String baseFontColor = null;
+
+        for (TableCellDto cell : cells) {
+            String text = normalizeCellText(cell.getText());
+
+            if (!text.isBlank()) {
+                textCount++;
+            }
+
+            if (!text.isBlank() && looksNumeric(text)) {
+                numericCount++;
+            }
+
+            if (baseBg == null) baseBg = cell.getBackgroundColor();
+            if (baseFontSize == null) baseFontSize = cell.getFontSize();
+            if (baseBold == null) baseBold = cell.getBold();
+            if (baseFontColor == null) baseFontColor = cell.getFontColor();
+
+            if (!Objects.equals(baseBg, cell.getBackgroundColor())
+                    || !Objects.equals(baseFontSize, cell.getFontSize())
+                    || !Objects.equals(baseBold, cell.getBold())
+                    || !Objects.equals(baseFontColor, cell.getFontColor())) {
+                hasStyleDiff = true;
+            }
+        }
+
+        if (textCount == 0) {
+            return false;
+        }
+
+        if (numericCount >= textCount && textCount > 1) {
+            return false;
+        }
+
+        if (hasStyleDiff) {
+            return true;
+        }
+
+        return textCount <= 4;
     }
 
     /**
@@ -593,7 +729,6 @@ public class HwpxTableExtractor {
             }
         }
 
-        // 스타일 점수 후보가 하나도 없으면 첫 의미 있는 셀로 fallback
         if (best == null) {
             for (TableCellDto cell : cells) {
                 if (!normalizeCellText(cell.getText()).isBlank()) {
@@ -821,7 +956,6 @@ public class HwpxTableExtractor {
      * 3. 긴 설명문/줄바꿈 많은 행은 더 크게
      * 4. 혼합형 대형 폼 표는 페이지 높이의 일정 비율 이상을 최소 보장
      */
-    
     private int estimatePreviewTableHeight(List<TableCellDto> cells, int rowCount, int colCount) {
         if (rowCount <= 0) {
             return 80;
@@ -829,7 +963,6 @@ public class HwpxTableExtractor {
 
         int[] rowHeights = new int[rowCount];
 
-        // 기본 행 높이
         for (int r = 0; r < rowCount; r++) {
             rowHeights[r] = 30;
         }
@@ -840,29 +973,24 @@ public class HwpxTableExtractor {
             int span = Math.max(1, cell.getRowSpan());
             int endRow = Math.min(rowCount - 1, startRow + span - 1);
 
-            // 대략적인 줄 수 추정
             int explicitLines = countExplicitLines(cell.getText());
             int wrappedLines = estimateWrappedLines(text);
             int lineCount = Math.max(explicitLines, wrappedLines);
 
             int heightScore = 0;
 
-            // 기본 텍스트 높이
             if (!text.isBlank()) {
                 heightScore += 10;
             }
 
-            // 줄 수 많을수록 더 키움
             if (lineCount >= 2) {
                 heightScore += (lineCount - 1) * 8;
             }
 
-            // 세로 병합 그룹 셀은 전체적으로 여유를 더 준다
             if (span > 1) {
                 heightScore += 12;
             }
 
-            // 긴 설명문 셀은 행 높이를 확실히 키운다
             if (text.length() >= 25) {
                 heightScore += 10;
             }
@@ -870,7 +998,6 @@ public class HwpxTableExtractor {
                 heightScore += 12;
             }
 
-            // bold + 회색 배경 라벨 셀은 약간 높이 가산
             if (Boolean.TRUE.equals(cell.getBold())) {
                 heightScore += 4;
             }
@@ -878,11 +1005,9 @@ public class HwpxTableExtractor {
                 heightScore += 4;
             }
 
-            // rowSpan == 1 이면 해당 행에 직접 반영
             if (span == 1) {
                 rowHeights[startRow] = Math.max(rowHeights[startRow], 30 + heightScore);
             } else {
-                // 여러 행에 걸친 group 셀은 해당 구간 전체 행에 조금씩 반영
                 int bonusPerRow = Math.max(4, heightScore / span);
                 for (int r = startRow; r <= endRow; r++) {
                     rowHeights[r] = Math.max(rowHeights[r], rowHeights[r] + bonusPerRow);
@@ -890,12 +1015,11 @@ public class HwpxTableExtractor {
             }
         }
 
-        int estimatedHeight = 16; // table padding 느낌
+        int estimatedHeight = 16;
         for (int h : rowHeights) {
             estimatedHeight += h;
         }
 
-        // 혼합형 대형 폼 표면 preview에서 최소 높이 보장
         if (isLargeMixedFormTable(cells, rowCount, colCount)) {
             int minLargeFormHeight = (int) (PREVIEW_PAGE_HEIGHT * LARGE_FORM_MIN_HEIGHT_RATIO);
             estimatedHeight = Math.max(estimatedHeight, minLargeFormHeight);
