@@ -54,11 +54,8 @@ public class HwpxStyleExtractor {
                     style.setBold(extractBold(charPr));
                     style.setItalic(extractItalic(charPr));
 
-                    String underlineRaw = readAnyAttr(charPr, "underline", "underLine");
-                    if (underlineRaw == null || underlineRaw.isBlank()) {
-                        underlineRaw = hasChild(charPr, "hh:underline") || hasChild(charPr, "hp:underline") ? "true" : null;
-                    }
-                    style.setUnderline(parseUnderline(underlineRaw));
+                    // 밑줄은 태그 존재 여부가 아니라 실제 값/속성으로 판정
+                    style.setUnderline(extractUnderline(charPr));
 
                     style.setColor(normalizeColor(readAnyAttr(charPr, "textColor", "color")));
 
@@ -371,12 +368,80 @@ public class HwpxStyleExtractor {
         return hasChild(charPr, "hh:bold") || hasChild(charPr, "hp:bold");
     }
 
-    private boolean extractItalic(Element charPr) {
+        private boolean extractItalic(Element charPr) {
         String raw = readAnyAttr(charPr, "italic");
         if (raw != null) {
             return parseBoolean(raw, false);
         }
         return hasChild(charPr, "hh:italic") || hasChild(charPr, "hp:italic");
+    }
+
+    /**
+     * 밑줄 추출
+     *
+     * 기존 문제:
+     * - underline 속성이 비어 있으면
+     * - underline 자식 태그가 "존재하기만 해도" true 처리됨
+     *
+     * 수정:
+     * 1) charPr 자체 속성 underline / underLine 우선
+     * 2) 없으면 underline 자식의 type / shape / lineStyle / style / value 확인
+     * 3) none / false / 0 류면 false
+     * 4) 실제 underline 스타일일 때만 true
+     */
+    private boolean extractUnderline(Element charPr) {
+        String raw = readAnyAttr(charPr, "underline", "underLine");
+        if (raw != null && !raw.isBlank()) {
+            return parseUnderline(raw);
+        }
+
+        Element underlineEl = findChild(charPr, "hh:underline", "hp:underline", "underline");
+        if (underlineEl == null) {
+            return false;
+        }
+
+        String childRaw = readAnyAttr(
+                underlineEl,
+                "type",
+                "shape",
+                "lineStyle",
+                "style",
+                "value",
+                "underline",
+                "underLine"
+        );
+
+        if (childRaw != null && !childRaw.isBlank()) {
+            return parseUnderline(childRaw);
+        }
+
+        // 태그가 있어도 값이 없으면 기본 false
+        return false;
+    }
+
+    private Element findChild(Element parent, String... childTagNames) {
+        if (parent == null || childTagNames == null) {
+            return null;
+        }
+
+        NodeList children = parent.getChildNodes();
+        for (int i = 0; i < children.getLength(); i++) {
+            Node node = children.item(i);
+            if (!(node instanceof Element el)) {
+                continue;
+            }
+
+            String nodeName = el.getNodeName();
+            String localName = el.getLocalName();
+
+            for (String tag : childTagNames) {
+                if (tag.equalsIgnoreCase(nodeName) || tag.equalsIgnoreCase(localName)) {
+                    return el;
+                }
+            }
+        }
+
+        return null;
     }
 
     private boolean hasChild(Element parent, String childTagName) {
@@ -487,12 +552,22 @@ public class HwpxStyleExtractor {
         return "true".equals(v) || "1".equals(v) || "yes".equals(v) || "y".equals(v);
     }
 
-    private boolean parseUnderline(String raw) {
+        private boolean parseUnderline(String raw) {
         if (raw == null || raw.isBlank()) {
             return false;
         }
+
         String v = raw.trim().toLowerCase();
-        return !"none".equals(v) && !"0".equals(v) && !"false".equals(v);
+
+        return !(
+                "none".equals(v) ||
+                "noneunderline".equals(v) ||
+                "no".equals(v) ||
+                "false".equals(v) ||
+                "0".equals(v) ||
+                "null".equals(v) ||
+                "none_under_line".equals(v)
+        );
     }
 
     private String normalizeColor(String raw) {
