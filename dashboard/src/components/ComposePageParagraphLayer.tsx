@@ -137,22 +137,12 @@ function toPreviewColor(color?: string | null, fallback = "#111111") {
 
   const hex = v.slice(1)
 
-  if (hex.length === 6) {
-    const bb = hex.slice(0, 2)
-    const gg = hex.slice(2, 4)
-    const rr = hex.slice(4, 6)
-    return `#${rr}${gg}${bb}`
+  // 이미 #RRGGBB 또는 #AARRGGBB 형태라고 보고 그대로 사용
+  if (hex.length === 6 || hex.length === 8) {
+    return v
   }
 
-  if (hex.length === 8) {
-    const aa = hex.slice(0, 2)
-    const bb = hex.slice(2, 4)
-    const gg = hex.slice(4, 6)
-    const rr = hex.slice(6, 8)
-    return `#${aa}${rr}${gg}${bb}`
-  }
-
-  return v
+  return fallback
 }
 
 function toTextAlign(align?: string | null): "left" | "center" | "right" {
@@ -415,6 +405,21 @@ function renderTextWithSpaceBreaks(text: string) {
       </span>
     )
   })
+}
+
+/**
+ * preview용 셀 텍스트 정규화
+ *
+ * HWPX 추출 과정에서 같은 셀 안의 여러 문단이 \n 으로 들어오는 경우가 있는데,
+ * preview에서는 원본처럼 한 줄로 보여야 하는 셀까지 줄바꿈되어 보일 수 있음.
+ *
+ * 그래서 table preview에서는 셀 내부 줄바꿈을 우선 공백으로 평탄화한다.
+ */
+function normalizeCellPreviewText(text?: string | null) {
+  return (text ?? "")
+    .replace(/\r\n|\r|\n/g, " ")
+    .replace(/\s+/g, " ")
+    .trim()
 }
 
 function PreviewLoadingSkeleton() {
@@ -690,6 +695,8 @@ export default function ComposePageParagraphLayer({
                         ? toPreviewColor(style?.headerBackgroundColor, "rgba(148,163,184,0.10)")
                         : toPreviewColor(style?.bodyBackgroundColor, "#ffffff")
 
+                    const previewText = normalizeCellPreviewText(cell.text)
+
                     return (
                       <div
                         key={`${t.tableId}-merged-cell-${idx}`}
@@ -717,8 +724,9 @@ export default function ComposePageParagraphLayer({
                           fontStyle: textStyle.italic ? "italic" : "normal",
                           textDecoration: textStyle.underline ? "underline" : "none",
                           color: toPreviewColor(textStyle.fontColor, "#334155"),
-                          whiteSpace: "pre-wrap",
+                          whiteSpace: "normal",
                           wordBreak: "keep-all",
+                          overflowWrap: "break-word",
                           overflow: "hidden",
                           textAlign: toTextAlign(textStyle.align),
                           boxSizing: "border-box",
@@ -726,7 +734,7 @@ export default function ComposePageParagraphLayer({
                           lineHeight: 1.3,
                         }}
                       >
-                        {cell.text}
+                        {renderTextWithSpaceBreaks(previewText)}
 
                         <span
                           className={`absolute right-1 top-1 rounded px-1 py-[1px] text-[9px] font-bold leading-none shadow-sm ${badge.className}`}
@@ -774,7 +782,7 @@ export default function ComposePageParagraphLayer({
                           }}
                         >
                           {Array.from({ length: colCount }).map((_, colIdx) => {
-                            const cellText = row[colIdx] ?? ""
+                            const cellText = normalizeCellPreviewText(row[colIdx] ?? "")
                             const cellWidth = colWidths[colIdx]
                             const cellLeft = currentLeft
                             currentLeft += cellWidth
@@ -822,7 +830,7 @@ export default function ComposePageParagraphLayer({
                                   lineHeight: 1.3,
                                 }}
                               >
-                                {cellText}
+                                {renderTextWithSpaceBreaks(cellText)}
                               </div>
                             )
                           })}
