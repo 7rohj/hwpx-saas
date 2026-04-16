@@ -15,7 +15,7 @@ export default function TopNav({
     ["홈화면", "landing"],
     ["대시보드", "dashboard"],
     ["스튜디오", "composeStudio"],
-    // ["스튜디오", "studio"],
+    ["스튜디오", "studio"],
     ["API Keys", "apikeys"],
     ["사용량 로그", "usage"],
     ["요금제", "pricing"],

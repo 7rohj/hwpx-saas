@@ -14,6 +14,8 @@ import {
   SquareDashedMousePointer,
   Table2,
   AlignLeft,
+  History,
+  X,
 } from "lucide-react"
 
 type ComposeStudioPageProps = {
@@ -123,6 +125,18 @@ type PageBlockItem =
       fontInfo: string
       table: TableItem
     }
+
+type SavedSelectionHistoryItem = {
+  id: string
+  sessionId: string
+  side: "template" | "source"
+  page: number
+  label: string
+  blockType: "paragraph" | "table"
+  paragraphId?: string
+  tableId?: string
+  savedAt: string
+}
 
 const API_BASE_URL = import.meta.env.VITE_API_BASE_URL ?? "http://localhost:8080"
 
@@ -235,6 +249,16 @@ function findBoxByParagraphId(boxes: OverlayBox[], paragraphId: string) {
   return boxes.find((box) => box.paragraphId === paragraphId) ?? null
 }
 
+function formatSavedAt(value: string) {
+  try {
+    return new Date(value).toLocaleString("ko-KR", {
+      hour12: false,
+    })
+  } catch {
+    return value
+  }
+}
+
 export default function ComposeStudioPage({
   onNavigate,
   onLogout,
@@ -272,6 +296,9 @@ export default function ComposeStudioPage({
   const [selectedBoxId, setSelectedBoxId] = useState<string | null>(null)
 
   const [isApplyResultOpen, setIsApplyResultOpen] = useState(false)
+  const [savedSelectionHistory, setSavedSelectionHistory] = useState<
+    SavedSelectionHistoryItem[]
+  >([])
 
   const currentParagraphs = activeSide === "template" ? templateParagraphs : sourceParagraphs
   const currentTables = activeSide === "template" ? templateTables : sourceTables
@@ -308,14 +335,6 @@ export default function ComposeStudioPage({
     [visibleTables]
   )
 
-  /**
-   * 현재 페이지에 해당하는 box만 렌더링
-   * - 문단 box: paragraphId 기준
-   * - 표 box: `${tableId}-box` 규칙 기준
-   *
-   * 이렇게 해야 페이지를 넘겼을 때 1페이지의 box가
-   * 2페이지에 그대로 남아 보이지 않습니다.
-   */
   const visibleBoxes = useMemo(() => {
     return currentBoxes.filter((box) => {
       if (box.paragraphId) {
@@ -368,10 +387,6 @@ export default function ComposeStudioPage({
     setSelectedBoxId(null)
   }, [activeSide])
 
-  /**
-   * 페이지가 바뀌면 현재 페이지 선택 상태 clear
-   * - 사용자가 원하는 동작: 다음 페이지로 넘어가면 이전 페이지 선택 박스가 사라져야 함
-   */
   useEffect(() => {
     setSelectedBoxId(null)
 
@@ -402,6 +417,85 @@ export default function ComposeStudioPage({
     }
   }, [templateRole, sourceRole, activeSide, selectedBoxId])
 
+  function resetPreviewState() {
+    setCurrentPage(1)
+    setActiveSide("template")
+    setActivePanel("paragraph")
+
+    setTemplateParagraphs([])
+    setSourceParagraphs([])
+    setTemplateTables([])
+    setSourceTables([])
+
+    setSelectedTemplateParagraphId("")
+    setSelectedSourceParagraphId("")
+    setSelectedTemplateTableId("")
+    setSelectedSourceTableId("")
+
+    setTemplateBoxes([])
+    setSourceBoxes([])
+    setSelectedBoxId(null)
+
+    setApplyResult(null)
+    setSavedSelectionHistory([])
+    setSavedMessage("")
+    setError("")
+  }
+
+  function handleRemoveSavedHistoryItem(itemId: string) {
+    const target = savedSelectionHistory.find((item) => item.id === itemId)
+    if (!target) return
+
+    setSavedSelectionHistory((prev) => prev.filter((item) => item.id !== itemId))
+
+    if (target.side === "template") {
+      if (target.blockType === "paragraph" && target.paragraphId) {
+        setTemplateBoxes((prev) =>
+          prev.filter((box) => box.paragraphId !== target.paragraphId)
+        )
+
+        if (selectedTemplateParagraphId === target.paragraphId) {
+          setSelectedTemplateParagraphId("")
+        }
+      }
+
+      if (target.blockType === "table" && target.tableId) {
+        setTemplateBoxes((prev) =>
+          prev.filter((box) => box.id !== `${target.tableId}-box`)
+        )
+
+        if (selectedTemplateTableId === target.tableId) {
+          setSelectedTemplateTableId("")
+        }
+      }
+    } else {
+      if (target.blockType === "paragraph" && target.paragraphId) {
+        setSourceBoxes((prev) =>
+          prev.filter((box) => box.paragraphId !== target.paragraphId)
+        )
+
+        if (selectedSourceParagraphId === target.paragraphId) {
+          setSelectedSourceParagraphId("")
+        }
+      }
+
+      if (target.blockType === "table" && target.tableId) {
+        setSourceBoxes((prev) =>
+          prev.filter((box) => box.id !== `${target.tableId}-box`)
+        )
+
+        if (selectedSourceTableId === target.tableId) {
+          setSelectedSourceTableId("")
+        }
+      }
+    }
+
+    setSelectedBoxId(null)
+    setSavedMessage(
+      `${target.side} · ${target.label} · ${target.blockType} 항목을 목록/박스에서 해제했습니다.`
+    )
+  }
+
   async function handlePreviewUpload() {
     if (!templateFile || !sourceFile) {
       alert("템플릿 파일과 source 파일을 모두 선택해주세요.")
@@ -410,9 +504,7 @@ export default function ComposeStudioPage({
 
     try {
       setUploading(true)
-      setError("")
-      setSavedMessage("")
-      setApplyResult(null)
+      resetPreviewState()
 
       const formData = new FormData()
       formData.append("templateFile", templateFile)
@@ -462,11 +554,12 @@ export default function ComposeStudioPage({
       setSourceParagraphs(sourceData.paragraphs ?? [])
       setSourceTables(sourceData.tables ?? [])
 
+      setCurrentPage(1)
+      setActiveSide("template")
       setSelectedTemplateParagraphId("")
       setSelectedSourceParagraphId("")
       setSelectedTemplateTableId("")
       setSelectedSourceTableId("")
-
       setTemplateBoxes([])
       setSourceBoxes([])
       setSelectedBoxId(null)
@@ -542,6 +635,20 @@ export default function ComposeStudioPage({
 
       const data = await res.json()
       const savedTarget = data.blockType === "table" ? data.tableId : data.paragraphId
+
+      const historyItem: SavedSelectionHistoryItem = {
+        id: `${Date.now()}_${Math.random().toString(36).slice(2, 8)}`,
+        sessionId,
+        side: data.side,
+        page: data.page ?? currentPage,
+        label: data.label,
+        blockType: data.blockType,
+        paragraphId: data.paragraphId ?? undefined,
+        tableId: data.tableId ?? undefined,
+        savedAt: new Date().toISOString(),
+      }
+
+      setSavedSelectionHistory((prev) => [historyItem, ...prev])
 
       setSavedMessage(
         `${data.side} · ${data.label} · ${data.blockType} · ${savedTarget} 저장 완료`
@@ -716,176 +823,245 @@ export default function ComposeStudioPage({
             </div>
           </section>
 
-          <section className="grid gap-6 lg:grid-cols-[1.5fr_0.95fr]">
-            <div className="rounded-[32px] border border-[#dbe7ff] bg-white p-6">
-              <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
-                <div className="flex items-center gap-2">
-                  <button
-                    onClick={() => setActiveSide("template")}
-                    className={`rounded-2xl px-4 py-2 text-sm font-medium transition ${
-                      activeSide === "template"
-                        ? "bg-[#1f69ef] text-white"
-                        : "border border-[#d7e5ff] bg-white text-slate-700 hover:bg-[#f5f9ff]"
-                    }`}
-                  >
-                    Template
-                  </button>
+          <section className="grid gap-6 lg:grid-cols-[0.7fr_1.45fr_0.95fr]">
+              {/* 왼쪽 고정 히스토리 패널 */}
+              <aside className="rounded-[32px] border border-[#dbe7ff] bg-white p-5 h-fit lg:sticky lg:top-6">
+                <details open className="group">
+                  <summary className="cursor-pointer list-none text-base font-semibold text-[#162033]">
+                    <div className="flex items-center justify-between gap-3">
+                      <div className="flex items-center gap-2">
+                        <History className="h-5 w-5 text-[#1f69ef]" />
+                        <span>선택 저장 히스토리 ({savedSelectionHistory.length})</span>
+                      </div>
+                      <span className="text-xs font-medium text-[#63708a] group-open:hidden">
+                        펼치기
+                      </span>
+                      <span className="hidden text-xs font-medium text-[#63708a] group-open:inline">
+                        접기
+                      </span>
+                    </div>
+                  </summary>
 
-                  <button
-                    onClick={() => setActiveSide("source")}
-                    className={`rounded-2xl px-4 py-2 text-sm font-medium transition ${
-                      activeSide === "source"
-                        ? "bg-[#1f69ef] text-white"
-                        : "border border-[#d7e5ff] bg-white text-slate-700 hover:bg-[#f5f9ff]"
-                    }`}
-                  >
-                    Source
-                  </button>
-                </div>
+                  <div className="mt-4 max-h-[78vh] space-y-3 overflow-y-auto pr-1">
+                    {savedSelectionHistory.length === 0 ? (
+                      <div className="rounded-2xl border border-dashed border-[#d7e5ff] px-4 py-8 text-center text-sm text-[#63708a]">
+                        아직 저장된 항목이 없습니다.
+                      </div>
+                    ) : (
+                      savedSelectionHistory.map((item) => (
+                        <div
+                          key={item.id}
+                          className="rounded-2xl border border-[#dbe7ff] bg-[#fbfdff] px-3 py-3"
+                        >
+                          <div className="mb-2 flex flex-wrap items-center gap-2">
+                            <span className="rounded-full bg-[#eef4ff] px-2.5 py-1 text-[11px] font-semibold text-[#1f69ef]">
+                              {item.side}
+                            </span>
+                            <span className="rounded-full bg-[#f5f7fb] px-2.5 py-1 text-[11px] font-semibold text-[#4b5875]">
+                              {item.label}
+                            </span>
+                            <span className="rounded-full bg-[#fff7e8] px-2.5 py-1 text-[11px] font-semibold text-[#9a6b00]">
+                              {item.blockType}
+                            </span>
+                          </div>
 
-                <div className="flex items-center gap-2">
-                  <button
-                    onClick={() => setCurrentPage((prev) => Math.max(1, prev - 1))}
-                    className="rounded-xl border border-[#d7e5ff] p-2 hover:bg-[#f5f9ff]"
-                  >
-                    <ChevronLeft className="h-4 w-4" />
-                  </button>
+                          <div className="text-sm font-medium text-[#1a2540] break-all">
+                            {item.blockType === "table"
+                              ? item.tableId ?? "-"
+                              : item.paragraphId ?? "-"}
+                          </div>
 
-                  <div className="rounded-xl border border-[#d7e5ff] px-4 py-2 text-sm font-medium text-slate-700">
-                    page {currentPage} / {currentPageCount}
+                          <div className="mt-1 text-xs text-[#7a869f]">
+                            page {item.page} · {formatSavedAt(item.savedAt)}
+                          </div>
+
+                          <button
+                            type="button"
+                            onClick={() => handleRemoveSavedHistoryItem(item.id)}
+                            className="mt-3 inline-flex w-full items-center justify-center gap-1 rounded-xl border border-red-200 bg-white px-3 py-2 text-xs font-semibold text-red-500 hover:bg-red-50"
+                          >
+                            <X className="h-3.5 w-3.5" />
+                            취소
+                          </button>
+                        </div>
+                      ))
+                    )}
+                  </div>
+                </details>
+              </aside>
+
+              {/* 가운데 문서 미리보기 */}
+              <div className="rounded-[32px] border border-[#dbe7ff] bg-white p-6">
+                <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
+                  <div className="flex items-center gap-2">
+                    <button
+                      onClick={() => setActiveSide("template")}
+                      className={`rounded-2xl px-4 py-2 text-sm font-medium transition ${
+                        activeSide === "template"
+                          ? "bg-[#1f69ef] text-white"
+                          : "border border-[#d7e5ff] bg-white text-slate-700 hover:bg-[#f5f9ff]"
+                      }`}
+                    >
+                      Template
+                    </button>
+
+                    <button
+                      onClick={() => setActiveSide("source")}
+                      className={`rounded-2xl px-4 py-2 text-sm font-medium transition ${
+                        activeSide === "source"
+                          ? "bg-[#1f69ef] text-white"
+                          : "border border-[#d7e5ff] bg-white text-slate-700 hover:bg-[#f5f9ff]"
+                      }`}
+                    >
+                      Source
+                    </button>
                   </div>
 
-                  <button
-                    onClick={() => setCurrentPage((prev) => Math.min(currentPageCount, prev + 1))}
-                    className="rounded-xl border border-[#d7e5ff] p-2 hover:bg-[#f5f9ff]"
-                  >
-                    <ChevronRight className="h-4 w-4" />
-                  </button>
+                  <div className="flex items-center gap-2">
+                    <button
+                      onClick={() => setCurrentPage((prev) => Math.max(1, prev - 1))}
+                      className="rounded-xl border border-[#d7e5ff] p-2 hover:bg-[#f5f9ff]"
+                    >
+                      <ChevronLeft className="h-4 w-4" />
+                    </button>
+
+                    <div className="rounded-xl border border-[#d7e5ff] px-4 py-2 text-sm font-medium text-slate-700">
+                      page {currentPage} / {currentPageCount}
+                    </div>
+
+                    <button
+                      onClick={() => setCurrentPage((prev) => Math.min(currentPageCount, prev + 1))}
+                      className="rounded-xl border border-[#d7e5ff] p-2 hover:bg-[#f5f9ff]"
+                    >
+                      <ChevronRight className="h-4 w-4" />
+                    </button>
+                  </div>
                 </div>
-              </div>
 
-              <div className="mb-3 flex items-center gap-2 text-xs font-semibold text-[#1f69ef]">
-                <SquareDashedMousePointer className="h-4 w-4" />
-                가상 페이지 위에 문단과 표 박스를 함께 표시합니다
-              </div>
+                <div className="mb-3 flex items-center gap-2 text-xs font-semibold text-[#1f69ef]">
+                  <SquareDashedMousePointer className="h-4 w-4" />
+                  가상 페이지 위에 문단과 표 박스를 함께 표시합니다
+                </div>
 
-              <div className="mb-3 pl-6 text-[11px] text-[#7a869f]">
-                기존 한글 문서와 완전히 동일하지 않을 수 있습니다.
-              </div>
+                <div className="mb-3 pl-6 text-[11px] text-[#7a869f]">
+                  기존 한글 문서와 완전히 동일하지 않을 수 있습니다.
+                </div>
 
-              <ComposePageParagraphLayer
-                paragraphs={visibleParagraphs}
-                tables={visibleTables}
-                selectedParagraphId={currentSelectedId || null}
-                selectedTableId={currentSelectedTableId || null}
-                boxes={visibleBoxes}
-                selectedBoxId={selectedBoxId}
-                isLoading={uploading}
-                onSelectParagraph={(paragraphId) => {
-                  const existingBox = currentBoxes.find((box) => box.paragraphId === paragraphId)
+                <ComposePageParagraphLayer
+                  paragraphs={visibleParagraphs}
+                  tables={visibleTables}
+                  selectedParagraphId={currentSelectedId || null}
+                  selectedTableId={currentSelectedTableId || null}
+                  boxes={visibleBoxes}
+                  selectedBoxId={selectedBoxId}
+                  isLoading={uploading}
+                  onSelectParagraph={(paragraphId) => {
+                    const existingBox = currentBoxes.find((box) => box.paragraphId === paragraphId)
 
-                  if (activeSide === "template") {
-                    setSelectedTemplateParagraphId(paragraphId)
-                    setSelectedTemplateTableId("")
-                  } else {
-                    setSelectedSourceParagraphId(paragraphId)
-                    setSelectedSourceTableId("")
-                  }
-
-                  if (existingBox) {
-                    setSelectedBoxId(existingBox.id)
-                    return
-                  }
-
-                  const paragraph = visibleParagraphs.find((p) => p.paragraphId === paragraphId)
-                  if (!paragraph) return
-
-                  const autoBox = {
-                    id: `${paragraphId}-box`,
-                    x: paragraph.x ?? 40,
-                    y: paragraph.y ?? 40,
-                    width: paragraph.width ?? 420,
-                    height: paragraph.height ?? 34,
-                    label: currentRole,
-                    paragraphId,
-                  }
-
-                  if (activeSide === "template") {
-                    setTemplateBoxes((prev) => [...prev, autoBox])
-                  } else {
-                    setSourceBoxes((prev) => [...prev, autoBox])
-                  }
-
-                  setSelectedBoxId(autoBox.id)
-                }}
-                onSelectTable={(tableId) => {
-                  if (activeSide === "template") {
-                    setSelectedTemplateTableId(tableId)
-                    setSelectedTemplateParagraphId("")
-                  } else {
-                    setSelectedSourceTableId(tableId)
-                    setSelectedSourceParagraphId("")
-                  }
-
-                  const table = visibleTables.find((t) => t.tableId === tableId)
-                  if (!table) return
-
-                  const tableBox: OverlayBox = {
-                    id: `${table.tableId}-box`,
-                    x: table.x ?? 56,
-                    y: table.y ?? 80,
-                    width: table.width ?? 420,
-                    height: table.height ?? 120,
-                    label: "table",
-                  }
-
-                  if (activeSide === "template") {
-                    setTemplateBoxes((prev) => {
-                      const exists = prev.find((b) => b.id === tableBox.id)
-                      return exists ? prev : [...prev, tableBox]
-                    })
-                  } else {
-                    setSourceBoxes((prev) => {
-                      const exists = prev.find((b) => b.id === tableBox.id)
-                      return exists ? prev : [...prev, tableBox]
-                    })
-                  }
-
-                  setSelectedBoxId(tableBox.id)
-                }}
-                onSelectBox={(boxId) => {
-                  setSelectedBoxId(boxId)
-
-                  const clickedBox = currentBoxes.find((box) => box.id === boxId)
-                  if (!clickedBox) return
-
-                  if (clickedBox.paragraphId) {
                     if (activeSide === "template") {
-                      setSelectedTemplateParagraphId(clickedBox.paragraphId)
+                      setSelectedTemplateParagraphId(paragraphId)
                       setSelectedTemplateTableId("")
                     } else {
-                      setSelectedSourceParagraphId(clickedBox.paragraphId)
+                      setSelectedSourceParagraphId(paragraphId)
                       setSelectedSourceTableId("")
                     }
-                    return
-                  }
 
-                  const matchedTableId = Array.from(currentPageTableIdSet).find(
-                    (tableId) => boxId === `${tableId}-box`
-                  )
+                    if (existingBox) {
+                      setSelectedBoxId(existingBox.id)
+                      return
+                    }
 
-                  if (matchedTableId) {
+                    const paragraph = visibleParagraphs.find((p) => p.paragraphId === paragraphId)
+                    if (!paragraph) return
+
+                    const autoBox: OverlayBox = {
+                      id: `${paragraphId}-box`,
+                      x: paragraph.x ?? 40,
+                      y: paragraph.y ?? 40,
+                      width: paragraph.width ?? 420,
+                      height: paragraph.height ?? 34,
+                      label: currentRole,
+                      paragraphId,
+                    }
+
                     if (activeSide === "template") {
-                      setSelectedTemplateTableId(matchedTableId)
+                      setTemplateBoxes((prev) => [...prev, autoBox])
+                    } else {
+                      setSourceBoxes((prev) => [...prev, autoBox])
+                    }
+
+                    setSelectedBoxId(autoBox.id)
+                  }}
+                  onSelectTable={(tableId) => {
+                    if (activeSide === "template") {
+                      setSelectedTemplateTableId(tableId)
                       setSelectedTemplateParagraphId("")
                     } else {
-                      setSelectedSourceTableId(matchedTableId)
+                      setSelectedSourceTableId(tableId)
                       setSelectedSourceParagraphId("")
                     }
-                  }
-                }}
-              />
-            </div>
+
+                    const table = visibleTables.find((t) => t.tableId === tableId)
+                    if (!table) return
+
+                    const tableBox: OverlayBox = {
+                      id: `${table.tableId}-box`,
+                      x: table.x ?? 56,
+                      y: table.y ?? 80,
+                      width: table.width ?? 420,
+                      height: table.height ?? 120,
+                      label: currentRole,
+                    }
+
+                    if (activeSide === "template") {
+                      setTemplateBoxes((prev) => {
+                        const exists = prev.find((b) => b.id === tableBox.id)
+                        return exists ? prev : [...prev, tableBox]
+                      })
+                    } else {
+                      setSourceBoxes((prev) => {
+                        const exists = prev.find((b) => b.id === tableBox.id)
+                        return exists ? prev : [...prev, tableBox]
+                      })
+                    }
+
+                    setSelectedBoxId(tableBox.id)
+                  }}
+                  onSelectBox={(boxId) => {
+                    setSelectedBoxId(boxId)
+
+                    const clickedBox = currentBoxes.find((box) => box.id === boxId)
+                    if (!clickedBox) return
+
+                    if (clickedBox.paragraphId) {
+                      if (activeSide === "template") {
+                        setSelectedTemplateParagraphId(clickedBox.paragraphId)
+                        setSelectedTemplateTableId("")
+                      } else {
+                        setSelectedSourceParagraphId(clickedBox.paragraphId)
+                        setSelectedSourceTableId("")
+                      }
+                      return
+                    }
+
+                    const matchedTableId = Array.from(currentPageTableIdSet).find(
+                      (tableId) => boxId === `${tableId}-box`
+                    )
+
+                    if (matchedTableId) {
+                      if (activeSide === "template") {
+                        setSelectedTemplateTableId(matchedTableId)
+                        setSelectedTemplateParagraphId("")
+                      } else {
+                        setSelectedSourceTableId(matchedTableId)
+                        setSelectedSourceParagraphId("")
+                      }
+                    }
+                  }}
+                />
+              </div>
+
+              
 
             <div className="rounded-[32px] border border-[#dbe7ff] bg-white p-6">
               <div className="mb-4 flex items-center gap-2 text-lg font-semibold text-[#162033]">
@@ -976,7 +1152,7 @@ export default function ComposeStudioPage({
                                   return
                                 }
 
-                                const autoBox = {
+                                const autoBox: OverlayBox = {
                                   id: `${p.paragraphId}-box`,
                                   x: p.x ?? 40,
                                   y: p.y ?? 40,
@@ -1036,7 +1212,7 @@ export default function ComposeStudioPage({
                                 y: t.y ?? 80,
                                 width: t.width ?? 420,
                                 height: t.height ?? 120,
-                                label: "table",
+                                label: currentRole,
                               }
 
                               if (activeSide === "template") {
@@ -1141,6 +1317,22 @@ export default function ComposeStudioPage({
                 <pre className="mt-4 overflow-x-auto rounded-2xl bg-[#0f172a] p-4 text-xs text-slate-100">
                   {JSON.stringify(applyResult, null, 2)}
                 </pre>
+
+                {applyResult?.downloadUrl ? (
+                  <div className="mt-4">
+                    <button
+                      onClick={() =>
+                        triggerDownload(
+                          applyResult.downloadUrl,
+                          applyResult.fileId || "output.hwpx"
+                        )
+                      }
+                      className="rounded-xl bg-[#1f69ef] px-4 py-2 text-sm font-semibold text-white hover:bg-[#1859ca]"
+                    >
+                      결과 파일 다운로드
+                    </button>
+                  </div>
+                ) : null}
               </details>
             </section>
           ) : null}
