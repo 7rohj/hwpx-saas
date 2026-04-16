@@ -687,7 +687,14 @@ export default function ComposeStudioPage({
         savedAt: new Date().toISOString(),
       }
 
-      setSavedSelectionHistory((prev) => [historyItem, ...prev])
+      // setSavedSelectionHistory((prev) => [historyItem, ...prev])
+      setSavedSelectionHistory((prev) => {
+        if (prev.length >= 20) {
+          alert("최근 저장 항목은 최대 20개까지 저장할 수 있습니다.")
+          return prev
+        }
+        return [historyItem, ...prev]
+      })
 
       setSavedMessage(
         `${data.side} · ${data.label} · ${data.blockType} · ${savedTarget} 저장 완료`
@@ -786,7 +793,8 @@ export default function ComposeStudioPage({
       <div className="min-h-screen bg-[linear-gradient(180deg,#f5f9ff_0%,#eef5ff_42%,#fffdf2_100%)] text-slate-900">
         <div className="flex min-h-screen">
           {/* 좌측 Recent 패널 */}
-          <aside className="hidden w-[320px] shrink-0 border-r border-slate-200/80 bg-white/90 backdrop-blur xl:flex xl:flex-col">
+          {/* <aside className="hidden w-[320px] shrink-0 border-r border-slate-200/80 bg-white/90 backdrop-blur xl:flex xl:flex-col"> */}
+          <aside className="hidden h-screen w-[336px] shrink-0 overflow-hidden border-r border-slate-200/80 bg-white/90 backdrop-blur xl:flex xl:flex-col">
             
             <div className="mt-5 flex items-center justify-between px-5">
               <div className="flex items-center gap-2">
@@ -813,7 +821,8 @@ export default function ComposeStudioPage({
             </div>
             
 
-            <div className="mt-3 flex-1 overflow-y-auto px-4 pb-5">
+            {/* <div className="mt-3 flex-1 overflow-y-auto px-4 pb-5"> */}
+            <div className="custom-scroll mt-3 min-h-0 flex-1 overflow-y-auto px-4 pb-5">
               <div className="space-y-2">
                 {filteredHistory.length === 0 ? (
                   <div className="rounded-2xl border border-dashed border-slate-200 bg-white px-4 py-8 text-center text-sm text-slate-400">
@@ -1197,7 +1206,7 @@ export default function ComposeStudioPage({
                         </select>
                       </div>
 
-                      <div className="mb-4 max-h-[420px] space-y-3 overflow-y-auto pr-1">
+                      <div className="custom-scroll mb-4 max-h-[420px] space-y-3 overflow-y-auto pr-1">
                         {filteredPanelBlocks.length === 0 ? (
                           <div className="rounded-2xl border border-dashed border-[#d7e5ff] px-4 py-8 text-center text-sm text-[#63708a]">
                             현재 페이지에서 {activePanel === "paragraph" ? "문단" : "표"}를 찾지 못했습니다.
