@@ -2,7 +2,6 @@ package com.khwajeong.hwpx_saas.compose.service;
 
 import com.khwajeong.hwpx_saas.compose.dto.*;
 import com.khwajeong.hwpx_saas.compose.model.ComposeSelection;
-import com.khwajeong.hwpx_saas.compose.model.ExtractedTableStyle;
 import org.springframework.stereotype.Service;
 
 import java.nio.file.Path;
@@ -165,7 +164,10 @@ public class ComposeApplyRunnerService {
                     continue;
                 }
 
-                if ("oneline_box".equalsIgnoreCase(templateSel.getBlockType())) {
+                if ("oneline_box".equalsIgnoreCase(label)
+                        && "table".equalsIgnoreCase(templateSel.getBlockType())
+                        && !"table".equalsIgnoreCase(sourceSel.getBlockType())) {
+
                     ComposeRunApplyRequest singleRequest = new ComposeRunApplyRequest();
                     singleRequest.setSessionId(request.getSessionId());
                     singleRequest.setLabel(label);
@@ -351,8 +353,32 @@ public class ComposeApplyRunnerService {
             Path sourceHwpxPath
     ) throws Exception {
 
-        // 1차 단계:
-        // 아직 실제 HWPX 셀 반영은 하지 않고, oneline_box 매칭이 정상 분기되는지만 확인
+        if (templateSelection.getTableId() == null || templateSelection.getTableId().isBlank()) {
+            throw new IllegalArgumentException("template oneline_box tableId is required");
+        }
+        if (sourceSelection.getParagraphId() == null || sourceSelection.getParagraphId().isBlank()) {
+            throw new IllegalArgumentException("source paragraphId is required for oneline_box apply");
+        }
+
+        List<TableNodeDto> templateTables = hwpxTableExtractor.extract(session.getTemplatePath().toFile());
+        TableNodeDto templateTable = findByTableId(templateTables, templateSelection.getTableId());
+
+        List<ParagraphNodeDto> sourceParagraphs = composeService.extractFromHwpx(sourceHwpxPath.toFile());
+        ParagraphNodeDto sourceParagraph = findByParagraphId(sourceParagraphs, sourceSelection.getParagraphId());
+
+        String sourceText = sourceParagraph.getText() == null ? "" : sourceParagraph.getText().trim();
+
+        Path outputPath = composeTableStyleApplyService.applyOnelineBoxToParagraph(
+                session.getTemplatePath(),
+                templateSelection.getTableId(),
+                sourceHwpxPath,
+                sourceSelection.getParagraphId(),
+                sourceText,
+                templateTable
+        );
+
+        String fileId = outputPath.getFileName().toString();
+
         ComposeRunApplyResponse response = new ComposeRunApplyResponse();
         response.setSessionId(request.getSessionId());
         response.setLabel(request.getLabel());
@@ -367,12 +393,13 @@ public class ComposeApplyRunnerService {
                         + ", label=" + sourceSelection.getLabel()
                         + ", paragraphId=" + sourceSelection.getParagraphId()
                         + ", blockType=" + sourceSelection.getBlockType()
+                        + ", sourceText=" + sourceText
         );
-        response.setMatchedParagraphIds(List.of());
+        response.setMatchedParagraphIds(List.of(sourceSelection.getParagraphId()));
         response.setStyledParagraphs(List.of());
-        response.setOutputPath(sourceHwpxPath.toString());
-        response.setFileId(sourceHwpxPath.getFileName().toString());
-        response.setDownloadUrl("/api/v1/compose/files/" + sourceHwpxPath.getFileName());
+        response.setOutputPath(outputPath.toString());
+        response.setFileId(fileId);
+        response.setDownloadUrl("/api/v1/compose/files/" + fileId);
 
         return response;
     }
@@ -401,13 +428,10 @@ public class ComposeApplyRunnerService {
             throw new IllegalArgumentException("template extracted table style not found");
         }
 
-        // ExtractedTableStyle style = templateTable.getExtractedStyle();
-
         Path outputPath = composeTableStyleApplyService.applyTableStyle(
                 sourceHwpxPath,
                 sourceSelection.getTableId(),
                 templateTable
-                // style
         );
 
         String fileId = outputPath.getFileName().toString();

@@ -41,6 +41,9 @@ public class ComposeTableStyleApplyService {
         this.hwpxStyleRegistryService = hwpxStyleRegistryService;
     }
 
+    /**
+     * 기존 일반 table -> table 스타일 적용
+     */
     public Path applyTableStyle(
             Path sourceHwpxPath,
             String sourceTableId,
@@ -146,6 +149,124 @@ public class ComposeTableStyleApplyService {
             }
 
             for (Map.Entry<String, Document> e : headerDocs.entrySet()) {
+                updatedEntries.put(e.getKey(), documentToBytes(e.getValue()));
+            }
+
+            for (Map.Entry<String, byte[]> e : updatedEntries.entrySet()) {
+                ZipEntry newEntry = new ZipEntry(e.getKey());
+                zos.putNextEntry(newEntry);
+                if (e.getValue() != null && e.getValue().length > 0) {
+                    zos.write(e.getValue());
+                }
+                zos.closeEntry();
+            }
+        }
+
+        return outputPath;
+    }
+
+    /**
+     * 신규:
+     * template oneline_box(table를 감싼 paragraph 블록 전체)를
+     * source paragraph 자리에 삽입하고,
+     * source paragraph 텍스트를 슬롯 분해해서 셀에 넣는다.
+     */
+    public Path applyOnelineBoxToParagraph(
+            Path templateHwpxPath,
+            String templateTableId,
+            Path sourceHwpxPath,
+            String sourceParagraphId,
+            String sourceParagraphText,
+            TableNodeDto templateTable
+    ) throws Exception {
+
+        if (templateHwpxPath == null || !Files.exists(templateHwpxPath)) {
+            throw new IllegalArgumentException("template hwpx not found");
+        }
+        if (sourceHwpxPath == null || !Files.exists(sourceHwpxPath)) {
+            throw new IllegalArgumentException("source hwpx not found");
+        }
+        if (templateTableId == null || templateTableId.isBlank()) {
+            throw new IllegalArgumentException("templateTableId is required");
+        }
+        if (sourceParagraphId == null || sourceParagraphId.isBlank()) {
+            throw new IllegalArgumentException("sourceParagraphId is required");
+        }
+        if (templateTable == null) {
+            throw new IllegalArgumentException("templateTable is required");
+        }
+
+        int templateTableIndex = parseTargetTableIndex(templateTableId);
+        int targetParagraphIndex = parseTargetParagraphIndex(sourceParagraphId);
+
+        if (templateTableIndex < 0) {
+            throw new IllegalArgumentException("invalid templateTableId: " + templateTableId);
+        }
+        if (targetParagraphIndex < 0) {
+            throw new IllegalArgumentException("invalid sourceParagraphId: " + sourceParagraphId);
+        }
+
+        Path outputPath = Files.createTempFile("compose-oneline-box-applied-", ".hwpx");
+
+        try (ZipFile templateZip = new ZipFile(templateHwpxPath.toFile());
+             ZipFile sourceZip = new ZipFile(sourceHwpxPath.toFile());
+             ZipOutputStream zos = new ZipOutputStream(Files.newOutputStream(outputPath))) {
+
+            Map<String, Document> sourceHeaderDocs = loadHeaderDocs(sourceZip);
+            Map<String, Map<String, RegisteredCellStyle>> onelineRegisteredByHeader =
+                    registerCellStylesToHeaders(sourceHeaderDocs, templateTable);
+
+            TemplateOnelineBoxBlock templateBlock =
+                    extractTemplateOnelineBoxBlock(templateZip, templateTableIndex);
+
+            if (templateBlock == null
+                    || templateBlock.paragraphElement() == null
+                    || templateBlock.tableElement() == null) {
+                throw new IllegalArgumentException("template oneline_box block not found: " + templateTableId);
+            }
+
+            Map<String, byte[]> updatedEntries = new LinkedHashMap<>();
+            int[] currentParagraphIndexRef = new int[]{0};
+
+            Enumeration<? extends ZipEntry> entries = sourceZip.entries();
+            while (entries.hasMoreElements()) {
+                ZipEntry entry = entries.nextElement();
+
+                if (entry.isDirectory()) {
+                    updatedEntries.put(entry.getName(), new byte[0]);
+                    continue;
+                }
+
+                byte[] bytes;
+                try (InputStream in = sourceZip.getInputStream(entry)) {
+                    bytes = in.readAllBytes();
+                }
+
+                if (entry.getName().startsWith("Contents/section") && entry.getName().endsWith(".xml")) {
+                    String sourceHeaderName = toHeaderName(entry.getName());
+
+                    Map<String, RegisteredCellStyle> registeredCellMap = onelineRegisteredByHeader.get(sourceHeaderName);
+                    if (registeredCellMap == null && onelineRegisteredByHeader.containsKey("Contents/header0.xml")) {
+                        registeredCellMap = onelineRegisteredByHeader.get("Contents/header0.xml");
+                    }
+                    if (registeredCellMap == null && onelineRegisteredByHeader.containsKey("Contents/header.xml")) {
+                        registeredCellMap = onelineRegisteredByHeader.get("Contents/header.xml");
+                    }
+
+                    bytes = replaceParagraphWithOnelineBoxInSectionXml(
+                            bytes,
+                            targetParagraphIndex,
+                            currentParagraphIndexRef,
+                            templateBlock.paragraphElement(),
+                            registeredCellMap,
+                            sourceParagraphText
+                    );
+                }
+
+                updatedEntries.put(entry.getName(), bytes);
+            }
+
+            for (Map.Entry<String, Document> e : sourceHeaderDocs.entrySet()) {
                 updatedEntries.put(e.getKey(), documentToBytes(e.getValue()));
             }
 
@@ -603,6 +724,116 @@ public class ComposeTableStyleApplyService {
     }
 
     /**
+     * source section xml 안에서 target paragraph를 찾아
+     * template oneline_box paragraph block으로 교체한다.
+     */
+    private byte[] replaceParagraphWithOnelineBoxInSectionXml(
+            byte[] sectionXmlBytes,
+            int targetParagraphIndex,
+            int[] currentParagraphIndexRef,
+            Element templateParagraphElement,
+            Map<String, RegisteredCellStyle> registeredCellMap,
+            String sourceParagraphText
+    ) throws Exception {
+
+        Document doc = DocumentBuilderFactory.newInstance()
+                .newDocumentBuilder()
+                .parse(new InputSource(new ByteArrayInputStream(sectionXmlBytes)));
+
+        if (templateParagraphElement == null) {
+            return documentToBytes(doc);
+        }
+
+        boolean replaced = replaceParagraphRecursive(
+                doc.getDocumentElement(),
+                doc,
+                targetParagraphIndex,
+                currentParagraphIndexRef,
+                templateParagraphElement,
+                registeredCellMap,
+                sourceParagraphText
+        );
+
+        if (!replaced) {
+            System.out.println("[oneline_box] target paragraph not found in this section, currentParagraphIndex=" + currentParagraphIndexRef[0]);
+        }
+
+        return documentToBytes(doc);
+    }
+
+    /**
+     * 재귀적으로 paragraph를 찾아 교체
+     */
+    private boolean replaceParagraphRecursive(
+            Element current,
+            Document ownerDoc,
+            int targetParagraphIndex,
+            int[] currentParagraphIndexRef,
+            Element templateParagraphElement,
+            Map<String, RegisteredCellStyle> registeredCellMap,
+            String sourceParagraphText
+    ) {
+        if (current == null) {
+            return false;
+        }
+
+        NodeList children = current.getChildNodes();
+        List<Node> childSnapshot = new ArrayList<>();
+        for (int i = 0; i < children.getLength(); i++) {
+            childSnapshot.add(children.item(i));
+        }
+
+        for (Node child : childSnapshot) {
+            if (!(child instanceof Element childEl)) {
+                continue;
+            }
+
+            if (isParagraphElement(childEl)) {
+                int currentIndex = currentParagraphIndexRef[0];
+                System.out.println("[oneline_box] visiting paragraph index = " + currentIndex);
+
+                if (currentIndex == targetParagraphIndex) {
+                    System.out.println("[oneline_box] REPLACE paragraph index = "
+                            + currentIndex + ", sourceText = " + sourceParagraphText);
+
+                    Element importedParagraph = (Element) ownerDoc.importNode(templateParagraphElement, true);
+
+                    Element importedTable = findFirstDescendant(importedParagraph, "hp:tbl");
+                    if (importedTable == null) {
+                        System.out.println("[oneline_box] imported paragraph has no hp:tbl");
+                        return false;
+                    }
+
+                    if (registeredCellMap != null) {
+                        applyStyleToOnelineBoxTable(importedTable, registeredCellMap);
+                    }
+
+                    injectSourceTextIntoOnelineBox(importedTable, sourceParagraphText);
+
+                    current.replaceChild(importedParagraph, childEl);
+                    return true;
+                }
+
+                currentParagraphIndexRef[0] = currentIndex + 1;
+            }
+
+            if (replaceParagraphRecursive(
+                    childEl,
+                    ownerDoc,
+                    targetParagraphIndex,
+                    currentParagraphIndexRef,
+                    templateParagraphElement,
+                    registeredCellMap,
+                    sourceParagraphText
+            )) {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    /**
      * 일반 table: 기존 헤더/바디 bulk 규칙 유지
      */
     private void applyStyleToGeneralTable(Element tblEl, RegisteredPair pair) {
@@ -761,6 +992,127 @@ public class ComposeTableStyleApplyService {
         }
     }
 
+    /**
+     * source paragraph text를 oneline_box 슬롯에 삽입
+     * 예:
+     * "4.1 사회경제지표자료" -> ["4.1", "사회경제지표자료"]
+     * template 셀들 중 text가 있는 첫 셀과 마지막 셀에 주입
+     */
+    private void injectSourceTextIntoOnelineBox(Element tblEl, String sourceParagraphText) {
+        if (tblEl == null) {
+            return;
+        }
+
+        List<String> slotValues = splitSourceTextForOnelineBox(sourceParagraphText);
+
+        List<Element> rows = getElements(tblEl, "hp:tr");
+        if (rows.isEmpty()) {
+            return;
+        }
+
+        List<Element> cells = getElements(rows.get(0), "hp:tc");
+        if (cells.isEmpty()) {
+            return;
+        }
+
+        List<Integer> nonEmptyTemplateCellIndexes = new ArrayList<>();
+        for (int i = 0; i < cells.size(); i++) {
+            String templateCellText = extractCellText(cells.get(i));
+            if (templateCellText != null && !templateCellText.isBlank()) {
+                nonEmptyTemplateCellIndexes.add(i);
+            }
+        }
+
+        if (nonEmptyTemplateCellIndexes.isEmpty()) {
+            if (cells.size() == 1) {
+                replaceCellText(cells.get(0), safe(slotValues, 0));
+            } else {
+                replaceCellText(cells.get(0), safe(slotValues, 0));
+                replaceCellText(cells.get(cells.size() - 1), safe(slotValues, 1));
+            }
+            return;
+        }
+
+        if (slotValues.size() == 1) {
+            replaceCellText(cells.get(nonEmptyTemplateCellIndexes.get(0)), slotValues.get(0));
+            return;
+        }
+
+        replaceCellText(cells.get(nonEmptyTemplateCellIndexes.get(0)), slotValues.get(0));
+        replaceCellText(cells.get(nonEmptyTemplateCellIndexes.get(nonEmptyTemplateCellIndexes.size() - 1)), slotValues.get(1));
+    }
+
+    private List<String> splitSourceTextForOnelineBox(String sourceParagraphText) {
+        String normalized = normalizeCellText(sourceParagraphText);
+
+        if (normalized.isBlank()) {
+            return List.of("", "");
+        }
+
+        String[] parts = normalized.split("\\s+", 2);
+        if (parts.length == 1) {
+            return List.of(parts[0]);
+        }
+
+        return List.of(parts[0], parts[1]);
+    }
+
+    private String extractCellText(Element cellEl) {
+        if (cellEl == null) {
+            return "";
+        }
+
+        NodeList textNodes = cellEl.getElementsByTagName("hp:t");
+        StringBuilder sb = new StringBuilder();
+        for (int i = 0; i < textNodes.getLength(); i++) {
+            Node node = textNodes.item(i);
+            if (node != null && node.getTextContent() != null) {
+                sb.append(node.getTextContent());
+            }
+        }
+        return normalizeCellText(sb.toString());
+    }
+
+    private void replaceCellText(Element cellEl, String newText) {
+        if (cellEl == null) {
+            return;
+        }
+
+        NodeList textNodes = cellEl.getElementsByTagName("hp:t");
+        if (textNodes.getLength() == 0) {
+            ensureCellHasBasicParagraph(cellEl, newText);
+            return;
+        }
+
+        boolean first = true;
+        for (int i = 0; i < textNodes.getLength(); i++) {
+            Node node = textNodes.item(i);
+            if (node == null) continue;
+
+            node.setTextContent(first ? nvl(newText, "") : "");
+            first = false;
+        }
+    }
+
+    private void ensureCellHasBasicParagraph(Element cellEl, String text) {
+        Document doc = cellEl.getOwnerDocument();
+
+        Element subList = findDirectChild(cellEl, "hp:subList");
+        if (subList == null) {
+            subList = doc.createElement("hp:subList");
+            cellEl.appendChild(subList);
+        }
+
+        Element p = doc.createElement("hp:p");
+        Element run = doc.createElement("hp:run");
+        Element t = doc.createElement("hp:t");
+        t.setTextContent(nvl(text, ""));
+
+        run.appendChild(t);
+        p.appendChild(run);
+        subList.appendChild(p);
+    }
+
     private void applyCellFullStyle(
             Element cellEl,
             HwpxStyleRegistryService.RegisteredStyleIds ids,
@@ -896,6 +1248,89 @@ public class ComposeTableStyleApplyService {
                 .trim();
     }
 
+    private boolean isParagraphElement(Element el) {
+        if (el == null) {
+            return false;
+        }
+        String nodeName = el.getNodeName();
+        String localName = el.getLocalName();
+
+        return "hp:p".equalsIgnoreCase(nodeName)
+                || "p".equalsIgnoreCase(localName);
+    }
+
+    private TemplateOnelineBoxBlock extractTemplateOnelineBoxBlock(
+            ZipFile templateZip,
+            int targetTableIndex
+    ) throws Exception {
+        int[] currentTableIndexRef = new int[]{0};
+
+        Enumeration<? extends ZipEntry> entries = templateZip.entries();
+        while (entries.hasMoreElements()) {
+            ZipEntry entry = entries.nextElement();
+            if (entry.isDirectory()) continue;
+            if (!entry.getName().startsWith("Contents/section")) continue;
+            if (!entry.getName().endsWith(".xml")) continue;
+
+            try (InputStream in = templateZip.getInputStream(entry)) {
+                Document doc = DocumentBuilderFactory.newInstance()
+                        .newDocumentBuilder()
+                        .parse(in);
+
+                NodeList tblList = doc.getElementsByTagName("hp:tbl");
+                for (int i = 0; i < tblList.getLength(); i++) {
+                    Node node = tblList.item(i);
+                    if (!(node instanceof Element tblEl)) continue;
+
+                    int currentIndex = currentTableIndexRef[0];
+                    if (currentIndex == targetTableIndex) {
+                        Element paragraphEl = findAncestorParagraph(tblEl);
+                        if (paragraphEl == null) {
+                            throw new IllegalArgumentException("template table parent paragraph not found");
+                        }
+
+                        return new TemplateOnelineBoxBlock(
+                                toHeaderName(entry.getName()),
+                                (Element) paragraphEl.cloneNode(true),
+                                (Element) tblEl.cloneNode(true)
+                        );
+                    }
+                    currentTableIndexRef[0] = currentIndex + 1;
+                }
+            }
+        }
+
+        return null;
+    }
+
+    private Element findAncestorParagraph(Node node) {
+        Node current = node;
+        while (current != null) {
+            if (current instanceof Element el) {
+                String nodeName = el.getNodeName();
+                String localName = el.getLocalName();
+
+                if ("hp:p".equalsIgnoreCase(nodeName) || "p".equalsIgnoreCase(localName)) {
+                    return el;
+                }
+            }
+            current = current.getParentNode();
+        }
+        return null;
+    }
+
+    private Element findFirstDescendant(Element root, String tagName) {
+        if (root == null) {
+            return null;
+        }
+
+        NodeList list = root.getElementsByTagName(tagName);
+        if (list.getLength() > 0 && list.item(0) instanceof Element el) {
+            return el;
+        }
+        return null;
+    }
+
     private Element findDirectChild(Element parent, String tagName) {
         if (parent == null) return null;
 
@@ -964,6 +1399,20 @@ public class ComposeTableStyleApplyService {
         }
         try {
             return Integer.parseInt(sourceTableId.substring(1));
+        } catch (Exception e) {
+            return -1;
+        }
+    }
+
+    private int parseTargetParagraphIndex(String sourceParagraphId) {
+        if (sourceParagraphId == null || sourceParagraphId.isBlank()) {
+            return -1;
+        }
+        if (!sourceParagraphId.startsWith("p")) {
+            return -1;
+        }
+        try {
+            return Integer.parseInt(sourceParagraphId.substring(1));
         } catch (Exception e) {
             return -1;
         }
@@ -1082,6 +1531,17 @@ public class ComposeTableStyleApplyService {
         }
     }
 
+    private String safe(List<String> values, int index) {
+        if (values == null || index < 0 || index >= values.size()) {
+            return "";
+        }
+        return values.get(index);
+    }
+
+    private String nvl(String value, String defaultValue) {
+        return value != null ? value : defaultValue;
+    }
+
     private byte[] documentToBytes(Document doc) throws Exception {
         Transformer transformer = TransformerFactory.newInstance().newTransformer();
         transformer.setOutputProperty(OutputKeys.ENCODING, "UTF-8");
@@ -1090,6 +1550,13 @@ public class ComposeTableStyleApplyService {
         ByteArrayOutputStream baos = new ByteArrayOutputStream();
         transformer.transform(new DOMSource(doc), new StreamResult(baos));
         return baos.toByteArray();
+    }
+
+    private record TemplateOnelineBoxBlock(
+            String headerName,
+            Element paragraphElement,
+            Element tableElement
+    ) {
     }
 
     private static class RegisteredPair {
