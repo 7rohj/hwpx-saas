@@ -41,7 +41,7 @@ export default function DashboardLoadingPage({
         <div className="w-full max-w-3xl rounded-[32px] border border-[#cfe0ff] bg-white/90 p-8 shadow-sm backdrop-blur sm:p-10">
           <div className="mb-4 inline-flex items-center gap-2 rounded-full border border-[#cfe0ff] bg-[#edf4ff] px-3 py-1 text-xs font-semibold text-[#1f69ef]">
             <span className="h-2.5 w-2.5 rounded-full bg-[#ffd400]" />
-            AutoHWPX SaaS
+            AutoHWPX
           </div>
 
           <h1 className="text-3xl font-bold tracking-tight text-[#162033] sm:text-5xl">

@@ -69,7 +69,7 @@ export default function Signup({ onSignupSuccess, onGoLogin }: SignupProps) {
           <div className="mb-6">
             <div className="mb-3 inline-flex items-center gap-2 rounded-full border border-slate-200 bg-slate-50 px-3 py-1 text-xs font-medium text-slate-600">
               <span className="h-2 w-2 rounded-full bg-emerald-500" />
-              AutoHWPX SaaS
+              AutoHWPX
             </div>
             <h1 className="text-3xl font-bold tracking-tight">회원가입</h1>
             <p className="mt-2 text-sm text-slate-500">

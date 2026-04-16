@@ -154,7 +154,7 @@ export default function LandingPage({
 
                 <div className="mt-10 flex flex-col items-start gap-3 sm:flex-row sm:items-center">
                   <button
-                    onClick={() => onNavigate("dashboard-loading")}
+                    onClick={() => onNavigate("composeStudio")} // 수정
                     className="group relative overflow-hidden rounded-full bg-[#1f69ef] px-7 py-3.5 text-sm font-medium text-white shadow-[0_18px_40px_rgba(31,105,239,0.20)] transition-all duration-300 hover:-translate-y-0.5 hover:bg-[#195bd0] hover:shadow-[0_22px_50px_rgba(31,105,239,0.26)]"
                   >
                     <span className="relative z-10">대시보드 열기</span>

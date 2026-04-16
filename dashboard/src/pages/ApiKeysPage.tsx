@@ -180,13 +180,13 @@ export default function ApiKeysPage({ onNavigate, onLogout }: ApiKeysPageProps) 
               <div>
                 <div className="mb-3 inline-flex items-center gap-2 rounded-full border border-[#cfe0ff] bg-[#edf4ff] px-3 py-1 text-xs font-semibold text-[#1f69ef]">
                   <span className="h-2.5 w-2.5 rounded-full bg-[#ffd400]" />
-                  AutoHWPX SaaS
+                  AutoHWPX
                 </div>
                 <h1 className="text-3xl font-bold tracking-tight text-[#162033] sm:text-4xl">
-                  API Keys
+                  My
                 </h1>
                 <p className="mt-2 text-sm text-[#63708a] sm:text-base">
-                  개인 API 키를 확인하고 안전하게 관리하는 공간
+                  API 키 및 요금제를 확인할 수 있습니다
                 </p>
               </div>
 
@@ -221,19 +221,6 @@ export default function ApiKeysPage({ onNavigate, onLogout }: ApiKeysPageProps) 
                         </span>
                       </div>
                     </div>
-                  </div>
-                </div>
-              </div>
-
-              <div className="rounded-[32px] border border-[#dbe7ff] bg-white">
-                <div className="p-6">
-                  <h2 className="flex items-center gap-2 text-xl font-semibold text-[#162033]">
-                    <AlertCircle className="h-5 w-5 text-[#1f69ef]" />
-                    안내
-                  </h2>
-
-                  <div className="mt-4 rounded-2xl border border-amber-200 bg-amber-50 px-4 py-4 text-sm leading-6 text-amber-800">
-                    API 키를 재발급하면 기존 키를 사용 중인 클라이언트에서는 새 키로 다시 설정해야 합니다.
                   </div>
                 </div>
               </div>

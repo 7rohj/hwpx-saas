@@ -896,7 +896,7 @@ export default function ComposeStudioPage({
                     <div>
                       <div className="mb-3 inline-flex items-center gap-2 rounded-full border border-[#cfe0ff] bg-[#edf4ff] px-3 py-1 text-xs font-semibold text-[#1f69ef]">
                         <span className="h-2.5 w-2.5 rounded-full bg-[#ffd400]" />
-                        Compose Studio
+                        AutoHWPX
                       </div>
                       <h1 className="text-3xl font-bold tracking-tight text-[#162033] sm:text-4xl">
                         템플릿 서식 자동 적용
