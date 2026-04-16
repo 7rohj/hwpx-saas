@@ -787,111 +787,101 @@ export default function ComposeStudioPage({
   }
 
   return (
-    <>
-      <TopNav onNavigate={onNavigate} currentPage="composeStudio" onLogout={onLogout} />
+  <>
+    <TopNav onNavigate={onNavigate} currentPage="composeStudio" onLogout={onLogout} />
 
-      <div className="min-h-screen bg-[linear-gradient(180deg,#f5f9ff_0%,#eef5ff_42%,#fffdf2_100%)] text-slate-900">
-        <div className="flex min-h-screen">
-          {/* 좌측 Recent 패널 */}
-          {/* <aside className="hidden w-[320px] shrink-0 border-r border-slate-200/80 bg-white/90 backdrop-blur xl:flex xl:flex-col"> */}
-          <aside className="hidden h-screen w-[336px] shrink-0 overflow-hidden border-r border-slate-200/80 bg-white/90 backdrop-blur xl:flex xl:flex-col">
-            
-            <div className="mt-5 flex items-center justify-between px-5">
-              <div className="flex items-center gap-2">
-                <Clock3 className="h-4 w-4 text-[#1f69ef]" />
-                <h2 className="text-sm font-semibold text-[#162033]">
-                  최근 저장 항목
-                </h2>
-              </div>
-              <span className="text-xs font-medium text-slate-500">
-                {filteredHistory.length}개
-              </span>
+    <div className="min-h-screen bg-[linear-gradient(180deg,#f5f9ff_0%,#eef5ff_42%,#fffdf2_100%)] text-slate-900">
+      <div className="flex">
+        <aside className="sticky top-[64px] hidden h-[calc(100vh-64px)] w-[336px] shrink-0 flex-col border-r border-slate-200/80 bg-white/90 backdrop-blur xl:flex">
+          <div className="mt-5 flex items-center justify-between px-5">
+            <div className="flex items-center gap-2">
+              <Clock3 className="h-4 w-4 text-[#1f69ef]" />
+              <h2 className="text-sm font-semibold text-[#162033]">
+                최근 저장 항목
+              </h2>
             </div>
+            <span className="text-xs font-medium text-slate-500">
+              {filteredHistory.length}개
+            </span>
+          </div>
 
-            <div className="px-5 pt-5">
-              <div className="flex items-center gap-2 rounded-2xl border border-slate-200 bg-slate-50 px-3 py-2.5">
-                <Search className="h-4 w-4 text-slate-400" />
-                <input
-                  value={historySearch}
-                  onChange={(e) => setHistorySearch(e.target.value)}
-                  className="w-full bg-transparent text-sm outline-none placeholder:text-slate-400"
-                  placeholder="저장 항목 검색"
-                />
-              </div>
+          <div className="px-5 pt-5">
+            <div className="flex items-center gap-2 rounded-2xl border border-slate-200 bg-slate-50 px-3 py-2.5">
+              <Search className="h-4 w-4 text-slate-400" />
+              <input
+                value={historySearch}
+                onChange={(e) => setHistorySearch(e.target.value)}
+                className="w-full bg-transparent text-sm outline-none placeholder:text-slate-400"
+                placeholder="저장 항목 검색"
+              />
             </div>
-            
+          </div>
 
-            {/* <div className="mt-3 flex-1 overflow-y-auto px-4 pb-5"> */}
-            <div className="custom-scroll mt-3 min-h-0 flex-1 overflow-y-auto px-4 pb-5">
-              <div className="space-y-2">
-                {filteredHistory.length === 0 ? (
-                  <div className="rounded-2xl border border-dashed border-slate-200 bg-white px-4 py-8 text-center text-sm text-slate-400">
-                    아직 저장된 항목이 없습니다.
-                  </div>
-                ) : (
-                  filteredHistory.map((item) => {
-                    const targetId =
-                      item.blockType === "table"
-                        ? item.tableId ?? "-"
-                        : item.paragraphId ?? "-"
+          <div className="custom-scroll mt-3 min-h-0 flex-1 overflow-y-auto px-4 pb-5">
+            <div className="space-y-2">
+              {filteredHistory.length === 0 ? (
+                <div className="rounded-2xl border border-dashed border-slate-200 bg-white px-4 py-8 text-center text-sm text-slate-400">
+                  아직 저장된 항목이 없습니다.
+                </div>
+              ) : (
+                filteredHistory.map((item) => {
+                  const targetId =
+                    item.blockType === "table"
+                      ? item.tableId ?? "-"
+                      : item.paragraphId ?? "-"
 
-                    return (
-                      <div
-                        key={item.id}
-                        className="rounded-2xl border border-slate-200 bg-white p-4 transition hover:border-[#cfe0ff] hover:bg-[#f8fbff] hover:shadow-sm"
-                      >
-                        {/* 시간 */}
-                        <div className="mb-1 text-right">
-                          <span className="text-[11px] text-slate-400">
-                            {formatSavedAt(item.savedAt)}
-                          </span>
-                        </div>
-
-                        {/* heading (크게) */}
-                        <div className="text-[18px] font-semibold leading-tight text-[#162033]">
-                          {item.label}
-                        </div>
-
-                        {/* page */}
-                        <div className="mt-[2px] text-[11px] text-slate-400">
-                          page {item.page}
-                        </div>
-
-                        {/* 태그 그룹 (맨 아래, 간격 좁게) */}
-                        <div className="mt-[4px] flex items-center gap-1.5">
-                          <span
-                            className={`inline-flex rounded-full border px-2 py-[3px] text-[10px] font-semibold ${getHistoryTypeStyle(
-                              item
-                            )}`}
-                          >
-                            {getHistoryTypeLabel(item)}
-                          </span>
-
-                          <span
-                            className={`inline-flex rounded-full border px-2 py-[3px] text-[10px] font-semibold ${getBlockTypeStyle(
-                              item
-                            )}`}
-                          >
-                            {item.blockType}
-                          </span>
-                        </div>
-
-                        {/* 버튼 */}
-                        <button
-                          type="button"
-                          onClick={() => handleRemoveSavedHistoryItem(item.id)}
-                          className="mt-3 inline-flex w-full items-center justify-center gap-1 rounded-xl bg-[#111827] px-3 py-2 text-xs font-semibold text-white transition hover:bg-black"
-                        >
-                          <X className="h-3.5 w-3.5 text-white" />
-                          <span className="text-white">취소</span>
-                        </button>
+                  return (
+                    <div
+                      key={item.id}
+                      className="rounded-2xl border border-slate-200 bg-white p-4 transition hover:border-[#cfe0ff] hover:bg-[#f8fbff] hover:shadow-sm"
+                    >
+                      <div className="mb-1 text-right">
+                        <span className="text-[11px] text-slate-400">
+                          {formatSavedAt(item.savedAt)}
+                        </span>
                       </div>
-                    )
-                  })
-                )}
-              </div>
+
+                      <div className="text-[18px] font-semibold leading-tight text-[#162033]">
+                        {item.label}
+                      </div>
+
+                      <div className="mt-[2px] text-[11px] text-slate-400">
+                        page {item.page}
+                      </div>
+
+                      <div className="mt-[4px] flex items-center gap-1.5">
+                        <span
+                          className={`inline-flex rounded-full border px-2 py-[3px] text-[10px] font-semibold ${getHistoryTypeStyle(
+                            item
+                          )}`}
+                        >
+                          {getHistoryTypeLabel(item)}
+                        </span>
+
+                        <span
+                          className={`inline-flex rounded-full border px-2 py-[3px] text-[10px] font-semibold ${getBlockTypeStyle(
+                            item
+                          )}`}
+                        >
+                          {item.blockType}
+                        </span>
+                      </div>
+
+                      <button
+                        type="button"
+                        onClick={() => handleRemoveSavedHistoryItem(item.id)}
+                        className="mt-3 inline-flex w-full items-center justify-center gap-1 rounded-xl bg-[#111827] px-3 py-2 text-xs font-semibold text-white transition hover:bg-black"
+                      >
+                        <X className="h-3.5 w-3.5 text-white" />
+                        <span className="text-white">취소</span>
+                      </button>
+                    </div>
+                  )
+                })
+              )}
             </div>
-          </aside>
+          </div>
+        </aside>
 
           {/* 메인 */}
           <main className="flex-1">
