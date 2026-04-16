@@ -831,63 +831,55 @@ export default function ComposeStudioPage({
                         key={item.id}
                         className="rounded-2xl border border-slate-200 bg-white p-4 transition hover:border-[#cfe0ff] hover:bg-[#f8fbff] hover:shadow-sm"
                       >
-                        <div className="mb-2 flex items-start justify-between gap-2">
-                          <div className="flex flex-wrap items-center gap-2">
-                            <span
-                              className={`inline-flex rounded-full border px-2.5 py-1 text-[11px] font-semibold ${getHistoryTypeStyle(
-                                item
-                              )}`}
-                            >
-                              {getHistoryTypeLabel(item)}
-                            </span>
-
-                            <span
-                              className={`inline-flex rounded-full border px-2.5 py-1 text-[11px] font-semibold ${getBlockTypeStyle(
-                                item
-                              )}`}
-                            >
-                              {item.blockType}
-                            </span>
-                          </div>
-
-                          <span className="shrink-0 text-xs text-slate-400">
+                        {/* 시간 */}
+                        <div className="mb-1 text-right">
+                          <span className="text-[11px] text-slate-400">
                             {formatSavedAt(item.savedAt)}
                           </span>
                         </div>
 
-                        <div className="line-clamp-1 text-sm font-semibold leading-5 text-[#162033]">
+                        {/* heading (크게) */}
+                        <div className="text-[18px] font-semibold leading-tight text-[#162033]">
                           {item.label}
                         </div>
 
-                        <div className="mt-1 line-clamp-2 text-sm leading-5 text-slate-600 break-all">
-                          {targetId}
-                        </div>
-
-                        <div className="mt-2 text-xs text-slate-400">
+                        {/* page */}
+                        <div className="mt-[2px] text-[11px] text-slate-400">
                           page {item.page}
                         </div>
 
+                        {/* 태그 그룹 (맨 아래, 간격 좁게) */}
+                        <div className="mt-[4px] flex items-center gap-1.5">
+                          <span
+                            className={`inline-flex rounded-full border px-2 py-[3px] text-[10px] font-semibold ${getHistoryTypeStyle(
+                              item
+                            )}`}
+                          >
+                            {getHistoryTypeLabel(item)}
+                          </span>
+
+                          <span
+                            className={`inline-flex rounded-full border px-2 py-[3px] text-[10px] font-semibold ${getBlockTypeStyle(
+                              item
+                            )}`}
+                          >
+                            {item.blockType}
+                          </span>
+                        </div>
+
+                        {/* 버튼 */}
                         <button
                           type="button"
                           onClick={() => handleRemoveSavedHistoryItem(item.id)}
-                          className="mt-3 inline-flex w-full items-center justify-center gap-1 rounded-xl border border-red-200 bg-white px-3 py-2 text-xs font-semibold text-red-500 transition hover:bg-red-50"
+                          className="mt-3 inline-flex w-full items-center justify-center gap-1 rounded-xl bg-[#111827] px-3 py-2 text-xs font-semibold text-white transition hover:bg-black"
                         >
-                          <X className="h-3.5 w-3.5" />
-                          취소
+                          <X className="h-3.5 w-3.5 text-white" />
+                          <span className="text-white">취소</span>
                         </button>
                       </div>
                     )
                   })
                 )}
-              </div>
-            </div>
-
-            <div className="border-t border-slate-200/80 p-4">
-              <div className="rounded-3xl border border-[#dbe7ff] bg-[linear-gradient(180deg,#f8fbff_0%,#eef5ff_100%)] p-4">
-                <p className="text-sm font-semibold text-[#162033]">선택 저장 흐름</p>
-                <p className="mt-1 text-xs leading-5 text-slate-500">
-                  template/source에서 선택 저장한 항목이 시간순으로 쌓입니다. 각 항목은 개별 취소할 수 있습니다.
-                </p>
               </div>
             </div>
           </aside>
