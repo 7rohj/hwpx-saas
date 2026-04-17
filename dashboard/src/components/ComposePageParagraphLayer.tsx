@@ -126,6 +126,8 @@ type RenderBlock = RenderParagraphBlock | RenderTableBlock
 
 const DEFAULT_LEFT_MARGIN = 40
 const DEFAULT_PARAGRAPH_WIDTH = 420
+const DEFAULT_TABLE_LEFT = 56
+const DEFAULT_TABLE_STRETCH_RIGHT_MARGIN = 40
 
 function toPreviewColor(color?: string | null, fallback = "#111111") {
   if (!color || !color.trim()) return fallback
@@ -137,7 +139,6 @@ function toPreviewColor(color?: string | null, fallback = "#111111") {
 
   const hex = v.slice(1)
 
-  // 이미 #RRGGBB 또는 #AARRGGBB 형태라고 보고 그대로 사용
   if (hex.length === 6 || hex.length === 8) {
     return v
   }
@@ -316,6 +317,27 @@ function getParagraphRenderRect(p: ParagraphItem, displayTop: number) {
   }
 }
 
+function getStretchedTableRect(
+  t: TableItem,
+  displayTop: number,
+  pageContentWidth: number
+) {
+  const left = t.x ?? DEFAULT_TABLE_LEFT
+  const rightMargin = DEFAULT_TABLE_STRETCH_RIGHT_MARGIN
+
+  const stretchedWidth = Math.max(
+    t.width ?? 420,
+    pageContentWidth - left - rightMargin
+  )
+
+  return {
+    left,
+    top: displayTop,
+    width: stretchedWidth,
+    height: calcTableRenderedHeight(t).renderedTableHeight,
+  }
+}
+
 function getCellTextStyle(table: TableItem, cell: TableCellItem) {
   if (
     cell.fontFamily ||
@@ -382,11 +404,6 @@ function getRoleBadgeStyle(role?: string | null) {
   }
 }
 
-/**
- * 1) 셀 텍스트의 기존 줄바꿈(\n)은 유지
- * 2) 각 줄은 스페이스바 기준으로 우선 줄바꿈되도록 <br> 기회 제공
- * 3) 너무 긴 토큰은 CSS break-word 가 보조
- */
 function renderTextWithSpaceBreaks(text: string) {
   const lines = (text ?? "").split("\n")
 
@@ -407,14 +424,6 @@ function renderTextWithSpaceBreaks(text: string) {
   })
 }
 
-/**
- * preview용 셀 텍스트 정규화
- *
- * HWPX 추출 과정에서 같은 셀 안의 여러 문단이 \n 으로 들어오는 경우가 있는데,
- * preview에서는 원본처럼 한 줄로 보여야 하는 셀까지 줄바꿈되어 보일 수 있음.
- *
- * 그래서 table preview에서는 셀 내부 줄바꿈을 우선 공백으로 평탄화한다.
- */
 function normalizeCellPreviewText(text?: string | null) {
   return (text ?? "")
     .replace(/\r\n|\r|\n/g, " ")
@@ -544,8 +553,8 @@ export default function ComposePageParagraphLayer({
   tables,
   selectedParagraphId,
   selectedTableId,
-  boxes,
   selectedBoxId,
+  boxes,
   isLoading = false,
   onSelectParagraph,
   onSelectTable,
@@ -591,6 +600,26 @@ export default function ComposePageParagraphLayer({
     return rawBlocks
   }, [paragraphs, tables])
 
+  const pageContentWidth = useMemo(() => {
+    let maxRight = 480
+
+    for (const block of renderBlocks) {
+      if (block.kind === "paragraph") {
+        const p = block.paragraph
+        const left = p.x ?? DEFAULT_LEFT_MARGIN
+        const width = p.width ?? DEFAULT_PARAGRAPH_WIDTH
+        maxRight = Math.max(maxRight, left + width)
+      } else {
+        const t = block.table
+        const left = t.x ?? DEFAULT_TABLE_LEFT
+        const width = t.width ?? 420
+        maxRight = Math.max(maxRight, left + width)
+      }
+    }
+
+    return maxRight + 32
+  }, [renderBlocks])
+
   const paragraphBoxMap = useMemo(() => {
     const map = new Map<string, { left: number; top: number; width: number; height: number }>()
 
@@ -609,28 +638,22 @@ export default function ComposePageParagraphLayer({
     for (const block of renderBlocks) {
       if (block.kind !== "table") continue
       const t = block.table
-
-      map.set(t.tableId, {
-        left: t.x ?? 56,
-        top: block.displayTop,
-        width: t.width ?? 420,
-        height: block.renderHeight,
-      })
+      const rect = getStretchedTableRect(t, block.displayTop, pageContentWidth)
+      map.set(t.tableId, rect)
     }
 
     return map
-  }, [renderBlocks])
+  }, [renderBlocks, pageContentWidth])
 
   return (
-    <div className="relative h-[720px] w-full overflow-y-auto overflow-x-hidden rounded-[24px] border border-[#dbe7ff] bg-[#eef4ff] p-6">
-      {isLoading ? (
-        <PreviewLoadingSkeleton />
-      ) : null}
+    <div className="relative h-[720px] w-full overflow-y-auto overflow-x-auto rounded-[24px] border border-[#dbe7ff] bg-[#eef4ff] p-6">
+      {isLoading ? <PreviewLoadingSkeleton /> : null}
 
       <div
-        className={`relative mx-auto min-h-full max-w-[560px] rounded-[8px] border border-[#e5e7eb] bg-white shadow-[0_4px_12px_rgba(0,0,0,0.08)] ${
+        className={`relative mx-auto min-h-full rounded-[8px] border border-[#e5e7eb] bg-white shadow-[0_4px_12px_rgba(0,0,0,0.08)] ${
           isLoading ? "pointer-events-none opacity-0" : "opacity-100"
         }`}
+        style={{ width: `${pageContentWidth}px` }}
       >
         {renderBlocks.map((block) => {
           if (block.kind === "table") {
@@ -638,10 +661,12 @@ export default function ComposePageParagraphLayer({
             const style = t.extractedStyle
             const selected = selectedTableId === t.tableId
 
-            const left = t.x ?? 56
-            const top = block.displayTop
-            const width = t.width ?? 420
-            const { rowHeights, renderedTableHeight } = calcTableRenderedHeight(t)
+            const tableRect = getStretchedTableRect(t, block.displayTop, pageContentWidth)
+            const left = tableRect.left
+            const top = tableRect.top
+            const width = tableRect.width
+            const renderedTableHeight = tableRect.height
+            const { rowHeights } = calcTableRenderedHeight(t)
 
             const rowCount = Math.max(1, t.rowCount ?? t.cellTexts?.length ?? 1)
             const colCount = Math.max(

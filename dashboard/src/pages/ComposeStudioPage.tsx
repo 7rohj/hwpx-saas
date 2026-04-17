@@ -18,7 +18,6 @@ import {
   Search,
   PanelLeft,
   X,
-  History,
 } from "lucide-react"
 
 type ComposeStudioPageProps = {
@@ -455,6 +454,39 @@ export default function ComposeStudioPage({
     }
   }, [templateRole, sourceRole, activeSide, selectedBoxId])
 
+  async function loadSampleFile(url: string, filename: string, type: string) {
+    const res = await fetch(url)
+    if (!res.ok) {
+      throw new Error(`샘플 파일을 불러오지 못했습니다: ${filename}`)
+    }
+
+    const blob = await res.blob()
+    return new File([blob], filename, { type })
+  }
+
+  async function handleLoadSample(kind: "template" | "source") {
+    try {
+      if (kind === "template") {
+        const file = await loadSampleFile(
+          "/samples/sample-template.hwpx",
+          "sample-template.hwpx",
+          "application/octet-stream"
+        )
+        setTemplateFile(file)
+      } else {
+        const file = await loadSampleFile(
+          "/samples/sample-source.hwpx",
+          "sample-source.hwpx",
+          "application/octet-stream"
+        )
+        setSourceFile(file)
+      }
+    } catch (err) {
+      console.error(err)
+      alert(err instanceof Error ? err.message : "샘플 파일 불러오기 실패")
+    }
+  }
+
   function resetPreviewState() {
     setCurrentPage(1)
     setActiveSide("template")
@@ -687,7 +719,6 @@ export default function ComposeStudioPage({
         savedAt: new Date().toISOString(),
       }
 
-      // setSavedSelectionHistory((prev) => [historyItem, ...prev])
       setSavedSelectionHistory((prev) => {
         if (prev.length >= 20) {
           alert("최근 저장 항목은 최대 20개까지 저장할 수 있습니다.")
@@ -787,50 +818,44 @@ export default function ComposeStudioPage({
   }
 
   return (
-  <>
-    <TopNav onNavigate={onNavigate} currentPage="composeStudio" onLogout={onLogout} />
+    <>
+      <TopNav onNavigate={onNavigate} currentPage="composeStudio" onLogout={onLogout} />
 
-    <div className="min-h-screen bg-[linear-gradient(180deg,#f5f9ff_0%,#eef5ff_42%,#fffdf2_100%)] text-slate-900">
-      <div className="flex">
-        <aside className="sticky top-[64px] hidden h-[calc(100vh-64px)] w-[336px] shrink-0 flex-col border-r border-slate-200/80 bg-white/90 backdrop-blur xl:flex">
-          <div className="mt-5 flex items-center justify-between px-5">
-            <div className="flex items-center gap-2">
-              <Clock3 className="h-4 w-4 text-[#1f69ef]" />
-              <h2 className="text-sm font-semibold text-[#162033]">
-                최근 저장 항목
-              </h2>
+      <div className="min-h-screen bg-[linear-gradient(180deg,#f5f9ff_0%,#eef5ff_42%,#fffdf2_100%)] text-slate-900">
+        <div className="flex">
+          <aside className="sticky top-[64px] hidden h-[calc(100vh-64px)] w-[336px] shrink-0 flex-col border-r border-slate-200/80 bg-white/90 backdrop-blur xl:flex">
+            <div className="mt-5 flex items-center justify-between px-5">
+              <div className="flex items-center gap-2">
+                <Clock3 className="h-4 w-4 text-[#1f69ef]" />
+                <h2 className="text-sm font-semibold text-[#162033]">
+                  최근 저장 항목
+                </h2>
+              </div>
+              <span className="text-xs font-medium text-slate-500">
+                {filteredHistory.length}개
+              </span>
             </div>
-            <span className="text-xs font-medium text-slate-500">
-              {filteredHistory.length}개
-            </span>
-          </div>
 
-          <div className="px-5 pt-5">
-            <div className="flex items-center gap-2 rounded-2xl border border-slate-200 bg-slate-50 px-3 py-2.5">
-              <Search className="h-4 w-4 text-slate-400" />
-              <input
-                value={historySearch}
-                onChange={(e) => setHistorySearch(e.target.value)}
-                className="w-full bg-transparent text-sm outline-none placeholder:text-slate-400"
-                placeholder="저장 항목 검색"
-              />
+            <div className="px-5 pt-5">
+              <div className="flex items-center gap-2 rounded-2xl border border-slate-200 bg-slate-50 px-3 py-2.5">
+                <Search className="h-4 w-4 text-slate-400" />
+                <input
+                  value={historySearch}
+                  onChange={(e) => setHistorySearch(e.target.value)}
+                  className="w-full bg-transparent text-sm outline-none placeholder:text-slate-400"
+                  placeholder="저장 항목 검색"
+                />
+              </div>
             </div>
-          </div>
 
-          <div className="custom-scroll mt-3 min-h-0 flex-1 overflow-y-auto px-4 pb-5">
-            <div className="space-y-2">
-              {filteredHistory.length === 0 ? (
-                <div className="rounded-2xl border border-dashed border-slate-200 bg-white px-4 py-8 text-center text-sm text-slate-400">
-                  아직 저장된 항목이 없습니다.
-                </div>
-              ) : (
-                filteredHistory.map((item) => {
-                  const targetId =
-                    item.blockType === "table"
-                      ? item.tableId ?? "-"
-                      : item.paragraphId ?? "-"
-
-                  return (
+            <div className="custom-scroll mt-3 min-h-0 flex-1 overflow-y-auto px-4 pb-5">
+              <div className="space-y-2">
+                {filteredHistory.length === 0 ? (
+                  <div className="rounded-2xl border border-dashed border-slate-200 bg-white px-4 py-8 text-center text-sm text-slate-400">
+                    아직 저장된 항목이 없습니다.
+                  </div>
+                ) : (
+                  filteredHistory.map((item) => (
                     <div
                       key={item.id}
                       className="rounded-2xl border border-slate-200 bg-white p-4 transition hover:border-[#cfe0ff] hover:bg-[#f8fbff] hover:shadow-sm"
@@ -876,14 +901,12 @@ export default function ComposeStudioPage({
                         <span className="text-white">취소</span>
                       </button>
                     </div>
-                  )
-                })
-              )}
+                  ))
+                )}
+              </div>
             </div>
-          </div>
-        </aside>
+          </aside>
 
-          {/* 메인 */}
           <main className="flex-1">
             <div className="mx-auto max-w-[1380px] px-4 py-6 sm:px-6 lg:px-8">
               <header className="mb-6 rounded-[32px] border border-[#cfe0ff] bg-white/85 p-6 backdrop-blur">
@@ -939,7 +962,7 @@ export default function ComposeStudioPage({
                 <div className="rounded-[28px] border border-[#dbe7ff] bg-white p-5">
                   <div className="mb-3 flex items-center gap-2 text-sm font-semibold text-[#1f69ef]">
                     <Layers3 className="h-4 w-4" />
-                    Template 파일
+                    템플릿 파일
                   </div>
                   <input
                     type="file"
@@ -947,15 +970,25 @@ export default function ComposeStudioPage({
                     onChange={(e) => setTemplateFile(e.target.files?.[0] ?? null)}
                     className="w-full rounded-2xl border border-[#d7e5ff] px-4 py-3 text-sm"
                   />
-                  <p className="mt-2 text-sm text-[#63708a]">
-                    {templateFile ? templateFile.name : "선택된 파일 없음"}
-                  </p>
+                  <div className="mt-2 flex items-center justify-between gap-3">
+                    <p className="text-sm text-[#63708a]">
+                      {templateFile ? templateFile.name : "선택된 파일 없음"}
+                    </p>
+
+                    <button
+                      type="button"
+                      onClick={() => handleLoadSample("template")}
+                      className="shrink-0 text-xs font-medium text-slate-400 hover:text-slate-600"
+                    >
+                      샘플 파일 불러오기
+                    </button>
+                  </div>
                 </div>
 
                 <div className="rounded-[28px] border border-[#dbe7ff] bg-white p-5">
                   <div className="mb-3 flex items-center gap-2 text-sm font-semibold text-[#1f69ef]">
                     <Layers3 className="h-4 w-4" />
-                    Source 파일
+                    원본문서 파일
                   </div>
                   <input
                     type="file"
@@ -963,9 +996,19 @@ export default function ComposeStudioPage({
                     onChange={(e) => setSourceFile(e.target.files?.[0] ?? null)}
                     className="w-full rounded-2xl border border-[#d7e5ff] px-4 py-3 text-sm"
                   />
-                  <p className="mt-2 text-sm text-[#63708a]">
-                    {sourceFile ? sourceFile.name : "선택된 파일 없음"}
-                  </p>
+                  <div className="mt-2 flex items-center justify-between gap-3">
+                    <p className="text-sm text-[#63708a]">
+                      {sourceFile ? sourceFile.name : "선택된 파일 없음"}
+                    </p>
+
+                    <button
+                      type="button"
+                      onClick={() => handleLoadSample("source")}
+                      className="shrink-0 text-xs font-medium text-slate-400 hover:text-slate-600"
+                    >
+                      샘플 파일 불러오기
+                    </button>
+                  </div>
                 </div>
               </section>
 
@@ -981,7 +1024,7 @@ export default function ComposeStudioPage({
                             : "border border-[#d7e5ff] bg-white text-slate-700 hover:bg-[#f5f9ff]"
                         }`}
                       >
-                        Template
+                        템플릿문서
                       </button>
 
                       <button
@@ -992,7 +1035,7 @@ export default function ComposeStudioPage({
                             : "border border-[#d7e5ff] bg-white text-slate-700 hover:bg-[#f5f9ff]"
                         }`}
                       >
-                        Source
+                        원본문서
                       </button>
                     </div>
 

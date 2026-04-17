@@ -679,12 +679,17 @@ public class ComposeTableStyleApplyService {
             Node node = tblList.item(i);
             if (!(node instanceof Element tblEl)) continue;
 
+            /*
             int currentIndex = currentTableIndexRef[0];
             if (currentIndex == targetTableIndex) {
                 applyStyleToGeneralTable(tblEl, pair);
             }
 
             currentTableIndexRef[0] = currentIndex + 1;
+            */
+
+           applyStyleToGeneralTable(tblEl, pair);
+           currentTableIndexRef[0]++;
         }
 
         return documentToBytes(doc);
