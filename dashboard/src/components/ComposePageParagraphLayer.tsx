@@ -1,5 +1,6 @@
 import { useMemo } from "react"
 import type { OverlayBox } from "./ComposePageOverlay"
+import PreviewLoadingSkeletonWithBot from "./PreviewLoadingSkeletonWithBot"
 
 type ParagraphItem = {
   paragraphId: string
@@ -431,6 +432,7 @@ function normalizeCellPreviewText(text?: string | null) {
     .trim()
 }
 
+/*
 function PreviewLoadingSkeleton() {
   const lines = [
     { width: "72%" },
@@ -547,6 +549,7 @@ function PreviewLoadingSkeleton() {
     </>
   )
 }
+*/
 
 export default function ComposePageParagraphLayer({
   paragraphs,
@@ -647,7 +650,8 @@ export default function ComposePageParagraphLayer({
 
   return (
     <div className="relative h-[720px] w-full overflow-y-auto overflow-x-auto rounded-[24px] border border-[#dbe7ff] bg-[#eef4ff] p-6">
-      {isLoading ? <PreviewLoadingSkeleton /> : null}
+      {/* {isLoading ? <PreviewLoadingSkeleton /> : null} */}
+      {isLoading ? <PreviewLoadingSkeletonWithBot /> : null}
 
       <div
         className={`relative mx-auto min-h-full rounded-[8px] border border-[#e5e7eb] bg-white shadow-[0_4px_12px_rgba(0,0,0,0.08)] ${

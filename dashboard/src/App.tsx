@@ -20,6 +20,7 @@ export type PageType =
   | "dashboard"
   | "composeStudio"
   | "studio"
+  | "minimal-compose"
   | "apikeys"
   | "usage"
   | "pricing"
