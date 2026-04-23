@@ -64,29 +64,65 @@ public class ComposeApplyRunnerService {
                             request.getSessionId(), "template", request.getLabel()
                     );
 
-            ComposeSelection sourceSelection =
-                    composeSelectionService.findFirstBySessionIdAndSideAndLabel(
+            List<ComposeSelection> sourceSelections =
+                    composeSelectionService.findAllBySessionIdAndSideAndLabel(
                             request.getSessionId(), "source", request.getLabel()
                     );
 
             if (templateSelection == null) {
                 throw new IllegalArgumentException("template selection not found for label: " + request.getLabel());
             }
-            if (sourceSelection == null) {
-                throw new IllegalArgumentException("source selection not found for label: " + request.getLabel());
+            if (sourceSelections == null || sourceSelections.isEmpty()) {
+                throw new IllegalArgumentException("source selections not found for label: " + request.getLabel());
             }
 
-            if ("table".equalsIgnoreCase(templateSelection.getBlockType())
-                    && "oneline_box".equalsIgnoreCase(templateSelection.getLabel())) {
-                return runOnelineBoxApply(request, session, templateSelection, sourceSelection, session.getSourcePath());
+            Path workingSourcePath = session.getSourcePath();
+            List<String> appliedTargets = new ArrayList<>();
+            List<String> allMatchedParagraphIds = new ArrayList<>();
+            List<ParagraphNodeDto> allStyledParagraphs = new ArrayList<>();
+
+            for (ComposeSelection sourceSelection : sourceSelections) {
+                ComposeRunApplyResponse singleResponse = runSingleApply(
+                        request,
+                        session,
+                        templateSelection,
+                        sourceSelection,
+                        workingSourcePath
+                );
+
+                workingSourcePath = Path.of(singleResponse.getOutputPath());
+
+                if (singleResponse.getMatchedParagraphIds() != null) {
+                    allMatchedParagraphIds.addAll(singleResponse.getMatchedParagraphIds());
+                }
+                if (singleResponse.getStyledParagraphs() != null) {
+                    allStyledParagraphs.addAll(singleResponse.getStyledParagraphs());
+                }
+
+                appliedTargets.add(buildTargetSummary(sourceSelection));
             }
 
-            if ("table".equalsIgnoreCase(templateSelection.getBlockType())
-                    || "table".equalsIgnoreCase(sourceSelection.getBlockType())) {
-                return runTableApply(request, session, templateSelection, sourceSelection, session.getSourcePath());
-            }
+            String fileId = workingSourcePath.getFileName().toString();
 
-            return runParagraphApply(request, session, templateSelection, sourceSelection, session.getSourcePath());
+            ComposeRunApplyResponse finalResponse = new ComposeRunApplyResponse();
+            finalResponse.setSessionId(request.getSessionId());
+            finalResponse.setLabel(request.getLabel());
+            finalResponse.setTemplateSelectionSummary(
+                    "template label=" + templateSelection.getLabel()
+                            + ", blockType=" + nvl(templateSelection.getBlockType(), "")
+                            + ", paragraphId=" + nvl(templateSelection.getParagraphId(), "")
+                            + ", tableId=" + nvl(templateSelection.getTableId(), "")
+            );
+            finalResponse.setSourceSelectionSummary(
+                    "source applied targets = " + appliedTargets
+            );
+            finalResponse.setMatchedParagraphIds(dedupPreserveOrder(allMatchedParagraphIds));
+            finalResponse.setStyledParagraphs(dedupParagraphsPreserveOrder(allStyledParagraphs));
+            finalResponse.setOutputPath(workingSourcePath.toString());
+            finalResponse.setFileId(fileId);
+            finalResponse.setDownloadUrl("/api/v1/compose/files/" + fileId);
+
+            return finalResponse;
 
         } catch (Exception e) {
             System.out.println("=== [COMPOSE APPLY ERROR] ===");
@@ -132,13 +168,12 @@ public class ComposeApplyRunnerService {
                             LinkedHashMap::new
                     ));
 
-            Map<String, ComposeSelectionResponse> sourceMap = allSelections.stream()
+            Map<String, List<ComposeSelectionResponse>> sourceMap = allSelections.stream()
                     .filter(s -> "source".equalsIgnoreCase(s.getSide()))
-                    .collect(Collectors.toMap(
+                    .collect(Collectors.groupingBy(
                             ComposeSelectionResponse::getLabel,
-                            s -> s,
-                            (a, b) -> a,
-                            LinkedHashMap::new
+                            LinkedHashMap::new,
+                            Collectors.toList()
                     ));
 
             List<String> applyOrder = List.of(
@@ -158,16 +193,13 @@ public class ComposeApplyRunnerService {
 
             for (String label : applyOrder) {
                 ComposeSelectionResponse templateSel = templateMap.get(label);
-                ComposeSelectionResponse sourceSel = sourceMap.get(label);
+                List<ComposeSelectionResponse> sourceList = sourceMap.get(label);
 
-                if (templateSel == null || sourceSel == null) {
+                if (templateSel == null || sourceList == null || sourceList.isEmpty()) {
                     continue;
                 }
 
-                if ("oneline_box".equalsIgnoreCase(label)
-                        && "table".equalsIgnoreCase(templateSel.getBlockType())
-                        && !"table".equalsIgnoreCase(sourceSel.getBlockType())) {
-
+                for (ComposeSelectionResponse sourceSel : sourceList) {
                     ComposeRunApplyRequest singleRequest = new ComposeRunApplyRequest();
                     singleRequest.setSessionId(request.getSessionId());
                     singleRequest.setLabel(label);
@@ -176,7 +208,7 @@ public class ComposeApplyRunnerService {
                     ComposeSelection templateModel = toModel(templateSel);
                     ComposeSelection sourceModel = toModel(sourceSel);
 
-                    ComposeRunApplyResponse singleResponse = runOnelineBoxApply(
+                    ComposeRunApplyResponse singleResponse = runSingleApply(
                             singleRequest,
                             session,
                             templateModel,
@@ -186,54 +218,8 @@ public class ComposeApplyRunnerService {
 
                     workingSourcePath = Path.of(singleResponse.getOutputPath());
                     appliedLabels.add(label);
-                    appliedTargets.add("oneline_box:" + nvl(sourceSel.getBlockId(), sourceSel.getParagraphId()));
-                    continue;
+                    appliedTargets.add(buildTargetSummary(sourceModel));
                 }
-
-                if ("table".equalsIgnoreCase(templateSel.getBlockType())
-                        || "table".equalsIgnoreCase(sourceSel.getBlockType())) {
-
-                    ComposeRunApplyRequest singleRequest = new ComposeRunApplyRequest();
-                    singleRequest.setSessionId(request.getSessionId());
-                    singleRequest.setLabel(label);
-                    singleRequest.setFontPolicy(request.getFontPolicy());
-
-                    ComposeSelection templateModel = toModel(templateSel);
-                    ComposeSelection sourceModel = toModel(sourceSel);
-
-                    ComposeRunApplyResponse singleResponse = runTableApply(
-                            singleRequest,
-                            session,
-                            templateModel,
-                            sourceModel,
-                            workingSourcePath
-                    );
-
-                    workingSourcePath = Path.of(singleResponse.getOutputPath());
-                    appliedLabels.add(label);
-                    appliedTargets.add("table:" + nvl(sourceSel.getBlockId(), sourceSel.getTableId()));
-                    continue;
-                }
-
-                ComposeRunApplyRequest singleRequest = new ComposeRunApplyRequest();
-                singleRequest.setSessionId(request.getSessionId());
-                singleRequest.setLabel(label);
-                singleRequest.setFontPolicy(request.getFontPolicy());
-
-                ComposeSelection templateModel = toModel(templateSel);
-                ComposeSelection sourceModel = toModel(sourceSel);
-
-                ComposeRunApplyResponse singleResponse = runParagraphApply(
-                        singleRequest,
-                        session,
-                        templateModel,
-                        sourceModel,
-                        workingSourcePath
-                );
-
-                workingSourcePath = Path.of(singleResponse.getOutputPath());
-                appliedLabels.add(label);
-                appliedTargets.add("paragraph:" + nvl(sourceSel.getBlockId(), sourceSel.getParagraphId()));
             }
 
             if (appliedLabels.isEmpty()) {
@@ -258,6 +244,72 @@ public class ComposeApplyRunnerService {
             e.printStackTrace();
             throw new RuntimeException("compose apply-all failed: " + e.getMessage(), e);
         }
+    }
+
+    private ComposeRunApplyResponse runSingleApply(
+            ComposeRunApplyRequest request,
+            ComposeSessionService.SessionData session,
+            ComposeSelection templateSelection,
+            ComposeSelection sourceSelection,
+            Path sourceHwpxPath
+    ) throws Exception {
+
+        if ("table".equalsIgnoreCase(templateSelection.getBlockType())
+                && "oneline_box".equalsIgnoreCase(templateSelection.getLabel())) {
+            return runOnelineBoxApply(request, session, templateSelection, sourceSelection, sourceHwpxPath);
+        }
+
+        if ("table".equalsIgnoreCase(templateSelection.getBlockType())
+                || "table".equalsIgnoreCase(sourceSelection.getBlockType())) {
+            return runTableApply(request, session, templateSelection, sourceSelection, sourceHwpxPath);
+        }
+
+        return runParagraphApply(request, session, templateSelection, sourceSelection, sourceHwpxPath);
+    }
+
+    private String buildTargetSummary(ComposeSelection sourceSelection) {
+        if (sourceSelection == null) {
+            return "";
+        }
+
+        if ("table".equalsIgnoreCase(sourceSelection.getBlockType())) {
+            return "table:" + nvl(sourceSelection.getBlockId(), sourceSelection.getTableId());
+        }
+
+        if ("oneline_box".equalsIgnoreCase(sourceSelection.getLabel())) {
+            return "oneline_box:" + nvl(sourceSelection.getBlockId(), sourceSelection.getParagraphId());
+        }
+
+        return "paragraph:" + nvl(sourceSelection.getBlockId(), sourceSelection.getParagraphId());
+    }
+
+    private List<String> dedupPreserveOrder(List<String> values) {
+        if (values == null || values.isEmpty()) {
+            return List.of();
+        }
+        return new ArrayList<>(new LinkedHashSet<>(values));
+    }
+
+    private List<ParagraphNodeDto> dedupParagraphsPreserveOrder(List<ParagraphNodeDto> values) {
+        if (values == null || values.isEmpty()) {
+            return List.of();
+        }
+
+        Map<String, ParagraphNodeDto> ordered = new LinkedHashMap<>();
+        for (ParagraphNodeDto dto : values) {
+            if (dto == null) {
+                continue;
+            }
+
+            String key = dto.getParagraphId();
+            if (key == null || key.isBlank()) {
+                key = UUID.randomUUID().toString();
+            }
+
+            ordered.putIfAbsent(key, dto);
+        }
+
+        return new ArrayList<>(ordered.values());
     }
 
     private ComposeRunApplyResponse runParagraphApply(

@@ -174,4 +174,22 @@ public class ComposeSelectionService {
         }
         return a.equals(b);
     }
+
+    public List<ComposeSelection> findAllBySessionIdAndSideAndLabel(
+            String sessionId,
+            String side,
+            String label
+    ) {
+        List<ComposeSelection> result = new ArrayList<>();
+
+        for (ComposeSelection selection : selections) {
+            if (equalsSafe(sessionId, selection.getSessionId())
+                    && equalsSafe(side, selection.getSide())
+                    && equalsSafe(label, selection.getLabel())) {
+                result.add(selection);
+            }
+        }
+
+        return result;
+    }
 }
