@@ -186,7 +186,7 @@ public class ComposeApplyRunnerService {
 
                     workingSourcePath = Path.of(singleResponse.getOutputPath());
                     appliedLabels.add(label);
-                    appliedTargets.add("oneline_box:" + sourceSel.getParagraphId());
+                    appliedTargets.add("oneline_box:" + nvl(sourceSel.getBlockId(), sourceSel.getParagraphId()));
                     continue;
                 }
 
@@ -211,7 +211,7 @@ public class ComposeApplyRunnerService {
 
                     workingSourcePath = Path.of(singleResponse.getOutputPath());
                     appliedLabels.add(label);
-                    appliedTargets.add("table:" + sourceSel.getTableId());
+                    appliedTargets.add("table:" + nvl(sourceSel.getBlockId(), sourceSel.getTableId()));
                     continue;
                 }
 
@@ -233,7 +233,7 @@ public class ComposeApplyRunnerService {
 
                 workingSourcePath = Path.of(singleResponse.getOutputPath());
                 appliedLabels.add(label);
-                appliedTargets.add("paragraph:" + sourceSel.getParagraphId());
+                appliedTargets.add("paragraph:" + nvl(sourceSel.getBlockId(), sourceSel.getParagraphId()));
             }
 
             if (appliedLabels.isEmpty()) {
@@ -327,14 +327,20 @@ public class ComposeApplyRunnerService {
                 "template page=" + templateSelection.getPage()
                         + ", label=" + templateSelection.getLabel()
                         + ", paragraphId=" + templateSelection.getParagraphId()
+                        + ", blockId=" + nvl(templateSelection.getBlockId(), "")
                         + ", blockType=" + templateSelection.getBlockType()
+                        + ", subType=" + nvl(templateSelection.getSubType(), "")
+                        + ", sourceKind=" + nvl(templateSelection.getSourceKind(), "")
                         + ", prefix=" + nvl(prefixToInject, "")
         );
         response.setSourceSelectionSummary(
                 "source page=" + sourceSelection.getPage()
                         + ", label=" + sourceSelection.getLabel()
                         + ", paragraphId=" + sourceSelection.getParagraphId()
+                        + ", blockId=" + nvl(sourceSelection.getBlockId(), "")
                         + ", blockType=" + sourceSelection.getBlockType()
+                        + ", subType=" + nvl(sourceSelection.getSubType(), "")
+                        + ", sourceKind=" + nvl(sourceSelection.getSourceKind(), "")
         );
         response.setMatchedParagraphIds(applyResponse.getMatchedParagraphIds());
         response.setStyledParagraphs(applyResponse.getStyledParagraphs());
@@ -386,13 +392,19 @@ public class ComposeApplyRunnerService {
                 "template page=" + templateSelection.getPage()
                         + ", label=" + templateSelection.getLabel()
                         + ", tableId=" + templateSelection.getTableId()
+                        + ", blockId=" + nvl(templateSelection.getBlockId(), "")
                         + ", blockType=" + templateSelection.getBlockType()
+                        + ", subType=" + nvl(templateSelection.getSubType(), "")
+                        + ", sourceKind=" + nvl(templateSelection.getSourceKind(), "")
         );
         response.setSourceSelectionSummary(
                 "source page=" + sourceSelection.getPage()
                         + ", label=" + sourceSelection.getLabel()
                         + ", paragraphId=" + sourceSelection.getParagraphId()
+                        + ", blockId=" + nvl(sourceSelection.getBlockId(), "")
                         + ", blockType=" + sourceSelection.getBlockType()
+                        + ", subType=" + nvl(sourceSelection.getSubType(), "")
+                        + ", sourceKind=" + nvl(sourceSelection.getSourceKind(), "")
                         + ", sourceText=" + sourceText
         );
         response.setMatchedParagraphIds(List.of(sourceSelection.getParagraphId()));
@@ -444,6 +456,9 @@ public class ComposeApplyRunnerService {
                         + ", label=" + templateSelection.getLabel()
                         + ", blockType=table"
                         + ", tableId=" + templateSelection.getTableId()
+                        + ", blockId=" + nvl(templateSelection.getBlockId(), "")
+                        + ", subType=" + nvl(templateSelection.getSubType(), "")
+                        + ", sourceKind=" + nvl(templateSelection.getSourceKind(), "")
                         + ", rowCount=" + templateTable.getRowCount()
                         + ", colCount=" + templateTable.getColCount()
         );
@@ -452,6 +467,9 @@ public class ComposeApplyRunnerService {
                         + ", label=" + sourceSelection.getLabel()
                         + ", blockType=table"
                         + ", tableId=" + sourceSelection.getTableId()
+                        + ", blockId=" + nvl(sourceSelection.getBlockId(), "")
+                        + ", subType=" + nvl(sourceSelection.getSubType(), "")
+                        + ", sourceKind=" + nvl(sourceSelection.getSourceKind(), "")
                         + ", rowCount=" + sourceTable.getRowCount()
                         + ", colCount=" + sourceTable.getColCount()
         );
@@ -492,6 +510,12 @@ public class ComposeApplyRunnerService {
         model.setParagraphId(dto.getParagraphId());
         model.setBlockType(dto.getBlockType());
         model.setTableId(dto.getTableId());
+
+        model.setBlockId(dto.getBlockId());
+        model.setRole(dto.getRole());
+        model.setSubType(dto.getSubType());
+        model.setSourceKind(dto.getSourceKind());
+
         return model;
     }
 

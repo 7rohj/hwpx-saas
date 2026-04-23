@@ -13,7 +13,6 @@ import java.util.concurrent.CopyOnWriteArrayList;
 @Service
 public class ComposeSelectionService {
 
-    // 현재는 메모리 저장 방식
     private final List<ComposeSelection> selections = new CopyOnWriteArrayList<>();
 
     public ComposeSelectionResponse save(ComposeSelectionRequest request) {
@@ -30,12 +29,8 @@ public class ComposeSelectionService {
             throw new IllegalArgumentException("label is required");
         }
 
-        // 추가:
-        // blockType 기본값 보정
         String blockType = normalizeBlockType(request.getBlockType());
 
-        // 추가:
-        // paragraph / table 각각 필수값 검증
         if ("paragraph".equals(blockType)) {
             if (request.getParagraphId() == null || request.getParagraphId().isBlank()) {
                 throw new IllegalArgumentException("paragraphId is required when blockType=paragraph");
@@ -59,14 +54,14 @@ public class ComposeSelectionService {
         selection.setLabel(request.getLabel());
         selection.setOcrText(request.getOcrText());
 
-        // 기존:
-        // 문단 ID 저장
         selection.setParagraphId(request.getParagraphId());
-
-        // 추가:
-        // blockType / tableId 저장
         selection.setBlockType(blockType);
         selection.setTableId(request.getTableId());
+
+        selection.setBlockId(request.getBlockId());
+        selection.setRole(request.getRole());
+        selection.setSubType(request.getSubType());
+        selection.setSourceKind(normalizeSourceKind(request.getSourceKind(), request.getSide()));
 
         selections.add(selection);
 
@@ -102,8 +97,6 @@ public class ComposeSelectionService {
         return null;
     }
 
-    // 추가:
-    // blockType까지 같이 찾고 싶을 때 사용할 수 있는 메서드
     public ComposeSelection findFirstBySessionIdAndSideAndLabelAndBlockType(
             String sessionId,
             String side,
@@ -133,14 +126,14 @@ public class ComposeSelectionService {
         response.setLabel(selection.getLabel());
         response.setOcrText(selection.getOcrText());
 
-        // 기존:
-        // paragraphId 응답 포함
         response.setParagraphId(selection.getParagraphId());
-
-        // 추가:
-        // blockType / tableId 응답 포함
         response.setBlockType(selection.getBlockType());
         response.setTableId(selection.getTableId());
+
+        response.setBlockId(selection.getBlockId());
+        response.setRole(selection.getRole());
+        response.setSubType(selection.getSubType());
+        response.setSourceKind(selection.getSourceKind());
 
         return response;
     }
@@ -155,6 +148,24 @@ public class ComposeSelectionService {
             return "table";
         }
         return "paragraph";
+    }
+
+    private String normalizeSourceKind(String sourceKind, String side) {
+        if (sourceKind != null && !sourceKind.isBlank()) {
+            String v = sourceKind.trim().toLowerCase();
+            if ("template".equals(v)) {
+                return "template";
+            }
+            if ("source".equals(v)) {
+                return "source";
+            }
+        }
+
+        if (side == null || side.isBlank()) {
+            return "source";
+        }
+
+        return "template".equalsIgnoreCase(side) ? "template" : "source";
     }
 
     private boolean equalsSafe(String a, String b) {

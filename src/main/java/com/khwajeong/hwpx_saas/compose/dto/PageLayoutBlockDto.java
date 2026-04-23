@@ -2,23 +2,30 @@ package com.khwajeong.hwpx_saas.compose.dto;
 
 public class PageLayoutBlockDto {
 
-    // 추가:
     // paragraph | table
     private String blockType;
 
-    // 추가:
+    // 공통 블록 식별자
+    private String blockId;
+
     // paragraph일 때 사용
     private String paragraphId;
 
-    // 추가:
     // table일 때 사용
     private String tableId;
 
-    // 추가:
+    // heading1, heading2, body, table, onebox_line 등
+    private String role;
+
+    // paragraph / table / onebox_line 등 세부 타입
+    private String subType;
+
+    // template / source
+    private String sourceKind;
+
     // 원본 문서 순서
     private Integer orderIndex;
 
-    // 추가:
     // 실제 배치 좌표
     private Integer page;
     private Double x;
@@ -26,7 +33,6 @@ public class PageLayoutBlockDto {
     private Double width;
     private Double height;
 
-    // 추가:
     // 레이아웃 계산용 메타
     private Integer estimatedFontSize;
     private Boolean headingLike;
@@ -40,6 +46,14 @@ public class PageLayoutBlockDto {
 
     public void setBlockType(String blockType) {
         this.blockType = blockType;
+    }
+
+    public String getBlockId() {
+        return blockId;
+    }
+
+    public void setBlockId(String blockId) {
+        this.blockId = blockId;
     }
 
     public String getParagraphId() {
@@ -56,6 +70,30 @@ public class PageLayoutBlockDto {
 
     public void setTableId(String tableId) {
         this.tableId = tableId;
+    }
+
+    public String getRole() {
+        return role;
+    }
+
+    public void setRole(String role) {
+        this.role = role;
+    }
+
+    public String getSubType() {
+        return subType;
+    }
+
+    public void setSubType(String subType) {
+        this.subType = subType;
+    }
+
+    public String getSourceKind() {
+        return sourceKind;
+    }
+
+    public void setSourceKind(String sourceKind) {
+        this.sourceKind = sourceKind;
     }
 
     public Integer getOrderIndex() {

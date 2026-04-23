@@ -73,16 +73,16 @@ public class ComposeTextStyleApplyService {
 
         String newCharPrId = styleRenderer.renderCharStyleAndReturnCharPrId(textStyle);
 
-        Map<Integer, String> paragraphIndexToNewParaPrId = new HashMap<>();
-        Set<Integer> targetIndexes = parseParagraphIndexes(matchedParagraphIds);
+        // p7 같은 값을 sourceParagraphs 기준 인덱스로 해석
+        Set<Integer> targetStylableIndexes = parseParagraphIndexes(matchedParagraphIds);
 
-        for (int idx : targetIndexes) {
+        Map<Integer, String> stylableIndexToNewParaPrId = new HashMap<>();
+        for (int idx : targetStylableIndexes) {
             if (idx < 0 || idx >= sourceParagraphs.size()) {
                 continue;
             }
 
             ParagraphNodeDto p = sourceParagraphs.get(idx);
-
             String baseParaPrId = p.getParaPrIdRef();
             Align alignEnum = toAlignEnum(templateStyle.getAlign());
 
@@ -94,7 +94,7 @@ public class ComposeTextStyleApplyService {
                     templateStyle.getSpaceAfter()
             );
 
-            paragraphIndexToNewParaPrId.put(idx, newParaPrId);
+            stylableIndexToNewParaPrId.put(idx, newParaPrId);
         }
 
         Path tempStyledSource = Files.createTempFile("compose-style-base-", ".hwpx");
@@ -105,7 +105,7 @@ public class ComposeTextStyleApplyService {
 
         Path outputPath = Files.createTempFile("compose-render-output-", ".hwpx");
 
-        int globalParagraphIndex = 0;
+        int globalStylableParagraphIndex = 0;
 
         try (
                 ZipFile sourceZip = new ZipFile(tempStyledSource.toFile());
@@ -128,15 +128,15 @@ public class ComposeTextStyleApplyService {
                 if (entryName.startsWith("Contents/section") && entryName.endsWith(".xml")) {
                     SectionRewriteResult result = rewriteSectionXml(
                             originalBytes,
-                            globalParagraphIndex,
-                            targetIndexes,
-                            paragraphIndexToNewParaPrId,
+                            globalStylableParagraphIndex,
+                            targetStylableIndexes,
+                            stylableIndexToNewParaPrId,
                             newCharPrId,
                             templateStyle.getFontSize(),
                             prefixToInject
                     );
                     outputBytes = result.bytes;
-                    globalParagraphIndex += result.processedParagraphCount;
+                    globalStylableParagraphIndex += result.processedStylableParagraphCount;
                 }
 
                 rewrittenEntries.put(entryName, outputBytes);
@@ -162,7 +162,7 @@ public class ComposeTextStyleApplyService {
             if (id == null) continue;
 
             String s = id.trim();
-            if (s.startsWith("p")) {
+            if (s.startsWith("p") || s.startsWith("P")) {
                 s = s.substring(1);
             }
 
@@ -177,28 +177,34 @@ public class ComposeTextStyleApplyService {
 
     private SectionRewriteResult rewriteSectionXml(
             byte[] xmlBytes,
-            int globalStartIndex,
-            Set<Integer> targetIndexes,
-            Map<Integer, String> paragraphIndexToNewParaPrId,
+            int globalStylableStartIndex,
+            Set<Integer> targetStylableIndexes,
+            Map<Integer, String> stylableIndexToNewParaPrId,
             String newCharPrId,
             Integer templateFontSize,
             String prefixToInject
     ) throws Exception {
 
         Document doc = parseXml(xmlBytes);
-
         NodeList paraList = doc.getElementsByTagName("hp:p");
-        int paraCount = paraList.getLength();
 
-        for (int i = 0; i < paraCount; i++) {
+        int stylableLocalCounter = 0;
+
+        for (int i = 0; i < paraList.getLength(); i++) {
             Element p = (Element) paraList.item(i);
-            int globalIndex = globalStartIndex + i;
 
-            if (!targetIndexes.contains(globalIndex)) {
+            if (!isStylableParagraph(p)) {
                 continue;
             }
 
-            String newParaPrId = paragraphIndexToNewParaPrId.get(globalIndex);
+            int globalStylableIndex = globalStylableStartIndex + stylableLocalCounter;
+            stylableLocalCounter++;
+
+            if (!targetStylableIndexes.contains(globalStylableIndex)) {
+                continue;
+            }
+
+            String newParaPrId = stylableIndexToNewParaPrId.get(globalStylableIndex);
             if (newParaPrId != null && !newParaPrId.isBlank()) {
                 p.setAttribute("paraPrIDRef", newParaPrId);
             }
@@ -207,35 +213,130 @@ public class ComposeTextStyleApplyService {
                 injectPrefixIntoParagraph(p, prefixToInject);
             }
 
-            NodeList runList = p.getElementsByTagName("hp:run");
-            for (int r = 0; r < runList.getLength(); r++) {
-                Node runNode = runList.item(r);
-                if (runNode instanceof Element runEl) {
-                    if (hasTextDescendant(runEl)) {
-                        runEl.setAttribute("charPrIDRef", newCharPrId);
-                    }
+            NodeList childNodes = p.getChildNodes();
+            for (int r = 0; r < childNodes.getLength(); r++) {
+                Node child = childNodes.item(r);
+
+                if (!(child instanceof Element runEl)) {
+                    continue;
+                }
+
+                String nodeName = runEl.getNodeName();
+                String localName = runEl.getLocalName();
+
+                boolean isRun =
+                        "hp:run".equalsIgnoreCase(nodeName) ||
+                        "run".equalsIgnoreCase(localName);
+
+                if (!isRun) {
+                    continue;
+                }
+
+                if (hasTextDescendant(runEl)) {
+                    runEl.setAttribute("charPrIDRef", newCharPrId);
                 }
             }
 
-            NodeList rList = p.getElementsByTagName("hp:r");
-            for (int r = 0; r < rList.getLength(); r++) {
-                Node rNode = rList.item(r);
-                if (rNode instanceof Element rEl) {
-                    if (hasTextDescendant(rEl)) {
-                        rEl.setAttribute("charPrIDRef", newCharPrId);
-                    }
+            for (int r = 0; r < childNodes.getLength(); r++) {
+                Node child = childNodes.item(r);
+
+                if (!(child instanceof Element rEl)) {
+                    continue;
+                }
+
+                String nodeName = rEl.getNodeName();
+                String localName = rEl.getLocalName();
+
+                boolean isR =
+                        "hp:r".equalsIgnoreCase(nodeName) ||
+                        "r".equalsIgnoreCase(localName);
+
+                if (!isR) {
+                    continue;
+                }
+
+                if (hasTextDescendant(rEl)) {
+                    rEl.setAttribute("charPrIDRef", newCharPrId);
                 }
             }
 
             p.removeAttribute("styleIDRef");
         }
 
-        recomputeLineSegLayout(doc, globalStartIndex, targetIndexes, templateFontSize);
+        recomputeLineSegLayout(
+                doc,
+                globalStylableStartIndex,
+                targetStylableIndexes,
+                templateFontSize
+        );
 
         SectionRewriteResult result = new SectionRewriteResult();
         result.bytes = toBytes(doc);
-        result.processedParagraphCount = paraCount;
+        result.processedStylableParagraphCount = stylableLocalCounter;
         return result;
+    }
+
+    private boolean isStylableParagraph(Element paragraphElement) {
+        if (paragraphElement == null) {
+            return false;
+        }
+
+        if (isInsideTable(paragraphElement)) {
+            return false;
+        }
+
+        if (isTableWrapperParagraph(paragraphElement)) {
+            return false;
+        }
+
+        return hasDirectVisibleText(paragraphElement);
+    }
+
+    private boolean isTableWrapperParagraph(Element paragraphElement) {
+        if (paragraphElement == null) {
+            return false;
+        }
+
+        NodeList tblList = paragraphElement.getElementsByTagName("hp:tbl");
+        if (tblList != null && tblList.getLength() > 0) {
+            return true;
+        }
+
+        NodeList genericTblList = paragraphElement.getElementsByTagName("tbl");
+        return genericTblList != null && genericTblList.getLength() > 0;
+    }
+
+    private boolean hasDirectVisibleText(Element paragraphElement) {
+        if (paragraphElement == null) {
+            return false;
+        }
+
+        NodeList childNodes = paragraphElement.getChildNodes();
+        for (int i = 0; i < childNodes.getLength(); i++) {
+            Node child = childNodes.item(i);
+            if (!(child instanceof Element el)) {
+                continue;
+            }
+
+            String nodeName = el.getNodeName();
+            String localName = el.getLocalName();
+
+            boolean isRun =
+                    "hp:run".equalsIgnoreCase(nodeName) ||
+                    "run".equalsIgnoreCase(localName) ||
+                    "hp:r".equalsIgnoreCase(nodeName) ||
+                    "r".equalsIgnoreCase(localName);
+
+            if (!isRun) {
+                continue;
+            }
+
+            if (hasTextDescendant(el)) {
+                return true;
+            }
+        }
+
+        return false;
     }
 
     private void injectPrefixIntoParagraph(Element paragraphElement, String prefixToInject) {
@@ -297,22 +398,52 @@ public class ComposeTextStyleApplyService {
                 }
             }
         }
+
+        return false;
+    }
+
+    private boolean isInsideTable(Node node) {
+        Node parent = node != null ? node.getParentNode() : null;
+
+        while (parent != null) {
+            if (parent instanceof Element el) {
+                String nodeName = el.getNodeName();
+                String localName = el.getLocalName();
+
+                boolean isTable =
+                        "hp:tbl".equalsIgnoreCase(nodeName) ||
+                        "tbl".equalsIgnoreCase(localName);
+
+                if (isTable) {
+                    return true;
+                }
+            }
+            parent = parent.getParentNode();
+        }
+
         return false;
     }
 
     private void recomputeLineSegLayout(
             Document doc,
-            int globalStartIndex,
-            Set<Integer> targetIndexes,
+            int globalStylableStartIndex,
+            Set<Integer> targetStylableIndexes,
             Integer templateFontSize
     ) {
         NodeList paraList = doc.getElementsByTagName("hp:p");
 
         int currentVertPos = 0;
+        int stylableLocalCounter = 0;
 
         for (int i = 0; i < paraList.getLength(); i++) {
             Element p = (Element) paraList.item(i);
-            int globalIndex = globalStartIndex + i;
+
+            if (!isStylableParagraph(p)) {
+                continue;
+            }
+
+            int globalStylableIndex = globalStylableStartIndex + stylableLocalCounter;
+            stylableLocalCounter++;
 
             Element lineSeg = findFirstLineSegElement(p);
             if (lineSeg == null) {
@@ -320,8 +451,9 @@ public class ComposeTextStyleApplyService {
             }
 
             int textHeight;
-
-            if (targetIndexes.contains(globalIndex) && templateFontSize != null && templateFontSize > 0) {
+            if (targetStylableIndexes.contains(globalStylableIndex)
+                    && templateFontSize != null
+                    && templateFontSize > 0) {
                 textHeight = templateFontSize * 100;
             } else {
                 textHeight = parseIntOrDefault(lineSeg.getAttribute("textheight"), 500);
@@ -448,6 +580,6 @@ public class ComposeTextStyleApplyService {
 
     private static class SectionRewriteResult {
         private byte[] bytes;
-        private int processedParagraphCount;
+        private int processedStylableParagraphCount;
     }
 }

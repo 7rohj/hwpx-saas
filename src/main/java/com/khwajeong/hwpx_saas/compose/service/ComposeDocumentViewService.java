@@ -57,7 +57,7 @@ public class ComposeDocumentViewService {
                 hwpxTableExtractor.extract(hwpxFile);
 
         List<PageLayoutBlockDto> layout =
-                composeLayoutService.buildLayout(paragraphs, tables);
+                composeLayoutService.buildLayout(paragraphs, tables, "template");
 
         composeLayoutService.applyLayoutToParagraphs(paragraphs, layout);
         composeLayoutService.applyLayoutToTables(tables, layout);

@@ -12,18 +12,15 @@ import java.util.List;
 @Service
 public class ComposeLayoutService {
 
-    // 추가:
-    // 가상 페이지 기본 레이아웃 상수
     private static final int PAGE_HEIGHT_LIMIT = 680;
     private static final int PAGE_TOP_PADDING = 36;
     private static final int PAGE_LEFT_PADDING = 56;
     private static final int CONTENT_WIDTH = 420;
 
-    // 추가:
-    // 문단 + 표를 하나의 순서 리스트로 만들어 공통 레이아웃 계산
     public List<PageLayoutBlockDto> buildLayout(
             List<ParagraphNodeDto> paragraphs,
-            List<TableNodeDto> tables
+            List<TableNodeDto> tables,
+            String sourceKind
     ) {
         List<PageLayoutBlockDto> blocks = new ArrayList<>();
 
@@ -33,7 +30,13 @@ public class ComposeLayoutService {
 
                 PageLayoutBlockDto block = new PageLayoutBlockDto();
                 block.setBlockType("paragraph");
+                block.setBlockId(buildParagraphBlockId(p.getParagraphId(), i));
                 block.setParagraphId(p.getParagraphId());
+                block.setTableId(null);
+                block.setRole(null);
+                block.setSubType("paragraph");
+                block.setSourceKind(normalizeSourceKind(sourceKind));
+
                 block.setOrderIndex(extractNumericOrder(p.getParagraphId(), i));
                 block.setEstimatedFontSize(p.getFontSize() != null ? p.getFontSize() : 12);
                 block.setHeadingLike(isHeadingLike(p));
@@ -49,7 +52,13 @@ public class ComposeLayoutService {
 
                 PageLayoutBlockDto block = new PageLayoutBlockDto();
                 block.setBlockType("table");
+                block.setBlockId(buildTableBlockId(t.getTableId(), i));
+                block.setParagraphId(null);
                 block.setTableId(t.getTableId());
+                block.setRole(null);
+                block.setSubType(resolveTableSubType(t));
+                block.setSourceKind(normalizeSourceKind(sourceKind));
+
                 block.setOrderIndex(extractNumericOrder(t.getTableId(), 100000 + i));
                 block.setEstimatedRows(t.getRowCount() != null ? t.getRowCount() : 1);
                 block.setEstimatedCols(t.getColCount() != null ? t.getColCount() : 1);
@@ -58,14 +67,10 @@ public class ComposeLayoutService {
             }
         }
 
-        // 추가:
-        // 문서 내 순서대로 정렬
         blocks.sort(Comparator.comparing(
                 b -> b.getOrderIndex() == null ? Integer.MAX_VALUE : b.getOrderIndex()
         ));
 
-        // 추가:
-        // 실제 page / x / y / width / height 배치
         int cursorY = PAGE_TOP_PADDING;
 
         for (PageLayoutBlockDto block : blocks) {
@@ -78,8 +83,6 @@ public class ComposeLayoutService {
             int page = (cursorY / PAGE_HEIGHT_LIMIT) + 1;
             int normalizedTop = cursorY % PAGE_HEIGHT_LIMIT;
 
-            // 추가:
-            // 페이지 끝을 넘어가면 다음 페이지로 넘김
             if (normalizedTop + height > PAGE_HEIGHT_LIMIT - PAGE_TOP_PADDING) {
                 cursorY = page * PAGE_HEIGHT_LIMIT + PAGE_TOP_PADDING;
                 page = (cursorY / PAGE_HEIGHT_LIMIT) + 1;
@@ -98,8 +101,6 @@ public class ComposeLayoutService {
         return blocks;
     }
 
-    // 추가:
-    // 계산된 공통 레이아웃을 paragraph에 반영
     public void applyLayoutToParagraphs(
             List<ParagraphNodeDto> paragraphs,
             List<PageLayoutBlockDto> layoutBlocks
@@ -118,8 +119,6 @@ public class ComposeLayoutService {
         }
     }
 
-    // 추가:
-    // 계산된 공통 레이아웃을 table에 반영
     public void applyLayoutToTables(
             List<TableNodeDto> tables,
             List<PageLayoutBlockDto> layoutBlocks
@@ -222,6 +221,44 @@ public class ComposeLayoutService {
         if (fontSize >= 14) return true;
         if (bold && text.length() <= 30) return true;
         return text.matches("^\\d+(\\.\\d+)*\\s+.*");
+    }
+
+    private String buildParagraphBlockId(String paragraphId, int index) {
+        if (paragraphId != null && !paragraphId.isBlank()) {
+            return "pblock_" + paragraphId;
+        }
+        return "pblock_idx_" + index;
+    }
+
+    private String buildTableBlockId(String tableId, int index) {
+        if (tableId != null && !tableId.isBlank()) {
+            return "tblock_" + tableId;
+        }
+        return "tblock_idx_" + index;
+    }
+
+    private String resolveTableSubType(TableNodeDto table) {
+        if (table == null || table.getTableKind() == null || table.getTableKind().isBlank()) {
+            return "table";
+        }
+
+        String kind = table.getTableKind().trim().toLowerCase();
+        if ("oneline_box".equals(kind) || "onebox_line".equals(kind)) {
+            return "onebox_line";
+        }
+        return "table";
+    }
+
+    private String normalizeSourceKind(String sourceKind) {
+        if (sourceKind == null || sourceKind.isBlank()) {
+            return "source";
+        }
+
+        String v = sourceKind.trim().toLowerCase();
+        if ("template".equals(v)) {
+            return "template";
+        }
+        return "source";
     }
 
     private int extractNumericOrder(String rawId, int fallback) {

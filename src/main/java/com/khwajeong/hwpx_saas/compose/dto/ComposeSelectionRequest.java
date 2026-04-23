@@ -11,18 +11,18 @@ public class ComposeSelectionRequest {
     private String label;
     private String ocrText;
 
-    // 기존:
-    // 문단 선택 시 사용
     private String paragraphId;
 
-    // 추가:
-    // selection 대상 타입
     // paragraph | table
     private String blockType;
 
-    // 추가:
-    // 표 선택 시 사용
     private String tableId;
+
+    // 추가 필드
+    private String blockId;
+    private String role;
+    private String subType;
+    private String sourceKind;
 
     public String getSessionId() {
         return sessionId;
@@ -104,8 +104,6 @@ public class ComposeSelectionRequest {
         this.paragraphId = paragraphId;
     }
 
-    // 추가:
-    // blockType getter / setter
     public String getBlockType() {
         return blockType;
     }
@@ -114,13 +112,43 @@ public class ComposeSelectionRequest {
         this.blockType = blockType;
     }
 
-    // 추가:
-    // tableId getter / setter
     public String getTableId() {
         return tableId;
     }
 
     public void setTableId(String tableId) {
         this.tableId = tableId;
+    }
+
+    public String getBlockId() {
+        return blockId;
+    }
+
+    public void setBlockId(String blockId) {
+        this.blockId = blockId;
+    }
+
+    public String getRole() {
+        return role;
+    }
+
+    public void setRole(String role) {
+        this.role = role;
+    }
+
+    public String getSubType() {
+        return subType;
+    }
+
+    public void setSubType(String subType) {
+        this.subType = subType;
+    }
+
+    public String getSourceKind() {
+        return sourceKind;
+    }
+
+    public void setSourceKind(String sourceKind) {
+        this.sourceKind = sourceKind;
     }
 }
