@@ -1,5 +1,6 @@
 import type { PageType } from "../App"
 import type { OverlayBox } from "../components/ComposePageOverlay"
+import CreditToast from "../components/CreditToast"
 import TopNav from "../components/TopNav"
 import ComposePageParagraphLayer from "../components/ComposePageParagraphLayer"
 import { useEffect, useMemo, useState } from "react"
@@ -137,6 +138,8 @@ type SavedSelectionHistoryItem = {
   blockType: "paragraph" | "table"
   paragraphId?: string
   tableId?: string
+  // 추가: 좌측 최근 저장 카드에 태깅된 실제 문서 내용을 보여주기 위한 필드
+  displayText?: string
   savedAt: string
 }
 
@@ -322,6 +325,15 @@ export default function ComposeStudioPage({
     SavedSelectionHistoryItem[]
   >([])
 
+  const [creditToast, setCreditToast] = useState<{
+    show: boolean
+    message: string
+    subMessage?: string
+  }>({
+    show: false,
+    message: "",
+  })
+
   const currentParagraphs = activeSide === "template" ? templateParagraphs : sourceParagraphs
   const currentTables = activeSide === "template" ? templateTables : sourceTables
   const currentBoxes = activeSide === "template" ? templateBoxes : sourceBoxes
@@ -414,7 +426,8 @@ export default function ComposeStudioPage({
         item.side.toLowerCase().includes(keyword) ||
         item.label.toLowerCase().includes(keyword) ||
         item.blockType.toLowerCase().includes(keyword) ||
-        targetId.toLowerCase().includes(keyword)
+        targetId.toLowerCase().includes(keyword) ||
+        (item.displayText ?? "").toLowerCase().includes(keyword)
       )
     })
   }, [savedSelectionHistory, historySearch])
@@ -707,6 +720,21 @@ export default function ComposeStudioPage({
       const data = await res.json()
       const savedTarget = data.blockType === "table" ? data.tableId : data.paragraphId
 
+      // 추가:
+      // 좌측 최근 저장 카드에서 label 옆에 보여줄 실제 문서 내용
+      const selectedDisplayText =
+        activePanel === "table"
+          ? (
+              activeSide === "template"
+                ? templateTables.find((t) => t.tableId === tableId)
+                : sourceTables.find((t) => t.tableId === tableId)
+            )?.cellTexts?.[0]?.join(" | ") ?? ""
+          : (
+              activeSide === "template"
+                ? templateParagraphs.find((p) => p.paragraphId === paragraphId)
+                : sourceParagraphs.find((p) => p.paragraphId === paragraphId)
+            )?.text ?? ""
+
       const historyItem: SavedSelectionHistoryItem = {
         id: `${Date.now()}_${Math.random().toString(36).slice(2, 8)}`,
         sessionId,
@@ -716,6 +744,7 @@ export default function ComposeStudioPage({
         blockType: data.blockType,
         paragraphId: data.paragraphId ?? undefined,
         tableId: data.tableId ?? undefined,
+        displayText: selectedDisplayText,
         savedAt: new Date().toISOString(),
       }
 
@@ -783,6 +812,16 @@ export default function ComposeStudioPage({
 
       setApplyResult(data)
       setIsApplyResultOpen(false)
+
+      setCreditToast({
+        show: true,
+        message: "2코인이 차감되었습니다.",
+        subMessage: "템플릿 서식 적용이 완료되었습니다.",
+      })
+
+      setTimeout(() => {
+        setCreditToast({ show: false, message: "" })
+      }, 3500)
 
       alert("템플릿 서식으로 변경 완료하였습니다.")
     } catch (err) {
@@ -866,8 +905,19 @@ export default function ComposeStudioPage({
                         </span>
                       </div>
 
-                      <div className="text-[18px] font-semibold leading-tight text-[#162033]">
-                        {item.label}
+                      <div className="flex min-w-0 items-start gap-2">
+                        <div className="shrink-0 text-[18px] font-semibold leading-tight text-[#162033]">
+                          {item.label}
+                        </div>
+
+                        {item.displayText ? (
+                          <div
+                            className="min-w-0 flex-1 truncate pt-[3px] text-[12px] font-medium text-slate-500"
+                            title={item.displayText}
+                          >
+                            {item.displayText}
+                          </div>
+                        ) : null}
                       </div>
 
                       <div className="mt-[2px] text-[11px] text-slate-400">
@@ -1460,6 +1510,31 @@ export default function ComposeStudioPage({
           </main>
         </div>
       </div>
+
+      {/* ✅ 코인 토스트 */}
+      {creditToast.show && (
+        <div className="fixed bottom-6 right-6 z-[9999] w-[360px] rounded-2xl border border-slate-700 bg-[#111827] px-5 py-4 text-white shadow-2xl">
+          <div className="flex items-center gap-3">
+            <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-yellow-400 text-lg font-black text-slate-900">
+              C
+            </div>
+
+            <div className="min-w-0">
+              <div className="text-sm font-semibold text-yellow-300">
+                Credit Used
+              </div>
+              <div className="mt-1 text-base font-bold">
+                {creditToast.message}
+              </div>
+              {creditToast.subMessage && (
+                <div className="mt-1 text-xs text-slate-300">
+                  {creditToast.subMessage}
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
     </>
   )
 }

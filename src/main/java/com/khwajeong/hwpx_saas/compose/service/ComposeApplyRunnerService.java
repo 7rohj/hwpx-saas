@@ -3,6 +3,7 @@ package com.khwajeong.hwpx_saas.compose.service;
 import com.khwajeong.hwpx_saas.compose.dto.*;
 import com.khwajeong.hwpx_saas.compose.model.ComposeSelection;
 import org.springframework.stereotype.Service;
+import com.khwajeong.hwpx_saas.billing.service.CreditService;
 
 import java.nio.file.Path;
 import java.util.*;
@@ -19,6 +20,7 @@ public class ComposeApplyRunnerService {
     private final HwpxTableExtractor hwpxTableExtractor;
     private final ComposeTableStyleApplyService composeTableStyleApplyService;
     private final IconClassifier iconClassifier;
+    private final CreditService creditService;
 
     public ComposeApplyRunnerService(
             ComposeSelectionService composeSelectionService,
@@ -28,7 +30,8 @@ public class ComposeApplyRunnerService {
             ComposeTextStyleApplyService composeTextStyleApplyService,
             HwpxTableExtractor hwpxTableExtractor,
             ComposeTableStyleApplyService composeTableStyleApplyService,
-            IconClassifier iconClassifier
+            IconClassifier iconClassifier,
+            CreditService creditService
     ) {
         this.composeSelectionService = composeSelectionService;
         this.composeService = composeService;
@@ -38,6 +41,7 @@ public class ComposeApplyRunnerService {
         this.hwpxTableExtractor = hwpxTableExtractor;
         this.composeTableStyleApplyService = composeTableStyleApplyService;
         this.iconClassifier = iconClassifier;
+        this.creditService = creditService;
     }
 
     public ComposeRunApplyResponse run(ComposeRunApplyRequest request) {
@@ -132,6 +136,9 @@ public class ComposeApplyRunnerService {
     }
 
     public ComposeRunApplyResponse runAll(ComposeRunApplyAllRequest request) {
+        int deductedCredits = 0;
+        String userEmail = "test@test.com"; // TODO: 로그인 붙이면 인증 사용자 email로 교체
+
         try {
             if (request == null) {
                 throw new IllegalArgumentException("request is null");
@@ -146,6 +153,13 @@ public class ComposeApplyRunnerService {
             if (session == null) {
                 throw new IllegalArgumentException("session not found: " + request.getSessionId());
             }
+
+            // 추가: pageCount 계산
+            int pageCount = calculatePageCount(session);
+
+            // 추가: 필요 코인 계산 후 차감
+            deductedCredits = creditService.calculateRequiredCredits(pageCount);
+            creditService.checkAndDeduct(userEmail, pageCount);
 
             ComposeSelectionsResponse selectionsResponse =
                     composeSelectionService.getBySessionId(request.getSessionId());
@@ -229,7 +243,11 @@ public class ComposeApplyRunnerService {
             ComposeRunApplyResponse finalResponse = new ComposeRunApplyResponse();
             finalResponse.setSessionId(request.getSessionId());
             finalResponse.setLabel(String.join(",", appliedLabels));
-            finalResponse.setTemplateSelectionSummary("template applied labels = " + appliedLabels);
+            finalResponse.setTemplateSelectionSummary(
+                    "template applied labels = " + appliedLabels
+                            + ", deductedCredits=" + deductedCredits
+                            + ", userEmail=" + userEmail
+            );
             finalResponse.setSourceSelectionSummary("source applied targets = " + appliedTargets);
             finalResponse.setMatchedParagraphIds(List.of());
             finalResponse.setStyledParagraphs(List.of());
@@ -240,6 +258,16 @@ public class ComposeApplyRunnerService {
             return finalResponse;
 
         } catch (Exception e) {
+            // 추가: 실패 시 차감된 코인 환불
+            if (deductedCredits > 0) {
+                try {
+                    creditService.refund(userEmail, deductedCredits);
+                } catch (Exception refundError) {
+                    System.out.println("=== [CREDIT REFUND ERROR] ===");
+                    refundError.printStackTrace();
+                }
+            }
+
             System.out.println("=== [COMPOSE APPLY-ALL ERROR] ===");
             e.printStackTrace();
             throw new RuntimeException("compose apply-all failed: " + e.getMessage(), e);
@@ -646,5 +674,35 @@ public class ComposeApplyRunnerService {
 
     private String nvl(String value, String defaultValue) {
         return value != null ? value : defaultValue;
+    }
+
+    private int calculatePageCount(ComposeSessionService.SessionData session) {
+        try {
+            List<ParagraphNodeDto> paragraphs =
+                    composeService.extractFromHwpx(session.getSourcePath().toFile());
+
+            int paragraphMaxPage = paragraphs == null
+                    ? 1
+                    : paragraphs.stream()
+                            .map(ParagraphNodeDto::getPage)
+                            .filter(Objects::nonNull)
+                            .max(Integer::compareTo)
+                            .orElse(1);
+
+            List<TableNodeDto> tables =
+                    hwpxTableExtractor.extract(session.getSourcePath().toFile());
+
+            int tableMaxPage = tables == null
+                    ? 1
+                    : tables.stream()
+                            .map(TableNodeDto::getPage)
+                            .filter(Objects::nonNull)
+                            .max(Integer::compareTo)
+                            .orElse(1);
+
+            return Math.max(1, Math.max(paragraphMaxPage, tableMaxPage));
+        } catch (Exception e) {
+            return 1;
+        }
     }
 }
