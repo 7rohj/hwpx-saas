@@ -145,6 +145,9 @@ type SavedSelectionHistoryItem = {
 
 const API_BASE_URL = import.meta.env.VITE_API_BASE_URL ?? "http://localhost:8080"
 
+const GUIDE_VIDEO_URL =
+  import.meta.env.VITE_STUDIO_GUIDE_VIDEO_URL ?? "/videos/studio-guide.mp4"
+
 const ROLE_OPTIONS = [
   { value: "heading1", label: "heading1" },
   { value: "heading2", label: "heading2" },
@@ -431,6 +434,23 @@ export default function ComposeStudioPage({
       )
     })
   }, [savedSelectionHistory, historySearch])
+
+  const [showGuideModal, setShowGuideModal] = useState(false)
+
+  {/*
+  useEffect(() => {
+    const seen = sessionStorage.getItem("studioGuideSeen")
+
+    if (!seen) {
+      setShowGuideModal(true)
+      sessionStorage.setItem("studioGuideSeen", "true")
+    }
+  }, [])
+  */}
+
+  useEffect(() => {
+    setShowGuideModal(true)
+  }, [])
 
   useEffect(() => {
     setCurrentPage(1)
@@ -860,6 +880,61 @@ export default function ComposeStudioPage({
     <>
       <TopNav onNavigate={onNavigate} currentPage="composeStudio" onLogout={onLogout} />
 
+      {!showGuideModal && (
+        <button
+          type="button"
+          onClick={() => setShowGuideModal(true)}
+          className={`fixed right-6 z-[9998] flex items-center gap-2 rounded-full border border-[#d7e5ff] bg-white px-4 py-3 text-sm font-semibold text-[#1f69ef] shadow-[0_10px_28px_rgba(31,105,239,0.18)] transition hover:-translate-y-0.5 hover:bg-[#f5f9ff] ${
+            creditToast.show ? "bottom-28" : "bottom-6"
+          }`}
+        >
+          <span className="text-base">?</span>
+          메뉴얼 다시 보기
+        </button>
+      )}
+
+      {showGuideModal && (
+        <div className="fixed inset-0 z-[99999] flex items-center justify-center bg-black/55 px-4 backdrop-blur-sm"
+          onClick={() => setShowGuideModal(false)}>
+
+          <div className="relative w-full max-w-[1040px] overflow-hidden rounded-[28px] bg-white shadow-2xl"
+          onClick={(e) => e.stopPropagation()}>
+            
+            <video
+              src={GUIDE_VIDEO_URL}
+              autoPlay
+              muted
+              loop
+              playsInline
+              preload="metadata"
+              className="block w-full bg-black"
+              style={{
+                filter: "brightness(1) contrast(1) saturate(1)",
+              }}
+            />
+
+            <div className="flex items-center justify-between gap-3 px-5 py-4">
+              <div>
+                <div className="text-sm font-semibold text-[#162033]">
+                  스튜디오 사용 방법
+                </div>
+                <div className="mt-1 text-xs text-slate-500">
+                  샘플 파일 불러오기부터 다운로드까지 빠르게 확인해보세요.
+                </div>
+              </div>
+
+              <button
+                type="button"
+                onClick={() => setShowGuideModal(false)}
+                className="rounded-xl bg-[#1f69ef] px-4 py-2 text-sm font-semibold text-white hover:bg-[#1859ca]"
+              >
+                바로 시작하기
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
       <div className="min-h-screen bg-[linear-gradient(180deg,#f5f9ff_0%,#eef5ff_42%,#fffdf2_100%)] text-slate-900">
         <div className="flex">
           <aside className="sticky top-[64px] hidden h-[calc(100vh-64px)] w-[336px] shrink-0 flex-col border-r border-slate-200/80 bg-white/90 backdrop-blur xl:flex">
@@ -996,7 +1071,7 @@ export default function ComposeStudioPage({
                       className="inline-flex items-center gap-2 rounded-2xl border border-[#d7e5ff] bg-white px-5 py-3 text-sm font-semibold text-slate-700 hover:bg-[#f5f9ff] disabled:cursor-not-allowed disabled:opacity-50"
                     >
                       <Sparkles className="h-4 w-4" />
-                      {applying ? "적용 중..." : "apply 실행"}
+                      {applying ? "적용 중..." : "실행하기"}
                     </button>
                   </div>
                 </div>
@@ -1009,22 +1084,24 @@ export default function ComposeStudioPage({
               ) : null}
 
               <section className="mb-6 grid gap-4 lg:grid-cols-2">
+                {/* 템플릿 */}
                 <div className="rounded-[28px] border border-[#dbe7ff] bg-white p-5">
                   <div className="mb-3 flex items-center gap-2 text-sm font-semibold text-[#1f69ef]">
                     <Layers3 className="h-4 w-4" />
                     템플릿 파일
                   </div>
-                  <input
-                    type="file"
-                    accept=".hwpx"
-                    onChange={(e) => setTemplateFile(e.target.files?.[0] ?? null)}
-                    className="w-full rounded-2xl border border-[#d7e5ff] px-4 py-3 text-sm"
-                  />
+
+                  {/* 🔥 업로드 제거 + 안내 */}
+                  <div className="flex h-[56px] items-center justify-center rounded-2xl border border-dashed border-[#d7e5ff] bg-[#f8fbff] text-sm text-[#63708a]">
+                    데모 버전에서는 샘플 파일만 사용 가능합니다
+                  </div>
+
                   <div className="mt-2 flex items-center justify-between gap-3">
                     <p className="text-sm text-[#63708a]">
                       {templateFile ? templateFile.name : "선택된 파일 없음"}
                     </p>
 
+                    {/* ✅ 기존 스타일 유지 */}
                     <button
                       type="button"
                       onClick={() => handleLoadSample("template")}
@@ -1035,22 +1112,24 @@ export default function ComposeStudioPage({
                   </div>
                 </div>
 
+                {/* 원본문서 */}
                 <div className="rounded-[28px] border border-[#dbe7ff] bg-white p-5">
                   <div className="mb-3 flex items-center gap-2 text-sm font-semibold text-[#1f69ef]">
                     <Layers3 className="h-4 w-4" />
                     원본문서 파일
                   </div>
-                  <input
-                    type="file"
-                    accept=".hwpx"
-                    onChange={(e) => setSourceFile(e.target.files?.[0] ?? null)}
-                    className="w-full rounded-2xl border border-[#d7e5ff] px-4 py-3 text-sm"
-                  />
+
+                  {/* 🔥 업로드 제거 + 안내 */}
+                  <div className="flex h-[56px] items-center justify-center rounded-2xl border border-dashed border-[#d7e5ff] bg-[#f8fbff] text-sm text-[#63708a]">
+                    데모 버전에서는 샘플 파일만 사용 가능합니다
+                  </div>
+
                   <div className="mt-2 flex items-center justify-between gap-3">
                     <p className="text-sm text-[#63708a]">
                       {sourceFile ? sourceFile.name : "선택된 파일 없음"}
                     </p>
 
+                    {/* ✅ 기존 스타일 유지 */}
                     <button
                       type="button"
                       onClick={() => handleLoadSample("source")}

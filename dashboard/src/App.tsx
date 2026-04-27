@@ -50,7 +50,7 @@ export default function App() {
 
   function handleLoginSuccess() {
     setIsLoggedIn(true)
-    setCurrentPage("dashboard-loading") // 바로 studio 진입?
+    setCurrentPage("landing") // 바로 studio 진입?
   }
 
   function handleAdminLoginSuccess() {
@@ -59,7 +59,7 @@ export default function App() {
 
   function handleSignupSuccess() {
     setIsLoggedIn(true)
-    setCurrentPage("dashboard-loading")
+    setCurrentPage("landing")
   }
 
   function handleLogout() {

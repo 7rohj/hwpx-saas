@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from "react"
 import type { PageType } from "../App"
 import TopNav from "../components/TopNav"
+import DemoPopup from "../components/DemoPopup"
 
 type LandingPageProps = {
   onNavigate: (page: PageType) => void
@@ -21,6 +22,14 @@ export default function LandingPage({
   const [currentWordIndex, setCurrentWordIndex] = useState(0)
   const [typedWord, setTypedWord] = useState("")
   const [isDeleting, setIsDeleting] = useState(false)
+  const [showPopup, setShowPopup] = useState(true)
+
+  useEffect(() => {
+    const hidden = localStorage.getItem("hideDemoPopup")
+    if (hidden === "true") {
+      setShowPopup(false)
+    }
+  }, [])
 
   useEffect(() => {
     const currentWord = ROTATING_WORDS[currentWordIndex]
@@ -48,36 +57,16 @@ export default function LandingPage({
     return () => window.clearTimeout(timeoutId)
   }, [typedWord, isDeleting, currentWordIndex])
 
-  const stats = useMemo(
-    () => [
-      /*
-      { label: "활성 템플릿", value: "12+" },
-      { label: "문서 생성", value: "1,240+" },
-      { label: "평균 생성 시간", value: "3초" },
-      */
-    ],
-    []
-  )
+  const stats = useMemo(() => [], [])
+
+  function handleShowDemoPopupAgain() {
+    localStorage.removeItem("hideDemoPopup")
+    setShowPopup(true)
+  }
 
   return (
     <div className="relative min-h-screen overflow-hidden bg-white text-slate-900">
       <style>{`
-        @keyframes float1 {
-          0%, 100% { transform: translate3d(0, 0, 0) scale(1); }
-          50% { transform: translate3d(0, -18px, 0) scale(1.04); }
-        }
-        @keyframes float2 {
-          0%, 100% { transform: translate3d(0, 0, 0) scale(1); }
-          50% { transform: translate3d(-12px, 20px, 0) scale(1.06); }
-        }
-        @keyframes float3 {
-          0%, 100% { transform: translate3d(0, 0, 0) scale(1); }
-          50% { transform: translate3d(14px, -14px, 0) scale(1.03); }
-        }
-        @keyframes levitateCard {
-          0%, 100% { transform: translateY(0px); }
-          50% { transform: translateY(-8px); }
-        }
         @keyframes softShine {
           0% { transform: translateX(-140%) skewX(-18deg); opacity: 0; }
           20% { opacity: 0.35; }
@@ -111,14 +100,6 @@ export default function LandingPage({
                     playsInline
                     controls={false}
                   />
-                  
-                  {/* 🔥 흰색 그라데이션 오버레이 
-                  <div className="pointer-events-none absolute inset-0 rounded-[34px] opacity-0 transition-opacity duration-500 group-hover:opacity-100"
-                    style={{
-                      background: 'linear-gradient(to right, rgba(255,255,255,1) 0%, rgba(255,255,255,0.6) 25%, rgba(255,255,255,0) 100%)'
-                    }}
-                  />
-                  */}
                 </div>
               </div>
 
@@ -154,7 +135,7 @@ export default function LandingPage({
 
                 <div className="mt-10 flex flex-col items-start gap-3 sm:flex-row sm:items-center">
                   <button
-                    onClick={() => onNavigate("composeStudio")} // 수정
+                    onClick={() => onNavigate("composeStudio")}
                     className="group relative overflow-hidden rounded-full bg-[#1f69ef] px-7 py-3.5 text-sm font-medium text-white shadow-[0_18px_40px_rgba(31,105,239,0.20)] transition-all duration-300 hover:-translate-y-0.5 hover:bg-[#195bd0] hover:shadow-[0_22px_50px_rgba(31,105,239,0.26)]"
                   >
                     <span className="relative z-10">대시보드 열기</span>
@@ -168,69 +149,25 @@ export default function LandingPage({
                     요금제 보기
                   </button>
                 </div>
-
-                {/*
-                <div className="mt-12 flex flex-wrap items-center gap-3">
-                  {stats.map((item) => (
-                    <div
-                      key={item.label}
-                      className="rounded-2xl border border-slate-200 bg-white px-5 py-4 shadow-sm"
-                    >
-                      <div className="text-xs font-medium text-[#1f69ef]">
-                        {item.label}
-                      </div>
-                      <div className="mt-1 text-2xl font-semibold tracking-tight text-slate-900">
-                        {item.value}
-                      </div>
-                    </div>
-                  ))}
-                </div>
-                */}
               </div>
             </div>
 
-            {/*}
-            <div className="mt-24 grid gap-6 md:grid-cols-3">
-              <div className="rounded-[28px] border border-slate-200 bg-white p-6 shadow-[0_20px_60px_rgba(15,23,42,0.06)]">
-                <div className="mb-4 inline-flex rounded-full bg-[#eef5ff] px-3 py-1 text-xs font-medium text-[#1f69ef]">
-                  01
-                </div>
-                <h3 className="text-xl font-semibold tracking-tight text-slate-900">
-                  템플릿 업로드
-                </h3>
-                <p className="mt-3 text-sm leading-7 text-slate-600">
-                  기존 HWPX 템플릿을 올리고, 반복되는 문서 양식을 자동화의 시작점으로 만드세요.
-                </p>
-              </div>
-
-              <div className="rounded-[28px] border border-slate-200 bg-white p-6 shadow-[0_20px_60px_rgba(15,23,42,0.06)]">
-                <div className="mb-4 inline-flex rounded-full bg-[#f7fbef] px-3 py-1 text-xs font-medium text-[#7ea72c]">
-                  02
-                </div>
-                <h3 className="text-xl font-semibold tracking-tight text-slate-900">
-                  변수와 JSON 연결
-                </h3>
-                <p className="mt-3 text-sm leading-7 text-slate-600">
-                  텍스트와 표 데이터를 변수에 매핑해, 문서 생성 규칙을 유연하게 구성할 수 있습니다.
-                </p>
-              </div>
-
-              <div className="rounded-[28px] border border-slate-200 bg-white p-6 shadow-[0_20px_60px_rgba(15,23,42,0.06)]">
-                <div className="mb-4 inline-flex rounded-full bg-[#fff9eb] px-3 py-1 text-xs font-medium text-[#b99218]">
-                  03
-                </div>
-                <h3 className="text-xl font-semibold tracking-tight text-slate-900">
-                  즉시 문서 생성
-                </h3>
-                <p className="mt-3 text-sm leading-7 text-slate-600">
-                  반복 작업 없이 결과 문서를 생성하고, 생성 파일을 바로 확인하고 다운로드하세요.
-                </p>
-              </div>
-            </div>
-            */}
+            {stats.map(() => null)}
           </div>
         </section>
       </main>
+
+      <button
+        type="button"
+        onClick={handleShowDemoPopupAgain}
+        className="fixed bottom-5 right-5 z-50 rounded-full border border-slate-200 bg-white px-4 py-2 text-xs font-medium text-slate-500 shadow-sm transition hover:text-slate-700 hover:shadow-md"
+      >
+        팝업 안내 다시 보기
+      </button>
+
+      {showPopup && (
+        <DemoPopup onClose={() => setShowPopup(false)} />
+      )}
     </div>
   )
 }

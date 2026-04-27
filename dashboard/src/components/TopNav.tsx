@@ -15,9 +15,9 @@ export default function TopNav({
     ["홈화면", "landing"],
     // ["대시보드", "dashboard"],
     ["스튜디오", "composeStudio"],
-    ["My", "apikeys"],
-    ["사용량 로그", "usage"],
-    ["요금제", "pricing"],
+    // ["My", "apikeys"],
+    // ["사용량 로그", "usage"],
+    // ["요금제", "pricing"],
   ] as const
 
   return (
