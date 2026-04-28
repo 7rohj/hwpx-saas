@@ -13,8 +13,9 @@ export default function TopNav({
 }: TopNavProps) {
   const menu = [
     ["홈화면", "landing"],
-    // ["대시보드", "dashboard"],
     ["스튜디오", "composeStudio"],
+    // ["AI 생성 이미지 편집", "korean-image-editor"],
+    // ["대시보드", "dashboard"],
     // ["My", "apikeys"],
     // ["사용량 로그", "usage"],
     // ["요금제", "pricing"],

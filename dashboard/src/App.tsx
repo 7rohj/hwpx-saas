@@ -11,6 +11,8 @@ import Login from "./Login"
 import Signup from "./Signup"
 import AdminLoginPage from "./pages/AdminLoginPage"
 import AdminPage from "./pages/AdminPage"
+import KoreanImageEditorPage from "./pages/KoreanImageEditorPage"
+import OAuthSuccessPage from "./pages/OAuthSuccessPage"
 
 type AuthView = "login" | "signup"
 
@@ -26,6 +28,8 @@ export type PageType =
   | "pricing"
   | "admin-login"
   | "admin"
+  | "korean-image-editor"
+  | "oauth-success"
 
 export default function App() {
   const [isLoggedIn, setIsLoggedIn] = useState(false)
@@ -39,10 +43,16 @@ export default function App() {
   }, [])
 
   useEffect(() => {
+    if (window.location.pathname === "/oauth-success") {
+      setCurrentPage("oauth-success")
+    }
+  }, [])
+
+  useEffect(() => {
     if (currentPage !== "dashboard-loading") return
 
     const timer = window.setTimeout(() => {
-      setCurrentPage("studio") // 로그인 후 진입 studio ; not dashboard
+      setCurrentPage("studio")
     }, 3200)
 
     return () => window.clearTimeout(timer)
@@ -50,7 +60,7 @@ export default function App() {
 
   function handleLoginSuccess() {
     setIsLoggedIn(true)
-    setCurrentPage("landing") // 바로 studio 진입?
+    setCurrentPage("landing")
   }
 
   function handleAdminLoginSuccess() {
@@ -83,6 +93,17 @@ export default function App() {
     return <AdminPage onNavigate={setCurrentPage} onLogout={handleLogout} />
   }
 
+  if (currentPage === "oauth-success") {
+    return (
+      <OAuthSuccessPage
+        onNavigate={(page) => {
+          setIsLoggedIn(Boolean(localStorage.getItem("userEmail") && localStorage.getItem("apiKey")))
+          setCurrentPage(page)
+        }}
+      />
+    )
+  }
+
   if (!isLoggedIn) {
     if (authView === "signup") {
       return (
@@ -112,30 +133,15 @@ export default function App() {
   }
 
   if (currentPage === "landing") {
-    return (
-      <LandingPage
-        onNavigate={setCurrentPage}
-        onLogout={handleLogout}
-      />
-    )
+    return <LandingPage onNavigate={setCurrentPage} onLogout={handleLogout} />
   }
 
   if (currentPage === "dashboard") {
-    return (
-      <Dashboard
-        onNavigate={setCurrentPage}
-        onLogout={handleLogout}
-      />
-    )
+    return <Dashboard onNavigate={setCurrentPage} onLogout={handleLogout} />
   }
 
   if (currentPage === "studio") {
-    return (
-      <StudioPage
-        onNavigate={setCurrentPage}
-        onLogout={handleLogout}
-      />
-    )
+    return <StudioPage onNavigate={setCurrentPage} onLogout={handleLogout} />
   }
 
   if (currentPage === "composeStudio") {
@@ -147,37 +153,26 @@ export default function App() {
     )
   }
 
-  if (currentPage === "apikeys") {
+  if (currentPage === "korean-image-editor") {
     return (
-      <ApiKeysPage
+      <KoreanImageEditorPage
         onNavigate={setCurrentPage}
         onLogout={handleLogout}
       />
     )
+  }
+
+  if (currentPage === "apikeys") {
+    return <ApiKeysPage onNavigate={setCurrentPage} onLogout={handleLogout} />
   }
 
   if (currentPage === "usage") {
-    return (
-      <UsageLogsPage
-        onNavigate={setCurrentPage}
-        onLogout={handleLogout}
-      />
-    )
+    return <UsageLogsPage onNavigate={setCurrentPage} onLogout={handleLogout} />
   }
 
   if (currentPage === "pricing") {
-    return (
-      <PricingPage
-        onNavigate={setCurrentPage}
-        onLogout={handleLogout}
-      />
-    )
+    return <PricingPage onNavigate={setCurrentPage} onLogout={handleLogout} />
   }
 
-  return (
-    <Dashboard
-      onNavigate={setCurrentPage}
-      onLogout={handleLogout}
-    />
-  )
+  return <Dashboard onNavigate={setCurrentPage} onLogout={handleLogout} />
 }

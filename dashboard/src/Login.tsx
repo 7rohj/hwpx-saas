@@ -83,6 +83,10 @@ export default function Login({
     }
   }
 
+  function handleGoogleLogin() {
+    window.location.href = `${API_BASE_URL}/oauth2/authorization/google`
+  }
+
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-50 via-white to-slate-100 text-slate-900">
       <div className="mx-auto flex min-h-screen max-w-7xl items-center justify-center px-4 py-10 sm:px-6 lg:px-8">
@@ -94,8 +98,25 @@ export default function Login({
             </div>
             <h1 className="text-3xl font-bold tracking-tight">로그인</h1>
             <p className="mt-2 text-sm text-slate-500">
-              이메일과 비밀번호를 입력해 주세요.
+              이메일, 비밀번호 또는 Google 계정으로 로그인해 주세요.
             </p>
+          </div>
+
+          <button
+            type="button"
+            onClick={handleGoogleLogin}
+            className="mb-5 flex w-full items-center justify-center gap-3 rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm font-semibold text-slate-700 transition hover:bg-slate-50"
+          >
+            <span className="flex h-5 w-5 items-center justify-center rounded-full bg-white text-base font-bold">
+              G
+            </span>
+            Google로 로그인
+          </button>
+
+          <div className="mb-5 flex items-center gap-3">
+            <div className="h-px flex-1 bg-slate-200" />
+            <span className="text-xs text-slate-400">또는</span>
+            <div className="h-px flex-1 bg-slate-200" />
           </div>
 
           <form onSubmit={handleLogin} className="space-y-4">
