@@ -7,4 +7,5 @@ import java.util.Optional;
 public interface ApiKeyRepository extends JpaRepository<ApiKeyEntity, Long> {
     Optional<ApiKeyEntity> findByApiKeyAndStatus(String apiKey, String status);
     Optional<ApiKeyEntity> findFirstByUserIdAndStatusOrderByCreatedAtDesc(Long userId, String status);
+    Optional<ApiKeyEntity> findByApiKey(String apiKey);
 }

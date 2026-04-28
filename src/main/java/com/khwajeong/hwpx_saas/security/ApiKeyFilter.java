@@ -5,6 +5,7 @@ import com.khwajeong.hwpx_saas.api.error.ApiErrorResponse;
 import com.khwajeong.hwpx_saas.api.error.ErrorCode;
 
 import jakarta.servlet.FilterChain;
+import jakarta.servlet.http.Cookie;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 
@@ -26,29 +27,44 @@ public class ApiKeyFilter extends OncePerRequestFilter {
   @Override
   protected boolean shouldNotFilter(HttpServletRequest request) {
     String path = request.getRequestURI();
-    // swagger / health 등은 제외
+
     return path.startsWith("/swagger")
+        || path.startsWith("/swagger-ui")
         || path.startsWith("/v3/api-docs")
-        || path.startsWith("/actuator");
+        || path.startsWith("/actuator")
+        || path.startsWith("/health")
+        || path.startsWith("/oauth2")
+        || path.startsWith("/login/oauth2")
+        || path.startsWith("/api/v1/auth");
   }
 
   @Override
-  protected void doFilterInternal(HttpServletRequest req, HttpServletResponse res, FilterChain chain) {
+  protected void doFilterInternal(
+      HttpServletRequest req,
+      HttpServletResponse res,
+      FilterChain chain
+  ) {
     try {
       String key = req.getHeader("X-API-Key");
 
+      // 구글 로그인 사용자는 HttpOnly Cookie에 API Key가 들어있음
+      if (key == null || key.isBlank()) {
+        key = findCookieValue(req, OAuth2LoginSuccessHandler.API_KEY_COOKIE_NAME);
+      }
+
       if (expectedApiKey == null || expectedApiKey.isBlank()) {
-        chain.doFilter(req, res); // 개발 단계에서는 키 비활성도 가능
+        chain.doFilter(req, res);
         return;
       }
 
-      if (key == null || !expectedApiKey.equals(key)) {
+      if (key == null || key.isBlank() || !expectedApiKey.equals(key)) {
         ApiErrorResponse body = ApiErrorResponse.of(
             ErrorCode.UNAUTHORIZED,
             "invalid api key",
             null,
             req.getRequestURI()
         );
+
         byte[] json = om.writeValueAsBytes(body);
 
         res.setStatus(ErrorCode.UNAUTHORIZED.status().value());
@@ -63,5 +79,21 @@ public class ApiKeyFilter extends OncePerRequestFilter {
     } catch (Exception e) {
       throw new RuntimeException(e);
     }
+  }
+
+  private String findCookieValue(HttpServletRequest request, String name) {
+    Cookie[] cookies = request.getCookies();
+
+    if (cookies == null) {
+      return null;
+    }
+
+    for (Cookie cookie : cookies) {
+      if (name.equals(cookie.getName())) {
+        return cookie.getValue();
+      }
+    }
+
+    return null;
   }
 }

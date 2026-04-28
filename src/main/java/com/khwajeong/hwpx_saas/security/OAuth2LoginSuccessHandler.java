@@ -8,18 +8,22 @@ import com.khwajeong.hwpx_saas.service.ApiKeyGenerator;
 import jakarta.servlet.ServletException;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
+import org.springframework.http.HttpHeaders;
+import org.springframework.http.ResponseCookie;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.security.oauth2.core.user.OAuth2User;
 import org.springframework.security.web.authentication.AuthenticationSuccessHandler;
 import org.springframework.stereotype.Component;
-import org.springframework.web.util.UriComponentsBuilder;
 
 import java.io.IOException;
+import java.time.Duration;
 import java.util.UUID;
 
 @Component
 public class OAuth2LoginSuccessHandler implements AuthenticationSuccessHandler {
+
+    public static final String API_KEY_COOKIE_NAME = "AUTOHWPX_API_KEY";
 
     private final UserRepository userRepository;
     private final ApiKeyRepository apiKeyRepository;
@@ -61,10 +65,7 @@ public class OAuth2LoginSuccessHandler implements AuthenticationSuccessHandler {
         if (user == null) {
             user = new UserEntity();
             user.setEmail(email);
-
-            // 구글 로그인 유저도 기존 UserEntity 구조를 맞추기 위해 랜덤 비밀번호 해시 저장
             user.setPasswordHash(passwordEncoder.encode("GOOGLE_LOGIN_" + UUID.randomUUID()));
-
             user = userRepository.save(user);
         }
 
@@ -80,14 +81,16 @@ public class OAuth2LoginSuccessHandler implements AuthenticationSuccessHandler {
             apiKey = apiKeyRepository.save(apiKey);
         }
 
-        String redirectUrl = UriComponentsBuilder
-                .fromUriString("http://localhost:5173/oauth-success")
-                .queryParam("email", user.getEmail())
-                .queryParam("apiKey", apiKey.getApiKey())
-                .build()
-                .encode()
-                .toUriString();
+        ResponseCookie cookie = ResponseCookie.from(API_KEY_COOKIE_NAME, apiKey.getApiKey())
+                .httpOnly(true)
+                .secure(false) // 로컬 개발용. 배포 HTTPS에서는 true 권장
+                .path("/")
+                .maxAge(Duration.ofDays(7))
+                .sameSite("Lax")
+                .build();
 
-        response.sendRedirect(redirectUrl);
+        response.addHeader(HttpHeaders.SET_COOKIE, cookie.toString());
+
+        response.sendRedirect("http://localhost:5173/oauth-success");
     }
 }

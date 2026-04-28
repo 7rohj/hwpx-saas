@@ -1,35 +1,58 @@
 import { useEffect } from "react"
 import type { PageType } from "../App"
 
+const API_BASE_URL =
+  import.meta.env.VITE_API_BASE_URL || "http://localhost:8080"
+
 type OAuthSuccessPageProps = {
   onNavigate: (page: PageType) => void
+  onLoginSuccess: () => void
 }
 
-export default function OAuthSuccessPage({ onNavigate }: OAuthSuccessPageProps) {
+export default function OAuthSuccessPage({
+  onNavigate,
+  onLoginSuccess,
+}: OAuthSuccessPageProps) {
   useEffect(() => {
-    const params = new URLSearchParams(window.location.search)
+    async function loadSession() {
+      const params = new URLSearchParams(window.location.search)
+      const error = params.get("error")
 
-    const email = params.get("email")
-    const apiKey = params.get("apiKey")
-    const error = params.get("error")
+      window.history.replaceState({}, "", "/oauth-success")
 
-    if (error) {
-      alert(`구글 로그인 실패: ${error}`)
-      onNavigate("landing")
-      return
+      if (error) {
+        alert(`구글 로그인 실패: ${error}`)
+        onNavigate("landing")
+        return
+      }
+
+      try {
+        const res = await fetch(`${API_BASE_URL}/api/v1/auth/me`, {
+          method: "GET",
+          credentials: "include",
+        })
+
+        const data = await res.json()
+
+        if (!res.ok || !data.ok || !data.email) {
+          alert("구글 로그인은 성공했지만 세션 정보를 가져오지 못했습니다.")
+          onNavigate("landing")
+          return
+        }
+
+        localStorage.setItem("userEmail", data.email)
+        localStorage.setItem("loginType", "oauth")
+
+        onLoginSuccess()
+      } catch (err) {
+        console.error(err)
+        alert("구글 로그인 처리 중 오류가 발생했습니다.")
+        onNavigate("landing")
+      }
     }
 
-    if (!email || !apiKey) {
-      alert("구글 로그인은 성공했지만 email 또는 apiKey가 없습니다.")
-      onNavigate("landing")
-      return
-    }
-
-    localStorage.setItem("userEmail", email)
-    localStorage.setItem("apiKey", apiKey)
-
-    onNavigate("landing")
-  }, [onNavigate])
+    loadSession()
+  }, [onNavigate, onLoginSuccess])
 
   return (
     <div className="flex min-h-screen items-center justify-center bg-slate-50 text-slate-900">

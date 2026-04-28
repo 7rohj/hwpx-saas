@@ -39,7 +39,9 @@ export default function App() {
   useEffect(() => {
     const email = localStorage.getItem("userEmail")
     const apiKey = localStorage.getItem("apiKey")
-    setIsLoggedIn(Boolean(email && apiKey))
+    const loginType = localStorage.getItem("loginType")
+
+    setIsLoggedIn(Boolean(email && (apiKey || loginType === "oauth")))
   }, [])
 
   useEffect(() => {
@@ -75,6 +77,7 @@ export default function App() {
   function handleLogout() {
     localStorage.removeItem("userEmail")
     localStorage.removeItem("apiKey")
+    localStorage.removeItem("loginType")
     setIsLoggedIn(false)
     setAuthView("login")
     setCurrentPage("landing")
@@ -96,10 +99,8 @@ export default function App() {
   if (currentPage === "oauth-success") {
     return (
       <OAuthSuccessPage
-        onNavigate={(page) => {
-          setIsLoggedIn(Boolean(localStorage.getItem("userEmail") && localStorage.getItem("apiKey")))
-          setCurrentPage(page)
-        }}
+        onNavigate={setCurrentPage}
+        onLoginSuccess={handleLoginSuccess}
       />
     )
   }
