@@ -19,6 +19,10 @@ import {
   Search,
   PanelLeft,
   X,
+  RefreshCcw,
+  Home,
+  Settings,
+  FileText,
 } from "lucide-react"
 
 type ComposeStudioPageProps = {
@@ -182,28 +186,28 @@ function RightPanelLoadingSkeleton() {
       </style>
 
       <div className="mb-4 flex items-center gap-2">
-        <div className="h-10 w-20 rounded-xl" style={shimmerStyle("0s")} />
-        <div className="h-10 w-16 rounded-xl" style={shimmerStyle("0.06s")} />
+        <div className="h-10 w-20 rounded-none" style={shimmerStyle("0s")} />
+        <div className="h-10 w-16 rounded-none" style={shimmerStyle("0.06s")} />
       </div>
 
       <div className="mb-4">
         <div className="mb-2 h-4 w-20 rounded" style={shimmerStyle("0.1s")} />
-        <div className="h-[52px] w-full rounded-2xl" style={shimmerStyle("0.14s")} />
+        <div className="h-[52px] w-full rounded-none" style={shimmerStyle("0.14s")} />
       </div>
 
       <div className="mb-4 max-h-[420px] space-y-3 overflow-hidden pr-1">
         {[...Array(4)].map((_, idx) => (
           <div
             key={idx}
-            className="w-full rounded-[22px] border border-[#dbe7ff] bg-white p-4"
+            className="w-full rounded-sm border border-[#e0e0e0] bg-white p-4"
           >
             <div className="mb-2 flex items-center justify-between gap-3">
               <div
-                className="h-6 w-12 rounded-full"
+                className="h-6 w-12 rounded-sm"
                 style={shimmerStyle(`${0.18 + idx * 0.05}s`)}
               />
               <div
-                className="h-5 w-24 rounded-full"
+                className="h-5 w-24 rounded-sm"
                 style={shimmerStyle(`${0.22 + idx * 0.05}s`)}
               />
             </div>
@@ -221,11 +225,11 @@ function RightPanelLoadingSkeleton() {
       </div>
 
       <div
-        className="mb-4 h-[52px] w-full rounded-2xl"
+        className="mb-4 h-[52px] w-full rounded-none"
         style={shimmerStyle("0.38s")}
       />
 
-      <div className="rounded-2xl border border-[#e5ecff] bg-[#fafcff] px-4 py-3">
+      <div className="rounded-none border border-[#e5ecff] bg-[#f4f4f4] px-4 py-3">
         {[...Array(6)].map((_, idx) => (
           <div key={idx} className="mb-2 flex items-center gap-2 last:mb-0">
             <div
@@ -600,6 +604,55 @@ export default function ComposeStudioPage({
     )
   }
 
+  function isSavedBox(side: "template" | "source", box: OverlayBox) {
+    return savedSelectionHistory.some((item) => {
+      if (item.side !== side) return false
+
+      if (box.paragraphId) {
+        return item.blockType === "paragraph" && item.paragraphId === box.paragraphId
+      }
+
+      if (box.id.endsWith("-box")) {
+        const tableId = box.id.replace(/-box$/, "")
+        return item.blockType === "table" && item.tableId === tableId
+      }
+
+      return false
+    })
+  }
+
+  function replaceDraftBoxForActiveSide(nextBox: OverlayBox) {
+    if (activeSide === "template") {
+      setTemplateBoxes((prev) => [
+        ...prev.filter((box) => isSavedBox("template", box)),
+        nextBox,
+      ])
+    } else {
+      setSourceBoxes((prev) => [
+        ...prev.filter((box) => isSavedBox("source", box)),
+        nextBox,
+      ])
+    }
+
+    setSelectedBoxId(nextBox.id)
+  }
+
+  function handleClearPreviewBoxes() {
+    setTemplateBoxes([])
+    setSourceBoxes([])
+    setSelectedBoxId(null)
+
+    setSelectedTemplateParagraphId("")
+    setSelectedSourceParagraphId("")
+    setSelectedTemplateTableId("")
+    setSelectedSourceTableId("")
+
+    setSavedSelectionHistory([])
+    setSavedMessage("")
+    setApplyResult(null)
+    setHistorySearch("")
+  }
+
   async function handlePreviewUpload() {
     if (!templateFile || !sourceFile) {
       alert("템플릿 파일과 source 파일을 모두 선택해주세요.")
@@ -793,6 +846,42 @@ export default function ComposeStudioPage({
       return
     }
 
+    const templateItems = savedSelectionHistory.filter(
+      (item) => item.side === "template"
+    )
+
+    const sourceItems = savedSelectionHistory.filter(
+      (item) => item.side === "source"
+    )
+
+    if (templateItems.length === 0 && sourceItems.length === 0) {
+      alert("템플릿문서와 원본문서에 태그를 먼저 설정해주세요.")
+      return
+    }
+
+    if (templateItems.length > 0 && sourceItems.length === 0) {
+      alert("원본문서에 태그가 설정되지 않았습니다.")
+      return
+    }
+
+    if (templateItems.length === 0 && sourceItems.length > 0) {
+      alert("템플릿문서에 태그가 설정되지 않았습니다.")
+      return
+    }
+
+    const templateLabels = new Set(templateItems.map((item) => item.label))
+    const sourceLabels = new Set(sourceItems.map((item) => item.label))
+
+    const isSameSize = templateLabels.size === sourceLabels.size
+    const isAllMatched = [...templateLabels].every((label) =>
+      sourceLabels.has(label)
+    )
+
+    if (!isSameSize || !isAllMatched) {
+      alert("템플릿과 원본문서의 태그(label)가 서로 일치하지 않습니다.")
+      return
+    }
+
     const apiKey = localStorage.getItem("apiKey") ?? ""
 
     try {
@@ -884,7 +973,7 @@ export default function ComposeStudioPage({
         <button
           type="button"
           onClick={() => setShowGuideModal(true)}
-          className={`fixed right-6 z-[9998] flex items-center gap-2 rounded-full border border-[#d7e5ff] bg-white px-4 py-3 text-sm font-semibold text-[#1f69ef] shadow-[0_10px_28px_rgba(31,105,239,0.18)] transition hover:-translate-y-0.5 hover:bg-[#f5f9ff] ${
+          className={`fixed right-6 z-[9998] flex items-center gap-2 rounded-sm border border-[#c6c6c6] bg-white px-4 py-3 text-sm font-semibold text-[#0f62fe] shadow-[0_10px_28px_rgba(31,105,239,0.18)] transition hover:-translate-y-0.5 hover:bg-[#f4f4f4] ${
             creditToast.show ? "bottom-28" : "bottom-6"
           }`}
         >
@@ -894,10 +983,10 @@ export default function ComposeStudioPage({
       )}
 
       {showGuideModal && (
-        <div className="fixed inset-0 z-[99999] flex items-center justify-center bg-black/55 px-4 backdrop-blur-sm"
+        <div className="fixed inset-0 z-[99999] flex items-center justify-center bg-black/55 px-4 "
           onClick={() => setShowGuideModal(false)}>
 
-          <div className="relative w-full max-w-[1040px] overflow-hidden rounded-[28px] bg-white shadow-2xl"
+          <div className="relative w-full max-w-[1040px] overflow-hidden rounded-none bg-white shadow-xl"
           onClick={(e) => e.stopPropagation()}>
             
             <video
@@ -915,7 +1004,7 @@ export default function ComposeStudioPage({
 
             <div className="flex items-center justify-between gap-3 px-5 py-4">
               <div>
-                <div className="text-sm font-semibold text-[#162033]">
+                <div className="text-sm font-semibold text-[#161616]">
                   스튜디오 사용 방법
                 </div>
                 <div className="mt-1 text-xs text-slate-500">
@@ -926,7 +1015,7 @@ export default function ComposeStudioPage({
               <button
                 type="button"
                 onClick={() => setShowGuideModal(false)}
-                className="rounded-xl bg-[#1f69ef] px-4 py-2 text-sm font-semibold text-white hover:bg-[#1859ca]"
+                className="rounded-none bg-[#0f62fe] px-4 py-2 text-sm font-semibold text-white hover:bg-[#0353e9]"
               >
                 바로 시작하기
               </button>
@@ -935,13 +1024,34 @@ export default function ComposeStudioPage({
         </div>
       )}
 
-      <div className="min-h-screen bg-[linear-gradient(180deg,#f5f9ff_0%,#eef5ff_42%,#fffdf2_100%)] text-slate-900">
+      <div className="min-h-screen bg-[#f4f4f4] text-[#161616]">
         <div className="flex">
-          <aside className="sticky top-[64px] hidden h-[calc(100vh-64px)] w-[336px] shrink-0 flex-col border-r border-slate-200/80 bg-white/90 backdrop-blur xl:flex">
+          <aside className="sticky top-[64px] hidden h-[calc(100vh-64px)] w-[188px] shrink-0 flex-col bg-[#0f1419] text-white xl:flex">
+            
+            <nav className="flex-1 py-4">
+              <button type="button" className="flex w-full items-center gap-3 border-l-4 border-[#0f62fe] bg-[#0f62fe]/25 px-5 py-3 text-sm font-semibold text-white">
+                <FileText className="h-4 w-4" />
+                스튜디오
+              </button>
+              <button type="button" onClick={() => onNavigate("landing")} className="flex w-full items-center gap-3 border-l-4 border-transparent px-5 py-3 text-sm font-medium text-white/75 transition hover:bg-white/10 hover:text-white">
+                <Home className="h-4 w-4" />
+                홈
+              </button>
+            </nav>
+
+            <div className="border-t border-white/10 py-4">
+              <button type="button" className="flex w-full items-center gap-3 px-5 py-3 text-sm font-medium text-white/75 transition hover:bg-white/10 hover:text-white">
+                <Settings className="h-4 w-4" />
+                설정
+              </button>
+            </div>
+          </aside>
+
+          <aside className="sticky top-[64px] hidden h-[calc(100vh-64px)] w-[280px] shrink-0 flex-col border-r border-[#e0e0e0] bg-white xl:flex">
             <div className="mt-5 flex items-center justify-between px-5">
               <div className="flex items-center gap-2">
-                <Clock3 className="h-4 w-4 text-[#1f69ef]" />
-                <h2 className="text-sm font-semibold text-[#162033]">
+                <Clock3 className="h-4 w-4 text-[#0f62fe]" />
+                <h2 className="text-sm font-semibold text-[#161616]">
                   최근 저장 항목
                 </h2>
               </div>
@@ -951,7 +1061,7 @@ export default function ComposeStudioPage({
             </div>
 
             <div className="px-5 pt-5">
-              <div className="flex items-center gap-2 rounded-2xl border border-slate-200 bg-slate-50 px-3 py-2.5">
+              <div className="flex items-center gap-2 rounded-none border border-[#e0e0e0] bg-slate-50 px-3 py-2.5">
                 <Search className="h-4 w-4 text-slate-400" />
                 <input
                   value={historySearch}
@@ -965,14 +1075,14 @@ export default function ComposeStudioPage({
             <div className="custom-scroll mt-3 min-h-0 flex-1 overflow-y-auto px-4 pb-5">
               <div className="space-y-2">
                 {filteredHistory.length === 0 ? (
-                  <div className="rounded-2xl border border-dashed border-slate-200 bg-white px-4 py-8 text-center text-sm text-slate-400">
+                  <div className="rounded-none border border-dashed border-[#e0e0e0] bg-white px-4 py-8 text-center text-sm text-slate-400">
                     아직 저장된 항목이 없습니다.
                   </div>
                 ) : (
                   filteredHistory.map((item) => (
                     <div
                       key={item.id}
-                      className="rounded-2xl border border-slate-200 bg-white p-4 transition hover:border-[#cfe0ff] hover:bg-[#f8fbff] hover:shadow-sm"
+                      className="rounded-none border border-[#e0e0e0] bg-white p-4 transition hover:border-[#e0e0e0] hover:bg-[#f4f4f4] hover:shadow-none"
                     >
                       <div className="mb-1 text-right">
                         <span className="text-[11px] text-slate-400">
@@ -981,7 +1091,7 @@ export default function ComposeStudioPage({
                       </div>
 
                       <div className="flex min-w-0 items-start gap-2">
-                        <div className="shrink-0 text-[18px] font-semibold leading-tight text-[#162033]">
+                        <div className="shrink-0 text-[18px] font-semibold leading-tight text-[#161616]">
                           {item.label}
                         </div>
 
@@ -1001,7 +1111,7 @@ export default function ComposeStudioPage({
 
                       <div className="mt-[4px] flex items-center gap-1.5">
                         <span
-                          className={`inline-flex rounded-full border px-2 py-[3px] text-[10px] font-semibold ${getHistoryTypeStyle(
+                          className={`inline-flex rounded-sm border px-2 py-[3px] text-[10px] font-semibold ${getHistoryTypeStyle(
                             item
                           )}`}
                         >
@@ -1009,7 +1119,7 @@ export default function ComposeStudioPage({
                         </span>
 
                         <span
-                          className={`inline-flex rounded-full border px-2 py-[3px] text-[10px] font-semibold ${getBlockTypeStyle(
+                          className={`inline-flex rounded-sm border px-2 py-[3px] text-[10px] font-semibold ${getBlockTypeStyle(
                             item
                           )}`}
                         >
@@ -1020,7 +1130,7 @@ export default function ComposeStudioPage({
                       <button
                         type="button"
                         onClick={() => handleRemoveSavedHistoryItem(item.id)}
-                        className="mt-3 inline-flex w-full items-center justify-center gap-1 rounded-xl bg-[#111827] px-3 py-2 text-xs font-semibold text-white transition hover:bg-black"
+                        className="mt-3 inline-flex w-full items-center justify-center gap-1 rounded-none bg-[#111827] px-3 py-2 text-xs font-semibold text-white transition hover:bg-black"
                       >
                         <X className="h-3.5 w-3.5 text-white" />
                         <span className="text-white">취소</span>
@@ -1033,24 +1143,20 @@ export default function ComposeStudioPage({
           </aside>
 
           <main className="flex-1">
-            <div className="mx-auto max-w-[1380px] px-4 py-6 sm:px-6 lg:px-8">
-              <header className="mb-6 rounded-[32px] border border-[#cfe0ff] bg-white/85 p-6 backdrop-blur">
+            <div className="mx-auto max-w-[1360px] px-6 py-8">
+              <header className="mb-6">
                 <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
                   <div className="flex items-start gap-3">
-                    <button className="inline-flex h-11 w-11 items-center justify-center rounded-2xl border border-slate-200 bg-white text-slate-600 xl:hidden">
+                    <button className="inline-flex h-11 w-11 items-center justify-center rounded-none border border-[#e0e0e0] bg-white text-slate-600 xl:hidden">
                       <PanelLeft className="h-5 w-5" />
                     </button>
 
                     <div>
-                      <div className="mb-3 inline-flex items-center gap-2 rounded-full border border-[#cfe0ff] bg-[#edf4ff] px-3 py-1 text-xs font-semibold text-[#1f69ef]">
-                        <span className="h-2.5 w-2.5 rounded-full bg-[#ffd400]" />
-                        AutoHWPX
-                      </div>
-                      <h1 className="text-3xl font-bold tracking-tight text-[#162033] sm:text-4xl">
+                      <h1 className="text-3xl font-bold tracking-tight text-[#161616] sm:text-4xl">
                         템플릿 서식 자동 적용
                       </h1>
-                      <p className="mt-2 text-sm text-[#63708a] sm:text-base">
-                        10초만에 원하는 스타일의 문서로 자동 제작
+                      <p className="mt-2 text-sm text-[#525252] sm:text-base">
+                        템플릿 문서의 문단/표 서식을 원본 문서에 적용합니다.
                       </p>
                     </div>
                   </div>
@@ -1059,7 +1165,7 @@ export default function ComposeStudioPage({
                     <button
                       onClick={handlePreviewUpload}
                       disabled={uploading}
-                      className="inline-flex items-center gap-2 rounded-2xl bg-[#1f69ef] px-5 py-3 text-sm font-semibold text-white shadow-[0_10px_24px_rgba(31,105,239,0.22)] hover:bg-[#1859ca] disabled:cursor-not-allowed disabled:opacity-60"
+                      className="inline-flex items-center gap-2 rounded-none bg-[#0f62fe] px-5 py-3 text-sm font-semibold text-white shadow-none hover:bg-[#0353e9] disabled:cursor-not-allowed disabled:opacity-60"
                     >
                       <FileUp className="h-4 w-4" />
                       {uploading ? "불러오는 중..." : "파일 불러오기"}
@@ -1068,7 +1174,7 @@ export default function ComposeStudioPage({
                     <button
                       onClick={handleApply}
                       disabled={!sessionId || applying}
-                      className="inline-flex items-center gap-2 rounded-2xl border border-[#d7e5ff] bg-white px-5 py-3 text-sm font-semibold text-slate-700 hover:bg-[#f5f9ff] disabled:cursor-not-allowed disabled:opacity-50"
+                      className="inline-flex items-center gap-2 rounded-none border border-[#c6c6c6] bg-white px-5 py-3 text-sm font-semibold text-slate-700 hover:bg-[#f4f4f4] disabled:cursor-not-allowed disabled:opacity-50"
                     >
                       <Sparkles className="h-4 w-4" />
                       {applying ? "적용 중..." : "실행하기"}
@@ -1078,26 +1184,26 @@ export default function ComposeStudioPage({
               </header>
 
               {error ? (
-                <div className="mb-6 rounded-[24px] border border-red-200 bg-red-50 px-5 py-4 text-sm text-red-600">
+                <div className="mb-6 rounded-none border border-red-200 bg-red-50 px-5 py-4 text-sm text-red-600">
                   {error}
                 </div>
               ) : null}
 
               <section className="mb-6 grid gap-4 lg:grid-cols-2">
                 {/* 템플릿 */}
-                <div className="rounded-[28px] border border-[#dbe7ff] bg-white p-5">
-                  <div className="mb-3 flex items-center gap-2 text-sm font-semibold text-[#1f69ef]">
+                <div className="border border-[#e0e0e0] bg-white p-6">
+                  <div className="mb-3 flex items-center gap-2 text-sm font-semibold text-[#0f62fe]">
                     <Layers3 className="h-4 w-4" />
                     템플릿 파일
                   </div>
 
                   {/* 🔥 업로드 제거 + 안내 */}
-                  <div className="flex h-[56px] items-center justify-center rounded-2xl border border-dashed border-[#d7e5ff] bg-[#f8fbff] text-sm text-[#63708a]">
+                  <div className="flex h-[56px] items-center justify-center rounded-none border border-dashed border-[#c6c6c6] bg-[#f4f4f4] text-sm text-[#525252]">
                     데모 버전에서는 샘플 파일만 사용 가능합니다
                   </div>
 
                   <div className="mt-2 flex items-center justify-between gap-3">
-                    <p className="text-sm text-[#63708a]">
+                    <p className="text-sm text-[#525252]">
                       {templateFile ? templateFile.name : "선택된 파일 없음"}
                     </p>
 
@@ -1113,19 +1219,19 @@ export default function ComposeStudioPage({
                 </div>
 
                 {/* 원본문서 */}
-                <div className="rounded-[28px] border border-[#dbe7ff] bg-white p-5">
-                  <div className="mb-3 flex items-center gap-2 text-sm font-semibold text-[#1f69ef]">
+                <div className="border border-[#e0e0e0] bg-white p-6">
+                  <div className="mb-3 flex items-center gap-2 text-sm font-semibold text-[#0f62fe]">
                     <Layers3 className="h-4 w-4" />
                     원본문서 파일
                   </div>
 
                   {/* 🔥 업로드 제거 + 안내 */}
-                  <div className="flex h-[56px] items-center justify-center rounded-2xl border border-dashed border-[#d7e5ff] bg-[#f8fbff] text-sm text-[#63708a]">
+                  <div className="flex h-[56px] items-center justify-center rounded-none border border-dashed border-[#c6c6c6] bg-[#f4f4f4] text-sm text-[#525252]">
                     데모 버전에서는 샘플 파일만 사용 가능합니다
                   </div>
 
                   <div className="mt-2 flex items-center justify-between gap-3">
-                    <p className="text-sm text-[#63708a]">
+                    <p className="text-sm text-[#525252]">
                       {sourceFile ? sourceFile.name : "선택된 파일 없음"}
                     </p>
 
@@ -1142,15 +1248,15 @@ export default function ComposeStudioPage({
               </section>
 
               <section className="grid gap-6 lg:grid-cols-[1.5fr_0.95fr]">
-                <div className="rounded-[32px] border border-[#dbe7ff] bg-white p-6">
+                <div className="border border-[#e0e0e0] bg-white p-6">
                   <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
                     <div className="flex items-center gap-2">
                       <button
                         onClick={() => setActiveSide("template")}
-                        className={`rounded-2xl px-4 py-2 text-sm font-medium transition ${
+                        className={`rounded-none px-4 py-2 text-sm font-medium transition ${
                           activeSide === "template"
-                            ? "bg-[#1f69ef] text-white"
-                            : "border border-[#d7e5ff] bg-white text-slate-700 hover:bg-[#f5f9ff]"
+                            ? "bg-[#0f62fe] text-white"
+                            : "border border-[#c6c6c6] bg-white text-slate-700 hover:bg-[#f4f4f4]"
                         }`}
                       >
                         템플릿문서
@@ -1158,10 +1264,10 @@ export default function ComposeStudioPage({
 
                       <button
                         onClick={() => setActiveSide("source")}
-                        className={`rounded-2xl px-4 py-2 text-sm font-medium transition ${
+                        className={`rounded-none px-4 py-2 text-sm font-medium transition ${
                           activeSide === "source"
-                            ? "bg-[#1f69ef] text-white"
-                            : "border border-[#d7e5ff] bg-white text-slate-700 hover:bg-[#f5f9ff]"
+                            ? "bg-[#0f62fe] text-white"
+                            : "border border-[#c6c6c6] bg-white text-slate-700 hover:bg-[#f4f4f4]"
                         }`}
                       >
                         원본문서
@@ -1170,31 +1276,39 @@ export default function ComposeStudioPage({
 
                     <div className="flex items-center gap-2">
                       <button
+                        type="button"
+                        onClick={handleClearPreviewBoxes}
+                        className="inline-flex items-center gap-2 rounded-none border border-red-100 bg-red-50 px-3 py-2 text-sm font-semibold text-red-500 transition hover:bg-red-100"
+                      >
+                        <RefreshCcw className="h-4 w-4" />
+                      </button>
+
+                      <button
                         onClick={() => setCurrentPage((prev) => Math.max(1, prev - 1))}
-                        className="rounded-xl border border-[#d7e5ff] p-2 hover:bg-[#f5f9ff]"
+                        className="rounded-none border border-[#c6c6c6] p-2 hover:bg-[#f4f4f4]"
                       >
                         <ChevronLeft className="h-4 w-4" />
                       </button>
 
-                      <div className="rounded-xl border border-[#d7e5ff] px-4 py-2 text-sm font-medium text-slate-700">
+                      <div className="rounded-none border border-[#c6c6c6] px-4 py-2 text-sm font-medium text-slate-700">
                         page {currentPage} / {currentPageCount}
                       </div>
 
                       <button
                         onClick={() => setCurrentPage((prev) => Math.min(currentPageCount, prev + 1))}
-                        className="rounded-xl border border-[#d7e5ff] p-2 hover:bg-[#f5f9ff]"
+                        className="rounded-none border border-[#c6c6c6] p-2 hover:bg-[#f4f4f4]"
                       >
                         <ChevronRight className="h-4 w-4" />
                       </button>
                     </div>
                   </div>
 
-                  <div className="mb-3 flex items-center gap-2 text-xs font-semibold text-[#1f69ef]">
+                  <div className="mb-3 flex items-center gap-2 text-xs font-semibold text-[#0f62fe]">
                     <SquareDashedMousePointer className="h-4 w-4" />
-                    가상 페이지 위에 문단과 표 박스를 함께 표시합니다
+                    미리보기 화면에서 복사하고 싶은 서식을 클릭하세요 
                   </div>
 
-                  <div className="mb-3 pl-6 text-[11px] text-[#7a869f]">
+                  <div className="mb-3 pl-6 text-[11px] text-[#6f6f6f]">
                     기존 한글 문서와 완전히 동일하지 않을 수 있습니다.
                   </div>
 
@@ -1235,13 +1349,7 @@ export default function ComposeStudioPage({
                         paragraphId,
                       }
 
-                      if (activeSide === "template") {
-                        setTemplateBoxes((prev) => [...prev, autoBox])
-                      } else {
-                        setSourceBoxes((prev) => [...prev, autoBox])
-                      }
-
-                      setSelectedBoxId(autoBox.id)
+                      replaceDraftBoxForActiveSide(autoBox)
                     }}
                     onSelectTable={(tableId) => {
                       if (activeSide === "template") {
@@ -1264,19 +1372,7 @@ export default function ComposeStudioPage({
                         label: currentRole,
                       }
 
-                      if (activeSide === "template") {
-                        setTemplateBoxes((prev) => {
-                          const exists = prev.find((b) => b.id === tableBox.id)
-                          return exists ? prev : [...prev, tableBox]
-                        })
-                      } else {
-                        setSourceBoxes((prev) => {
-                          const exists = prev.find((b) => b.id === tableBox.id)
-                          return exists ? prev : [...prev, tableBox]
-                        })
-                      }
-
-                      setSelectedBoxId(tableBox.id)
+                      replaceDraftBoxForActiveSide(tableBox)
                     }}
                     onSelectBox={(boxId) => {
                       setSelectedBoxId(boxId)
@@ -1312,9 +1408,9 @@ export default function ComposeStudioPage({
                   />
                 </div>
 
-                <div className="rounded-[32px] border border-[#dbe7ff] bg-white p-6">
-                  <div className="mb-4 flex items-center gap-2 text-lg font-semibold text-[#162033]">
-                    <Tag className="h-5 w-5 text-[#1f69ef]" />
+                <div className="border border-[#e0e0e0] bg-white p-6">
+                  <div className="mb-4 flex items-center gap-2 text-lg font-semibold text-[#161616]">
+                    <Tag className="h-5 w-5 text-[#0f62fe]" />
                     선택 패널
                   </div>
 
@@ -1325,10 +1421,10 @@ export default function ComposeStudioPage({
                       <div className="mb-4 flex items-center gap-2">
                         <button
                           onClick={() => setActivePanel("paragraph")}
-                          className={`inline-flex items-center gap-2 rounded-xl px-3 py-2 text-sm ${
+                          className={`inline-flex items-center gap-2 rounded-none px-3 py-2 text-sm ${
                             activePanel === "paragraph"
-                              ? "bg-[#1f69ef] text-white"
-                              : "border border-[#d7e5ff] bg-white text-slate-700"
+                              ? "bg-[#0f62fe] text-white"
+                              : "border border-[#c6c6c6] bg-white text-slate-700"
                           }`}
                         >
                           <AlignLeft className="h-4 w-4" />
@@ -1337,10 +1433,10 @@ export default function ComposeStudioPage({
 
                         <button
                           onClick={() => setActivePanel("table")}
-                          className={`inline-flex items-center gap-2 rounded-xl px-3 py-2 text-sm ${
+                          className={`inline-flex items-center gap-2 rounded-none px-3 py-2 text-sm ${
                             activePanel === "table"
-                              ? "bg-[#1f69ef] text-white"
-                              : "border border-[#d7e5ff] bg-white text-slate-700"
+                              ? "bg-[#0f62fe] text-white"
+                              : "border border-[#c6c6c6] bg-white text-slate-700"
                           }`}
                         >
                           <Table2 className="h-4 w-4" />
@@ -1349,7 +1445,7 @@ export default function ComposeStudioPage({
                       </div>
 
                       <div className="mb-4">
-                        <label className="mb-2 block text-sm font-medium text-[#1a2540]">
+                        <label className="mb-2 block text-sm font-medium text-[#161616]">
                           역할(label)
                         </label>
                         <select
@@ -1358,7 +1454,7 @@ export default function ComposeStudioPage({
                             if (activeSide === "template") setTemplateRole(e.target.value)
                             else setSourceRole(e.target.value)
                           }}
-                          className="w-full rounded-2xl border border-[#d7e5ff] bg-white px-4 py-3 text-sm text-[#1a2540] outline-none"
+                          className="w-full rounded-none border border-[#c6c6c6] bg-white px-4 py-3 text-sm text-[#161616] outline-none"
                         >
                           {ROLE_OPTIONS.map((item) => (
                             <option key={item.value} value={item.value}>
@@ -1370,7 +1466,7 @@ export default function ComposeStudioPage({
 
                       <div className="custom-scroll mb-4 max-h-[420px] space-y-3 overflow-y-auto pr-1">
                         {filteredPanelBlocks.length === 0 ? (
-                          <div className="rounded-2xl border border-dashed border-[#d7e5ff] px-4 py-8 text-center text-sm text-[#63708a]">
+                          <div className="rounded-none border border-dashed border-[#c6c6c6] px-4 py-8 text-center text-sm text-[#525252]">
                             현재 페이지에서 {activePanel === "paragraph" ? "문단" : "표"}를 찾지 못했습니다.
                           </div>
                         ) : (
@@ -1419,20 +1515,20 @@ export default function ComposeStudioPage({
 
                                     setSelectedBoxId(autoBox.id)
                                   }}
-                                  className={`w-full rounded-[22px] border p-4 text-left transition ${
+                                  className={`w-full rounded-sm border p-4 text-left transition ${
                                     selected
-                                      ? "border-[#1f69ef] bg-[#eef4ff] shadow-[0_12px_30px_rgba(31,105,239,0.10)]"
-                                      : "border-[#dbe7ff] bg-white hover:border-[#bcd2ff] hover:bg-[#f8fbff]"
+                                      ? "border-[#1f69ef] bg-[#edf5ff] shadow-none"
+                                      : "border-[#e0e0e0] bg-white hover:border-[#bcd2ff] hover:bg-[#f4f4f4]"
                                   }`}
                                 >
                                   <div className="mb-2 flex items-center justify-between gap-3">
-                                    <span className="rounded-full bg-white px-2.5 py-1 text-[11px] font-semibold text-[#1f69ef]">
+                                    <span className="rounded-sm bg-white px-2.5 py-1 text-[11px] font-semibold text-[#0f62fe]">
                                       {p.paragraphId}
                                     </span>
-                                    <span className="text-[11px] text-[#7a869f]">{block.fontInfo}</span>
+                                    <span className="text-[11px] text-[#6f6f6f]">{block.fontInfo}</span>
                                   </div>
 
-                                  <p className="line-clamp-3 text-sm font-medium text-[#1a2540]">
+                                  <p className="line-clamp-3 text-sm font-medium text-[#161616]">
                                     {block.labelText}
                                   </p>
                                 </button>
@@ -1464,34 +1560,22 @@ export default function ComposeStudioPage({
                                     label: currentRole,
                                   }
 
-                                  if (activeSide === "template") {
-                                    setTemplateBoxes((prev) => {
-                                      const exists = prev.find((b) => b.id === tableBox.id)
-                                      return exists ? prev : [...prev, tableBox]
-                                    })
-                                  } else {
-                                    setSourceBoxes((prev) => {
-                                      const exists = prev.find((b) => b.id === tableBox.id)
-                                      return exists ? prev : [...prev, tableBox]
-                                    })
-                                  }
-
-                                  setSelectedBoxId(tableBox.id)
+                                  replaceDraftBoxForActiveSide(tableBox)
                                 }}
-                                className={`w-full rounded-[22px] border p-4 text-left transition ${
+                                className={`w-full rounded-sm border p-4 text-left transition ${
                                   selected
-                                    ? "border-[#1f69ef] bg-[#eef4ff] shadow-[0_12px_30px_rgba(31,105,239,0.10)]"
-                                    : "border-[#dbe7ff] bg-white hover:border-[#bcd2ff] hover:bg-[#f8fbff]"
+                                    ? "border-[#1f69ef] bg-[#edf5ff] shadow-none"
+                                    : "border-[#e0e0e0] bg-white hover:border-[#bcd2ff] hover:bg-[#f4f4f4]"
                                 }`}
                               >
                                 <div className="mb-2 flex items-center justify-between gap-3">
-                                  <span className="rounded-full bg-white px-2.5 py-1 text-[11px] font-semibold text-[#1f69ef]">
+                                  <span className="rounded-sm bg-white px-2.5 py-1 text-[11px] font-semibold text-[#0f62fe]">
                                     {t.tableId}
                                   </span>
-                                  <span className="text-[11px] text-[#7a869f]">{block.fontInfo}</span>
+                                  <span className="text-[11px] text-[#6f6f6f]">{block.fontInfo}</span>
                                 </div>
 
-                                <p className="line-clamp-2 text-sm font-medium text-[#1a2540]">
+                                <p className="line-clamp-2 text-sm font-medium text-[#161616]">
                                   {block.labelText}
                                 </p>
                               </button>
@@ -1507,19 +1591,19 @@ export default function ComposeStudioPage({
                             ? !currentSelectedId || saving
                             : !currentSelectedTableId || saving
                         }
-                        className="flex w-full items-center justify-center gap-2 rounded-2xl bg-[#1f69ef] px-4 py-3 text-sm font-semibold text-white shadow-[0_10px_24px_rgba(31,105,239,0.22)] hover:bg-[#1859ca] disabled:cursor-not-allowed disabled:opacity-60"
+                        className="flex w-full items-center justify-center gap-2 rounded-none bg-[#0f62fe] px-4 py-3 text-sm font-semibold text-white shadow-none hover:bg-[#0353e9] disabled:cursor-not-allowed disabled:opacity-60"
                       >
                         <CheckCircle2 className="h-4 w-4" />
                         {saving ? "저장 중..." : "선택 저장"}
                       </button>
 
                       {savedMessage ? (
-                        <div className="mt-4 rounded-2xl border border-[#d7e5ff] bg-[#f3f8ff] px-4 py-3 text-sm text-[#1f69ef]">
+                        <div className="mt-4 rounded-none border border-[#c6c6c6] bg-[#edf5ff] px-4 py-3 text-sm text-[#0f62fe]">
                           {savedMessage}
                         </div>
                       ) : null}
 
-                      <div className="mt-4 rounded-2xl border border-[#e5ecff] bg-[#fafcff] px-4 py-3 text-sm text-[#4b5875]">
+                      <div className="mt-4 rounded-none border border-[#e5ecff] bg-[#f4f4f4] px-4 py-3 text-sm text-[#525252]">
                         <div>
                           현재 side: <span className="font-semibold">{activeSide}</span>
                         </div>
@@ -1545,25 +1629,25 @@ export default function ComposeStudioPage({
               </section>
 
               {applyResult ? (
-                <section className="mt-6 rounded-[32px] border border-[#dbe7ff] bg-white p-6">
+                <section className="mt-6 rounded-none border border-[#e0e0e0] bg-white p-6">
                   <details
                     open={isApplyResultOpen}
                     onToggle={(e) => setIsApplyResultOpen((e.target as HTMLDetailsElement).open)}
                     className="group"
                   >
-                    <summary className="cursor-pointer list-none text-xl font-semibold text-[#162033]">
+                    <summary className="cursor-pointer list-none text-xl font-semibold text-[#161616]">
                       <div className="flex items-center justify-between gap-3">
                         <span>apply 결과</span>
-                        <span className="text-sm font-medium text-[#63708a] group-open:hidden">
+                        <span className="text-sm font-medium text-[#525252] group-open:hidden">
                           펼쳐보기
                         </span>
-                        <span className="hidden text-sm font-medium text-[#63708a] group-open:inline">
+                        <span className="hidden text-sm font-medium text-[#525252] group-open:inline">
                           접기
                         </span>
                       </div>
                     </summary>
 
-                    <pre className="mt-4 overflow-x-auto rounded-2xl bg-[#0f172a] p-4 text-xs text-slate-100">
+                    <pre className="mt-4 overflow-x-auto rounded-none bg-[#0f172a] p-4 text-xs text-slate-100">
                       {JSON.stringify(applyResult, null, 2)}
                     </pre>
 
@@ -1576,7 +1660,7 @@ export default function ComposeStudioPage({
                               applyResult.fileId || "output.hwpx"
                             )
                           }
-                          className="rounded-xl bg-[#1f69ef] px-4 py-2 text-sm font-semibold text-white hover:bg-[#1859ca]"
+                          className="rounded-none bg-[#0f62fe] px-4 py-2 text-sm font-semibold text-white hover:bg-[#0353e9]"
                         >
                           결과 파일 다운로드
                         </button>
@@ -1592,9 +1676,9 @@ export default function ComposeStudioPage({
 
       {/* ✅ 코인 토스트 */}
       {creditToast.show && (
-        <div className="fixed bottom-6 right-6 z-[9999] w-[360px] rounded-2xl border border-slate-700 bg-[#111827] px-5 py-4 text-white shadow-2xl">
+        <div className="fixed bottom-6 right-6 z-[9999] w-[360px] rounded-none border border-slate-700 bg-[#111827] px-5 py-4 text-white shadow-xl">
           <div className="flex items-center gap-3">
-            <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-yellow-400 text-lg font-black text-slate-900">
+            <div className="flex h-11 w-11 items-center justify-center rounded-none bg-yellow-400 text-lg font-black text-slate-900">
               C
             </div>
 
