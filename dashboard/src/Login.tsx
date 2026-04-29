@@ -87,6 +87,10 @@ export default function Login({
     window.location.href = `${API_BASE_URL}/oauth2/authorization/google`
   }
 
+  function handleKakaoLogin() {
+    window.location.href = `${API_BASE_URL}/oauth2/authorization/kakao`
+  }
+
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-50 via-white to-slate-100 text-slate-900">
       <div className="mx-auto flex min-h-screen max-w-7xl items-center justify-center px-4 py-10 sm:px-6 lg:px-8">
@@ -111,6 +115,24 @@ export default function Login({
               G
             </span>
             Google로 로그인
+          </button>
+
+          <button
+            type="button"
+            onClick={handleKakaoLogin}
+            className="mb-5 flex w-full items-center justify-center gap-3 rounded-2xl bg-[#FEE500] px-4 py-3 text-sm font-semibold text-[#191919] transition hover:brightness-95"
+          >
+            {/* 카카오 아이콘 */}
+            <svg
+              xmlns="http://www.w3.org/2000/svg"
+              viewBox="0 0 24 24"
+              className="h-5 w-5"
+              fill="#191919"
+            >
+              <path d="M12 3C6.48 3 2 6.94 2 11.5c0 2.91 1.86 5.49 4.66 7.02-.2.73-.73 2.64-.84 3.06-.14.52.19.51.4.36.17-.11 2.74-1.87 3.86-2.65.62.09 1.26.14 1.92.14 5.52 0 10-3.94 10-8.5S17.52 3 12 3z"/>
+            </svg>
+
+            카카오로 로그인
           </button>
 
           <div className="mb-5 flex items-center gap-3">

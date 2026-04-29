@@ -28,7 +28,7 @@ public class UserEntity {
 
     @Column(nullable = false, length = 30)
     private String status = "ACTIVE"; // ACTIVE / BLOCKED / DELETED
-
+    
     private OffsetDateTime lastLoginAt;
 
     @PrePersist
@@ -39,12 +39,12 @@ public class UserEntity {
         if (role == null || role.isBlank()) {
             role = "USER";
         }
-        if (grade == null|| grade.isBlank()) {
+        if (grade == null || grade.isBlank()) {
             grade = "STARTER";
         }
-        if (status == null|| status.isBlank()) {
+        if (status == null || status.isBlank()) {
             status = "ACTIVE";
-        }
+        }        
     }
 
     public Long getId() {
@@ -58,7 +58,7 @@ public class UserEntity {
     public String getPasswordHash() {
         return passwordHash;
     }
-    
+
     public String getRole() {
         return role;
     }

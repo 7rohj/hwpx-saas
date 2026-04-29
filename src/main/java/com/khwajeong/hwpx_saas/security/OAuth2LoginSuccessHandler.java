@@ -12,12 +12,14 @@ import org.springframework.http.HttpHeaders;
 import org.springframework.http.ResponseCookie;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.crypto.password.PasswordEncoder;
+import org.springframework.security.oauth2.client.authentication.OAuth2AuthenticationToken;
 import org.springframework.security.oauth2.core.user.OAuth2User;
 import org.springframework.security.web.authentication.AuthenticationSuccessHandler;
 import org.springframework.stereotype.Component;
 
 import java.io.IOException;
 import java.time.Duration;
+import java.util.Map;
 import java.util.UUID;
 
 @Component
@@ -51,7 +53,7 @@ public class OAuth2LoginSuccessHandler implements AuthenticationSuccessHandler {
 
         OAuth2User oauthUser = (OAuth2User) authentication.getPrincipal();
 
-        String email = oauthUser.getAttribute("email");
+        String email = extractEmail(oauthUser);
 
         if (email == null || email.isBlank()) {
             response.sendRedirect("http://localhost:5173/oauth-success?error=email_not_found");
@@ -65,7 +67,7 @@ public class OAuth2LoginSuccessHandler implements AuthenticationSuccessHandler {
         if (user == null) {
             user = new UserEntity();
             user.setEmail(email);
-            user.setPasswordHash(passwordEncoder.encode("GOOGLE_LOGIN_" + UUID.randomUUID()));
+            user.setPasswordHash(passwordEncoder.encode("OAUTH_LOGIN_" + UUID.randomUUID()));
             user = userRepository.save(user);
         }
 
@@ -83,7 +85,7 @@ public class OAuth2LoginSuccessHandler implements AuthenticationSuccessHandler {
 
         ResponseCookie cookie = ResponseCookie.from(API_KEY_COOKIE_NAME, apiKey.getApiKey())
                 .httpOnly(true)
-                .secure(false) // 로컬 개발용. 배포 HTTPS에서는 true 권장
+                .secure(false)
                 .path("/")
                 .maxAge(Duration.ofDays(7))
                 .sameSite("Lax")
@@ -92,5 +94,36 @@ public class OAuth2LoginSuccessHandler implements AuthenticationSuccessHandler {
         response.addHeader(HttpHeaders.SET_COOKIE, cookie.toString());
 
         response.sendRedirect("http://localhost:5173/oauth-success");
+    }
+
+    @SuppressWarnings("unchecked")
+    private String extractEmail(OAuth2User oauthUser) {
+        String email = oauthUser.getAttribute("email");
+
+        if (email != null && !email.isBlank()) {
+            return email;
+        }
+
+        Object kakaoAccountObj = oauthUser.getAttribute("kakao_account");
+
+        if (kakaoAccountObj instanceof Map<?, ?> kakaoAccount) {
+            Object kakaoEmail = kakaoAccount.get("email");
+
+            if (kakaoEmail instanceof String kakaoEmailStr && !kakaoEmailStr.isBlank()) {
+                return kakaoEmailStr;
+            }
+        }
+
+        Object naverResponseObj = oauthUser.getAttribute("response");
+
+        if (naverResponseObj instanceof Map<?, ?> naverResponse) {
+            Object naverEmail = naverResponse.get("email");
+
+            if (naverEmail instanceof String naverEmailStr && !naverEmailStr.isBlank()) {
+                return naverEmailStr;
+            }
+        }
+
+        return null;
     }
 }
