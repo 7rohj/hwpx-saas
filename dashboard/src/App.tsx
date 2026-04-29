@@ -18,6 +18,7 @@ type AuthView = "login" | "signup"
 
 export type PageType =
   | "landing"
+  | "login"
   | "dashboard-loading"
   | "dashboard"
   | "composeStudio"
@@ -87,7 +88,10 @@ export default function App() {
     return (
       <AdminLoginPage
         onAdminLoginSuccess={handleAdminLoginSuccess}
-        onBackToLogin={() => setAuthView("login")}
+        onBackToLogin={() => {
+          setAuthView("login")
+          setCurrentPage("login")
+        }}
       />
     )
   }
@@ -110,18 +114,29 @@ export default function App() {
       return (
         <Signup
           onSignupSuccess={handleSignupSuccess}
-          onGoLogin={() => setAuthView("login")}
+          onGoLogin={() => {
+            setAuthView("login")
+            setCurrentPage("login")
+          }}
         />
       )
     }
 
-    return (
-      <Login
-        onLoginSuccess={handleLoginSuccess}
-        onGoSignup={() => setAuthView("signup")}
-        onGoAdminLogin={() => setCurrentPage("admin-login")}
-      />
-    )
+    if (currentPage === "login") {
+      return (
+        <Login
+          onLoginSuccess={handleLoginSuccess}
+          onGoSignup={() => setAuthView("signup")}
+          onGoAdminLogin={() => setCurrentPage("admin-login")}
+        />
+      )
+    }
+
+    return <LandingPage
+    onNavigate={setCurrentPage}
+    onLogout={handleLogout}
+    isLoggedIn={isLoggedIn}
+  />
   }
 
   if (currentPage === "dashboard-loading") {
@@ -134,7 +149,11 @@ export default function App() {
   }
 
   if (currentPage === "landing") {
-    return <LandingPage onNavigate={setCurrentPage} onLogout={handleLogout} />
+    return <LandingPage
+    onNavigate={setCurrentPage}
+    onLogout={handleLogout}
+    isLoggedIn={isLoggedIn}
+  />
   }
 
   if (currentPage === "dashboard") {

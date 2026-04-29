@@ -6,6 +6,7 @@ import DemoPopup from "../components/DemoPopup"
 type LandingPageProps = {
   onNavigate: (page: PageType) => void
   onLogout: () => void
+  isLoggedIn: boolean
 }
 
 type FloatingAsset = {
@@ -169,6 +170,7 @@ function FloatingBackground() {
 export default function LandingPage({
   onNavigate,
   onLogout,
+  isLoggedIn,
 }: LandingPageProps) {
   const [currentWordIndex, setCurrentWordIndex] = useState(0)
   const [typedWord, setTypedWord] = useState("")
@@ -260,6 +262,7 @@ export default function LandingPage({
         onNavigate={onNavigate}
         currentPage="landing"
         onLogout={onLogout}
+        isLoggedIn={isLoggedIn}
       />
 
       <main className="relative">
