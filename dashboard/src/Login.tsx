@@ -9,6 +9,26 @@ type LoginProps = {
 
 const API_BASE_URL = import.meta.env.VITE_API_BASE_URL ?? "http://localhost:8080"
 
+function RecentBadge() {
+  return (
+    <div className="absolute -top-3 left-1/2 z-10 -translate-x-1/2 flex flex-col items-center">
+      {/* 메인 말풍선 본체 */}
+      <div className="relative rounded-full bg-white px-3 py-1 text-[11px] font-semibold text-[#1f69ef] shadow-md ring-1 ring-[#d7e5ff]">
+        최근 사용
+      </div>
+
+      {/* 말풍선 꼬리 (삼각형) */}
+      <div 
+        className="h-2 w-2 -mt-[5px] rotate-45 bg-white ring-1 ring-[#d7e5ff]" 
+        style={{ 
+          // 삼각형의 위쪽 절반을 잘라내어 본체와 겹치는 선을 제거합니다.
+          clipPath: 'polygon(100% 100%, 0% 100%, 100% 0%)' 
+        }} 
+      />
+    </div>
+  )
+}
+
 function mapLoginErrorMessage(message?: string) {
   if (!message) return "로그인에 실패했습니다."
 
@@ -40,6 +60,10 @@ export default function Login({
   const [password, setPassword] = useState("")
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState("")
+
+  const [lastLoginMethod] = useState(() => {
+    return localStorage.getItem("lastLoginMethod")
+  })
 
   async function handleLogin(e: React.FormEvent) {
     e.preventDefault()
@@ -73,6 +97,7 @@ export default function Login({
 
       localStorage.setItem("userEmail", data.email)
       localStorage.setItem("apiKey", data.apiKey)
+      localStorage.setItem("lastLoginMethod", "email")
 
       onLoginSuccess()
     } catch (err) {
@@ -84,11 +109,18 @@ export default function Login({
   }
 
   function handleGoogleLogin() {
+    localStorage.setItem("lastLoginMethod", "google")
     window.location.href = `${API_BASE_URL}/oauth2/authorization/google`
   }
 
   function handleKakaoLogin() {
+    localStorage.setItem("lastLoginMethod", "kakao")
     window.location.href = `${API_BASE_URL}/oauth2/authorization/kakao`
+  }
+
+  function handleNaverLogin() {
+    localStorage.setItem("lastLoginMethod", "naver")
+    window.location.href = `${API_BASE_URL}/oauth2/authorization/naver`
   }
 
   return (
@@ -106,22 +138,33 @@ export default function Login({
             </p>
           </div>
 
-          <button
-            type="button"
-            onClick={handleGoogleLogin}
-            className="mb-5 flex w-full items-center justify-center gap-3 rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm font-semibold text-slate-700 transition hover:bg-slate-50"
-          >
-            <span className="flex h-5 w-5 items-center justify-center rounded-full bg-white text-base font-bold">
-              G
-            </span>
-            Google로 로그인
-          </button>
+          <div className="relative mb-5">
+  
+            {/* 말풍선 */}
+            {lastLoginMethod === "google" && <RecentBadge />}
 
-          <button
-            type="button"
-            onClick={handleKakaoLogin}
-            className="mb-5 flex w-full items-center justify-center gap-3 rounded-2xl bg-[#FEE500] px-4 py-3 text-sm font-semibold text-[#191919] transition hover:brightness-95"
-          >
+            <button
+              type="button"
+              onClick={handleGoogleLogin}
+              className="flex w-full items-center justify-center gap-3 rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm font-semibold text-slate-700 transition hover:bg-slate-50"
+            >
+              <span className="flex h-5 w-5 items-center justify-center rounded-full bg-white text-base font-bold">
+                G
+              </span>
+              Google로 로그인
+            </button>
+
+          </div>
+
+          <div className="relative mb-5">
+            {lastLoginMethod === "kakao" && <RecentBadge />}
+
+            <button
+              type="button"
+              onClick={handleKakaoLogin}
+              className="flex w-full items-center justify-center gap-3 rounded-2xl bg-[#FEE500] px-4 py-3 text-sm font-semibold text-[#191919]"
+            >
+
             {/* 카카오 아이콘 */}
             <svg
               xmlns="http://www.w3.org/2000/svg"
@@ -132,8 +175,23 @@ export default function Login({
               <path d="M12 3C6.48 3 2 6.94 2 11.5c0 2.91 1.86 5.49 4.66 7.02-.2.73-.73 2.64-.84 3.06-.14.52.19.51.4.36.17-.11 2.74-1.87 3.86-2.65.62.09 1.26.14 1.92.14 5.52 0 10-3.94 10-8.5S17.52 3 12 3z"/>
             </svg>
 
-            카카오로 로그인
-          </button>
+              카카오로 로그인
+            </button>
+          </div>
+
+          <div className="relative mb-5">
+            {lastLoginMethod === "naver" && <RecentBadge />}
+
+            <button
+              type="button"
+              onClick={handleNaverLogin}
+              className="flex w-full items-center justify-center gap-3 rounded-2xl bg-[#03C75A] px-4 py-3 text-sm font-semibold text-white"
+            >
+              <span className="text-base font-black">N</span>
+
+              네이버로 로그인
+            </button>
+          </div>
 
           <div className="mb-5 flex items-center gap-3">
             <div className="h-px flex-1 bg-slate-200" />

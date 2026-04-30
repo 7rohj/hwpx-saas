@@ -967,7 +967,7 @@ export default function ComposeStudioPage({
 
   return (
     <>
-      <TopNav onNavigate={onNavigate} currentPage="composeStudio" onLogout={onLogout} />
+      <TopNav onNavigate={onNavigate} currentPage="composeStudio" onLogout={onLogout} isLoggedIn={true}/>
 
       {!showGuideModal && (
         <button

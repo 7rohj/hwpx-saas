@@ -21,7 +21,7 @@ export default function OAuthSuccessPage({
       window.history.replaceState({}, "", "/oauth-success")
 
       if (error) {
-        alert(`구글 로그인 실패: ${error}`)
+        alert(`소셜 로그인 실패: ${error}`)
         onNavigate("landing")
         return
       }
@@ -35,7 +35,7 @@ export default function OAuthSuccessPage({
         const data = await res.json()
 
         if (!res.ok || !data.ok || !data.email) {
-          alert("구글 로그인은 성공했지만 세션 정보를 가져오지 못했습니다.")
+          alert("소셜 로그인은 성공했지만 세션 정보를 가져오지 못했습니다.")
           onNavigate("landing")
           return
         }
@@ -46,7 +46,7 @@ export default function OAuthSuccessPage({
         onLoginSuccess()
       } catch (err) {
         console.error(err)
-        alert("구글 로그인 처리 중 오류가 발생했습니다.")
+        alert("소셜 로그인 처리 중 오류가 발생했습니다.")
         onNavigate("landing")
       }
     }
@@ -57,7 +57,7 @@ export default function OAuthSuccessPage({
   return (
     <div className="flex min-h-screen items-center justify-center bg-slate-50 text-slate-900">
       <div className="rounded-3xl border border-slate-200 bg-white p-8 text-center shadow-sm">
-        <p className="text-lg font-bold">구글 로그인 처리 중...</p>
+        <p className="text-lg font-bold">소셜 로그인 처리 중...</p>
         <p className="mt-2 text-sm text-slate-500">
           잠시 후 AutoHWPX로 이동합니다.
         </p>
