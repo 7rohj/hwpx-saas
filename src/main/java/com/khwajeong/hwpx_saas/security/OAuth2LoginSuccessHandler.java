@@ -31,7 +31,7 @@ public class OAuth2LoginSuccessHandler implements AuthenticationSuccessHandler {
     private final ApiKeyGenerator apiKeyGenerator;
     private final PasswordEncoder passwordEncoder;
 
-    private static final String FRONTEND_URL = "https://autohwpx.khj291400.workers.dev";
+    private static final String FRONTEND_URL = "https://autohwpx.com";
 
     public OAuth2LoginSuccessHandler(
             UserRepository userRepository,
