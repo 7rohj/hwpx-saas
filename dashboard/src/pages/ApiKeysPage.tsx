@@ -5,7 +5,6 @@ import {
   KeyRound,
   RefreshCw,
   Copy,
-  AlertCircle,
   CheckCircle2,
   Lock,
 } from "lucide-react"
@@ -21,7 +20,7 @@ type ApiKeysPageProps = {
   onLogout: () => void
 }
 
-const API_BASE_URL = import.meta.env.VITE_API_BASE_URL ?? "http://localhost:8080"
+const API_BASE_URL = import.meta.env.VITE_API_BASE_URL ?? "hhttps://api.autohwpx.com"
 
 function maskApiKey(value: string) {
   if (value.length <= 12) return value

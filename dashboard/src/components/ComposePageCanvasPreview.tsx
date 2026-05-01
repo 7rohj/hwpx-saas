@@ -41,7 +41,7 @@ export default function ComposePageCanvasPreview({
       <div className="mx-auto h-full max-w-[430px] rounded-[18px] border border-slate-200 bg-white px-8 py-8 shadow-[0_18px_45px_rgba(15,23,42,0.10)]">
         <div className="relative h-full overflow-hidden">
           <div className="space-y-2">
-            {paragraphs.map((p, idx) => {
+            {paragraphs.map((p) => {
               const selected = selectedParagraphId === p.paragraphId
               const fontSize = p.fontSize ?? 12
               const fontWeight = p.bold ? 700 : 400

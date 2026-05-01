@@ -60,7 +60,7 @@ public class HwpxStyleRegistryService {
 
         Element charPr = doc.createElement("hh:charPr");
         charPr.setAttribute("id", newId);
-        charPr.setAttribute("shadeColor", toHwpxColor("#FFFFFFFF"));
+        charPr.setAttribute("shadeColor", normalizeColor("#FFFFFFFF"));
         charPr.setAttribute("useFontSpace", "0");
         charPr.setAttribute("useKerning", "0");
         charPr.setAttribute("symMark", "NONE");
@@ -69,7 +69,7 @@ public class HwpxStyleRegistryService {
         if (textStyle != null) {
             charPr.setAttribute(
                     "textColor",
-                    textStyle.getFontColor() != null ? toHwpxColor(textStyle.getFontColor()) : toHwpxColor("#000000")
+                    textStyle.getFontColor() != null ? normalizeColor(textStyle.getFontColor()) : normalizeColor("#000000")
             );
             charPr.setAttribute(
                     "height",
@@ -86,7 +86,7 @@ public class HwpxStyleRegistryService {
                 Element underline = doc.createElement("hh:underline");
                 underline.setAttribute("type", "BOTTOM");
                 underline.setAttribute("shape", "SOLID");
-                underline.setAttribute("color", toHwpxColor("#000000"));
+                underline.setAttribute("color", normalizeColor("#000000"));
                 charPr.appendChild(underline);
             }
 
@@ -238,14 +238,14 @@ public class HwpxStyleRegistryService {
         Element diagonal = doc.createElement("hh:diagonal");
         diagonal.setAttribute("type", "SOLID");
         diagonal.setAttribute("width", "0.1 mm");
-        diagonal.setAttribute("color", toHwpxColor("#000000"));
+        diagonal.setAttribute("color", normalizeColor("#000000"));
         borderFill.appendChild(diagonal);
 
         if (backgroundColor != null && !backgroundColor.isBlank()) {
             Element fillBrush = doc.createElement("hc:fillBrush");
             Element winBrush = doc.createElement("hc:winBrush");
-            winBrush.setAttribute("faceColor", toHwpxColor(backgroundColor));
-            winBrush.setAttribute("hatchColor", toHwpxColor("#000000"));
+            winBrush.setAttribute("faceColor", normalizeColor(backgroundColor));
+            winBrush.setAttribute("hatchColor", normalizeColor("#000000"));
             winBrush.setAttribute("alpha", "0");
             fillBrush.appendChild(winBrush);
             borderFill.appendChild(fillBrush);
@@ -282,7 +282,7 @@ public class HwpxStyleRegistryService {
 
         edge.setAttribute("type", lineStyle);
         edge.setAttribute("width", width);
-        edge.setAttribute("color", toHwpxColor(color));
+        edge.setAttribute("color", normalizeColor(color));
         parent.appendChild(edge);
     }
 

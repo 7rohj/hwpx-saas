@@ -77,7 +77,7 @@ export default function App() {
 
   async function handleLogout() {
     try {
-      await fetch(`${import.meta.env.VITE_API_BASE_URL ?? "http://localhost:8080"}/api/v1/auth/logout`, {
+      await fetch(`${import.meta.env.VITE_API_BASE_URL ?? "https://api.autohwpx.com"}/api/v1/auth/logout`, {
         method: "POST",
         credentials: "include",
       })

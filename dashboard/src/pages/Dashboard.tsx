@@ -88,7 +88,7 @@ type DashboardProps = {
   onLogout: () => void
 }
 
-const API_BASE_URL = import.meta.env.VITE_API_BASE_URL ?? "http://localhost:8080"
+const API_BASE_URL = import.meta.env.VITE_API_BASE_URL ?? "https://api.autohwpx.com"
 
 function formatDate(value?: string | null) {
   if (!value) return "-"

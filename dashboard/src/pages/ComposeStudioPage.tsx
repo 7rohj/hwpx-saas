@@ -1,6 +1,5 @@
 import type { PageType } from "../App"
 import type { OverlayBox } from "../components/ComposePageOverlay"
-import CreditToast from "../components/CreditToast"
 import TopNav from "../components/TopNav"
 import ComposePageParagraphLayer from "../components/ComposePageParagraphLayer"
 import { useEffect, useMemo, useState } from "react"
@@ -147,7 +146,7 @@ type SavedSelectionHistoryItem = {
   savedAt: string
 }
 
-const API_BASE_URL = import.meta.env.VITE_API_BASE_URL ?? "http://localhost:8080"
+const API_BASE_URL = import.meta.env.VITE_API_BASE_URL ?? "https://api.autohwpx.com"
 
 const GUIDE_VIDEO_URL =
   import.meta.env.VITE_STUDIO_GUIDE_VIDEO_URL ?? "/videos/studio-guide.mp4"
@@ -331,6 +330,8 @@ export default function ComposeStudioPage({
   const [savedSelectionHistory, setSavedSelectionHistory] = useState<
     SavedSelectionHistoryItem[]
   >([])
+
+  const [highlightSourceTab, setHighlightSourceTab] = useState(false)
 
   const [creditToast, setCreditToast] = useState<{
     show: boolean
@@ -840,6 +841,14 @@ export default function ComposeStudioPage({
     }
   }
 
+  function triggerSourceTabHighlight() {
+    setHighlightSourceTab(true)
+
+    setTimeout(() => {
+      setHighlightSourceTab(false)
+    }, 1800)
+  }
+
   async function handleApply() {
     if (!sessionId) {
       alert("먼저 preview 업로드를 해주세요.")
@@ -861,6 +870,8 @@ export default function ComposeStudioPage({
 
     if (templateItems.length > 0 && sourceItems.length === 0) {
       alert("원본문서에 태그가 설정되지 않았습니다.")
+      setActiveSide("source")
+      triggerSourceTabHighlight()
       return
     }
 
@@ -1278,7 +1289,9 @@ export default function ComposeStudioPage({
                       <button
                         onClick={() => setActiveSide("source")}
                         className={`rounded-none px-4 py-2 text-sm font-medium transition ${
-                          activeSide === "source"
+                          highlightSourceTab
+                            ? "animate-pulse bg-yellow-100 text-yellow-900 shadow-[inset_0_0_0_3px_rgba(250,204,21,0.6)]"
+                            : activeSide === "source"
                             ? "bg-[#0f62fe] text-white"
                             : "border border-[#c6c6c6] bg-white text-slate-700 hover:bg-[#f4f4f4]"
                         }`}
