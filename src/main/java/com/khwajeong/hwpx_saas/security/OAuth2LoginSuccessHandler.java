@@ -12,7 +12,6 @@ import org.springframework.http.HttpHeaders;
 import org.springframework.http.ResponseCookie;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.crypto.password.PasswordEncoder;
-import org.springframework.security.oauth2.client.authentication.OAuth2AuthenticationToken;
 import org.springframework.security.oauth2.core.user.OAuth2User;
 import org.springframework.security.web.authentication.AuthenticationSuccessHandler;
 import org.springframework.stereotype.Component;
@@ -31,6 +30,8 @@ public class OAuth2LoginSuccessHandler implements AuthenticationSuccessHandler {
     private final ApiKeyRepository apiKeyRepository;
     private final ApiKeyGenerator apiKeyGenerator;
     private final PasswordEncoder passwordEncoder;
+
+    private static final String FRONTEND_URL = "https://autohwpx.khj291400.workers.dev";
 
     public OAuth2LoginSuccessHandler(
             UserRepository userRepository,
@@ -56,7 +57,7 @@ public class OAuth2LoginSuccessHandler implements AuthenticationSuccessHandler {
         String email = extractEmail(oauthUser);
 
         if (email == null || email.isBlank()) {
-            response.sendRedirect("http://localhost:5173/oauth-success?error=email_not_found");
+            response.sendRedirect(FRONTEND_URL + "/oauth-success?error=email_not_found");
             return;
         }
 
@@ -70,7 +71,7 @@ public class OAuth2LoginSuccessHandler implements AuthenticationSuccessHandler {
             user.setPasswordHash(passwordEncoder.encode("OAUTH_LOGIN_" + UUID.randomUUID()));
             user = userRepository.save(user);
         }
-        
+
         ApiKeyEntity apiKey = apiKeyRepository
                 .findFirstByUserIdAndStatusOrderByCreatedAtDesc(user.getId(), "ACTIVE")
                 .orElse(null);
@@ -85,15 +86,15 @@ public class OAuth2LoginSuccessHandler implements AuthenticationSuccessHandler {
 
         ResponseCookie cookie = ResponseCookie.from(API_KEY_COOKIE_NAME, apiKey.getApiKey())
                 .httpOnly(true)
-                .secure(false)
+                .secure(true) // 🔥 반드시 true
                 .path("/")
                 .maxAge(Duration.ofDays(7))
-                .sameSite("Lax")
+                .sameSite("None") // 🔥 cross-domain 대응
                 .build();
 
         response.addHeader(HttpHeaders.SET_COOKIE, cookie.toString());
 
-        response.sendRedirect("http://localhost:5173/oauth-success");
+        response.sendRedirect(FRONTEND_URL + "/oauth-success");
     }
 
     @SuppressWarnings("unchecked")
