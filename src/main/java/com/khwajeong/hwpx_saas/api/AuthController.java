@@ -16,10 +16,19 @@ import org.springframework.web.bind.annotation.*;
 import java.time.OffsetDateTime;
 import java.util.LinkedHashMap;
 import java.util.Map;
+import java.util.Set;
 
 @RestController
 @RequestMapping("/api/v1/auth")
 public class AuthController {
+
+    private static final Set<String> ALLOWED_EMAIL_DOMAINS = Set.of(
+            "naver.com",
+            "gmail.com",
+            "kakao.com",
+            "daum.net",
+            "hanmail.net"
+    );
 
     private final UserRepository userRepository;
     private final ApiKeyRepository apiKeyRepository;
@@ -47,16 +56,23 @@ public class AuthController {
             return ResponseEntity.badRequest().body(error("email is required"));
         }
 
+        String email = req.email.trim().toLowerCase();
+
+        String domainError = validateEmailDomain(email);
+        if (domainError != null) {
+            return ResponseEntity.badRequest().body(error(domainError));
+        }
+
         if (req.password == null || req.password.length() < 8) {
             return ResponseEntity.badRequest().body(error("password must be at least 8 characters"));
         }
 
-        if (userRepository.existsByEmail(req.email.trim())) {
+        if (userRepository.existsByEmail(email)) {
             return ResponseEntity.badRequest().body(error("email already exists"));
         }
 
         UserEntity user = new UserEntity();
-        user.setEmail(req.email.trim());
+        user.setEmail(email);
         user.setPasswordHash(passwordEncoder.encode(req.password));
         user.setRole("USER");
         user.setGrade("STARTER");
@@ -84,7 +100,7 @@ public class AuthController {
             return ResponseEntity.badRequest().body(error("email and password are required"));
         }
 
-        String email = req.email.trim();
+        String email = req.email.trim().toLowerCase();
 
         UserEntity user = userRepository.findByEmail(email).orElse(null);
         if (user == null) {
@@ -123,6 +139,25 @@ public class AuthController {
         res.put("apiKey", apiKey != null ? apiKey.getApiKey() : null);
 
         return ResponseEntity.ok(res);
+    }
+
+    private String validateEmailDomain(String email) {
+        if (email == null || !email.contains("@")) {
+            return "올바른 이메일 형식이 아닙니다.";
+        }
+
+        int atIndex = email.lastIndexOf("@");
+        if (atIndex <= 0 || atIndex >= email.length() - 1) {
+            return "올바른 이메일 형식이 아닙니다.";
+        }
+
+        String domain = email.substring(atIndex + 1).toLowerCase();
+
+        if (!ALLOWED_EMAIL_DOMAINS.contains(domain)) {
+            return "네이버, 구글, 카카오, 다음 이메일만 가입할 수 있습니다.";
+        }
+
+        return null;
     }
 
     private LoginLogEntity createLog(Long userId, String email, boolean success, String message) {

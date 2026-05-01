@@ -8,15 +8,38 @@ type SignupProps = {
 
 const API_BASE_URL = import.meta.env.VITE_API_BASE_URL ?? "http://localhost:8080"
 
+const EMAIL_DOMAINS = [
+  "naver.com",
+  "gmail.com",
+  "kakao.com",
+  "daum.net",
+  "hanmail.net",
+]
+
 export default function Signup({ onSignupSuccess, onGoLogin }: SignupProps) {
-  const [email, setEmail] = useState("")
+  const [emailLocalPart, setEmailLocalPart] = useState("")
+  const [emailDomain, setEmailDomain] = useState("naver.com")
   const [password, setPassword] = useState("")
   const [passwordConfirm, setPasswordConfirm] = useState("")
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState("")
 
+  const email = `${emailLocalPart.trim()}@${emailDomain}`
+
   async function handleSignup(e: React.FormEvent) {
     e.preventDefault()
+
+    const trimmedLocalPart = emailLocalPart.trim()
+
+    if (!trimmedLocalPart) {
+      setError("이메일 아이디를 입력해주세요.")
+      return
+    }
+
+    if (trimmedLocalPart.includes("@")) {
+      setError("이메일 아이디에는 @를 입력하지 말아주세요.")
+      return
+    }
 
     if (password !== passwordConfirm) {
       setError("비밀번호 확인이 일치하지 않습니다.")
@@ -82,17 +105,40 @@ export default function Signup({ onSignupSuccess, onGoLogin }: SignupProps) {
               <label className="mb-2 block text-sm font-medium text-slate-700">
                 이메일
               </label>
-              <div className="flex items-center gap-3 rounded-2xl border border-slate-200 bg-white px-4 py-3">
-                <Mail className="h-4 w-4 text-slate-400" />
-                <input
-                  type="email"
-                  value={email}
-                  onChange={(e) => setEmail(e.target.value)}
-                  placeholder="test1@autohwpx.com"
-                  className="w-full bg-transparent text-sm outline-none placeholder:text-slate-400"
-                  required
-                />
+
+              <div className="flex items-center gap-2">
+                <div className="flex min-w-0 flex-1 items-center gap-3 rounded-2xl border border-slate-200 bg-white px-4 py-3">
+                  <Mail className="h-4 w-4 shrink-0 text-slate-400" />
+                  <input
+                    type="text"
+                    value={emailLocalPart}
+                    onChange={(e) => setEmailLocalPart(e.target.value)}
+                    placeholder="아이디"
+                    className="min-w-0 w-full bg-transparent text-sm outline-none placeholder:text-slate-400"
+                    required
+                  />
+                </div>
+
+                <span className="shrink-0 text-sm font-semibold text-slate-400">
+                  @
+                </span>
+
+                <select
+                  value={emailDomain}
+                  onChange={(e) => setEmailDomain(e.target.value)}
+                  className="h-[50px] shrink-0 rounded-2xl border border-slate-200 bg-white px-3 text-sm font-medium text-slate-700 outline-none hover:bg-slate-50"
+                >
+                  {EMAIL_DOMAINS.map((domain) => (
+                    <option key={domain} value={domain}>
+                      {domain}
+                    </option>
+                  ))}
+                </select>
               </div>
+
+              <p className="mt-2 text-xs text-slate-400">
+                가입 이메일: {emailLocalPart.trim() ? email : "-"}
+              </p>
             </div>
 
             <div>
