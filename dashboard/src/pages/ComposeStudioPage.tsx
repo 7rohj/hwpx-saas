@@ -912,11 +912,16 @@ export default function ComposeStudioPage({
 
       if (!res.ok) {
         console.error("apply error response:", data)
-        throw new Error(
+        const message =
           typeof data === "string"
             ? data
             : data?.message || data?.error || "apply 실패"
-        )
+
+        if (message.includes("데모 버전에서는 하루 5회까지만 실행할 수 있습니다")) {
+          throw new Error("데모 버전에서는 하루 5회까지만 실행할 수 있습니다.")
+        }
+
+        throw new Error(message)
       }
 
       setApplyResult(data)

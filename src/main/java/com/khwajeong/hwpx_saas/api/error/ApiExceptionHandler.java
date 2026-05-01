@@ -24,6 +24,23 @@ public class ApiExceptionHandler {
     return ResponseEntity.status(e.getCode().status()).body(body);
   }
 
+  @ExceptionHandler(IllegalStateException.class)
+  public ResponseEntity<ApiErrorResponse> handleIllegalState(
+          IllegalStateException ex,
+          HttpServletRequest request
+  ) {
+      return ResponseEntity
+              .badRequest()
+              .body(
+                      ApiErrorResponse.of(
+                              ErrorCode.INTERNAL_ERROR,
+                              ex.getMessage(),
+                              null,
+                              request.getRequestURI()
+                      )
+              );
+  }
+
   /** @Valid DTO 검증 실패(400) */
   @ExceptionHandler(MethodArgumentNotValidException.class)
   public ResponseEntity<ApiErrorResponse> handleValid(MethodArgumentNotValidException e, HttpServletRequest req) {

@@ -4,6 +4,7 @@ import com.khwajeong.hwpx_saas.compose.dto.*;
 import com.khwajeong.hwpx_saas.compose.model.ComposeSelection;
 import org.springframework.stereotype.Service;
 import com.khwajeong.hwpx_saas.billing.service.CreditService;
+import com.khwajeong.hwpx_saas.billing.service.DailyUsageLimitService;
 
 import java.nio.file.Path;
 import java.util.*;
@@ -22,6 +23,7 @@ public class ComposeApplyRunnerService {
     private final IconClassifier iconClassifier;
     private final CreditService creditService;
     private final ComposeOutputStorageService composeOutputStorageService;
+    private final DailyUsageLimitService dailyUsageLimitService;
 
     public ComposeApplyRunnerService(
             ComposeSelectionService composeSelectionService,
@@ -33,7 +35,8 @@ public class ComposeApplyRunnerService {
             ComposeTableStyleApplyService composeTableStyleApplyService,
             IconClassifier iconClassifier,
             CreditService creditService,
-            ComposeOutputStorageService composeOutputStorageService
+            ComposeOutputStorageService composeOutputStorageService,
+            DailyUsageLimitService dailyUsageLimitService
     ) {
         this.composeSelectionService = composeSelectionService;
         this.composeService = composeService;
@@ -45,6 +48,7 @@ public class ComposeApplyRunnerService {
         this.iconClassifier = iconClassifier;
         this.creditService = creditService;
         this.composeOutputStorageService = composeOutputStorageService;
+        this.dailyUsageLimitService = dailyUsageLimitService;
     }
 
     public ComposeRunApplyResponse run(ComposeRunApplyRequest request) {
@@ -167,6 +171,8 @@ public class ComposeApplyRunnerService {
             // 추가: pageCount 계산
             int pageCount = calculatePageCount(session);
 
+            dailyUsageLimitService.checkAndIncrease(userEmail, "COMPOSE_APPLY", 5);
+
             // 추가: 필요 코인 계산 후 차감
             deductedCredits = creditService.calculateRequiredCredits(pageCount);
             creditService.checkAndDeduct(userEmail, pageCount);
@@ -287,6 +293,11 @@ public class ComposeApplyRunnerService {
 
             System.out.println("=== [COMPOSE APPLY-ALL ERROR] ===");
             e.printStackTrace();
+
+            if (e instanceof IllegalStateException) {
+                throw (IllegalStateException) e;
+            }
+
             throw new RuntimeException("compose apply-all failed: " + e.getMessage(), e);
         }
     }
