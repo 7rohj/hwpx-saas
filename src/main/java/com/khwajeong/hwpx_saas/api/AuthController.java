@@ -9,9 +9,12 @@ import com.khwajeong.hwpx_saas.db.LoginLogRepository;
 import com.khwajeong.hwpx_saas.db.UserEntity;
 import com.khwajeong.hwpx_saas.db.UserRepository;
 import com.khwajeong.hwpx_saas.service.ApiKeyGenerator;
+import com.khwajeong.hwpx_saas.service.EmailVerificationService;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.web.bind.annotation.*;
+
+import jakarta.servlet.http.HttpServletRequest;
 
 import java.time.OffsetDateTime;
 import java.util.LinkedHashMap;
@@ -35,19 +38,83 @@ public class AuthController {
     private final LoginLogRepository loginLogRepository;
     private final PasswordEncoder passwordEncoder;
     private final ApiKeyGenerator apiKeyGenerator;
+    private final EmailVerificationService emailVerificationService;
 
     public AuthController(
             UserRepository userRepository,
             ApiKeyRepository apiKeyRepository,
             LoginLogRepository loginLogRepository,
             PasswordEncoder passwordEncoder,
-            ApiKeyGenerator apiKeyGenerator
+            ApiKeyGenerator apiKeyGenerator,
+            EmailVerificationService emailVerificationService
     ) {
         this.userRepository = userRepository;
         this.apiKeyRepository = apiKeyRepository;
         this.loginLogRepository = loginLogRepository;
         this.passwordEncoder = passwordEncoder;
         this.apiKeyGenerator = apiKeyGenerator;
+        this.emailVerificationService = emailVerificationService;
+    }
+
+    @PostMapping("/email-code/send")
+    public ResponseEntity<?> sendEmailCode(
+            @RequestBody EmailCodeRequest req,
+            HttpServletRequest request
+    ) {
+        if (req.email == null || req.email.isBlank()) {
+            return ResponseEntity.badRequest().body(error("email is required"));
+        }
+
+        String email = req.email.trim().toLowerCase();
+
+        String domainError = validateEmailDomain(email);
+        if (domainError != null) {
+            return ResponseEntity.badRequest().body(error(domainError));
+        }
+
+        if (userRepository.existsByEmail(email)) {
+            return ResponseEntity.badRequest().body(error("email already exists"));
+        }
+
+        String clientIp = getClientIp(request);
+
+        try {
+            emailVerificationService.sendCode(email, clientIp);
+
+            Map<String, Object> res = new LinkedHashMap<>();
+            res.put("ok", true);
+            res.put("message", "인증번호를 발송했습니다.");
+            return ResponseEntity.ok(res);
+        } catch (IllegalStateException e) {
+            return ResponseEntity.badRequest().body(error(e.getMessage()));
+        } catch (Exception e) {
+            e.printStackTrace();
+            return ResponseEntity.internalServerError().body(error("인증번호 발송 중 오류가 발생했습니다."));
+        }
+    }
+
+    @PostMapping("/email-code/verify")
+    public ResponseEntity<?> verifyEmailCode(@RequestBody EmailCodeRequest req) {
+        if (req.email == null || req.email.isBlank()) {
+            return ResponseEntity.badRequest().body(error("email is required"));
+        }
+
+        if (req.code == null || req.code.isBlank()) {
+            return ResponseEntity.badRequest().body(error("인증번호를 입력해주세요."));
+        }
+
+        String email = req.email.trim().toLowerCase();
+
+        try {
+            emailVerificationService.verifyCode(email, req.code);
+
+            Map<String, Object> res = new LinkedHashMap<>();
+            res.put("ok", true);
+            res.put("message", "이메일 인증이 완료되었습니다.");
+            return ResponseEntity.ok(res);
+        } catch (IllegalArgumentException | IllegalStateException e) {
+            return ResponseEntity.badRequest().body(error(e.getMessage()));
+        }
     }
 
     @PostMapping("/signup")
@@ -61,6 +128,10 @@ public class AuthController {
         String domainError = validateEmailDomain(email);
         if (domainError != null) {
             return ResponseEntity.badRequest().body(error(domainError));
+        }
+
+        if (!emailVerificationService.isVerified(email)) {
+            return ResponseEntity.badRequest().body(error("이메일 인증을 먼저 완료해주세요."));
         }
 
         if (req.password == null || req.password.length() < 8) {
@@ -174,5 +245,18 @@ public class AuthController {
         map.put("ok", false);
         map.put("message", message);
         return map;
+    }
+
+    public static class EmailCodeRequest {
+        public String email;
+        public String code;
+    }
+
+    private String getClientIp(HttpServletRequest request) {
+        String xfHeader = request.getHeader("X-Forwarded-For");
+        if (xfHeader != null) {
+            return xfHeader.split(",")[0];
+        }
+        return request.getRemoteAddr();
     }
 }

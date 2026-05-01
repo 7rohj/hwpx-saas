@@ -8,9 +8,21 @@ app:
     secret-access-key: ${R2_SECRET_ACCESS_KEY}
 
   compose:
-    upload-dir : uploads/compose
+    upload-dir: uploads/compose
 
 spring:
+  mail:
+    host: smtp.gmail.com
+    port: 587
+    username: ${MAIL_USERNAME}
+    password: ${MAIL_PASSWORD}
+    properties:
+      mail:
+        smtp:
+          auth: true
+          starttls:
+            enable: true
+
   security:
     oauth2:
       client:
