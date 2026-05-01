@@ -171,7 +171,7 @@ public class ComposeApplyRunnerService {
             // 추가: pageCount 계산
             int pageCount = calculatePageCount(session);
 
-            dailyUsageLimitService.checkAndIncrease(userEmail, "COMPOSE_APPLY", 20);
+            dailyUsageLimitService.checkAndIncrease(userEmail, "COMPOSE_APPLY", 5);
 
             // 추가: 필요 코인 계산 후 차감
             deductedCredits = creditService.calculateRequiredCredits(pageCount);
