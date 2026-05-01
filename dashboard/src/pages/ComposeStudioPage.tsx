@@ -670,6 +670,7 @@ export default function ComposeStudioPage({
 
       const previewRes = await fetch(`${API_BASE_URL}/api/v1/compose/preview`, {
         method: "POST",
+        credentials: "include",
         body: formData,
       })
 
@@ -784,6 +785,7 @@ export default function ComposeStudioPage({
           "Content-Type": "application/json",
           "X-API-Key": apiKey,
         },
+        credentials: "include",
         body: JSON.stringify(body),
       })
 
@@ -905,6 +907,7 @@ export default function ComposeStudioPage({
           "Content-Type": "application/json",
           "X-API-Key": apiKey,
         },
+        credentials: "include",
         body: JSON.stringify({
           sessionId,
           label: currentRole,

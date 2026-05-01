@@ -204,6 +204,7 @@ export default function Dashboard({ onNavigate, onLogout }: DashboardProps) {
             headers: {
               "X-API-Key": apiKey,
             },
+            credentials: "include",
             signal: controller.signal,
           }),
           fetch(`${API_BASE_URL}/api/v1/dashboard/generated-files`, {
@@ -211,6 +212,7 @@ export default function Dashboard({ onNavigate, onLogout }: DashboardProps) {
             headers: {
               "X-API-Key": apiKey,
             },
+            credentials: "include",
             signal: controller.signal,
           }),
           fetch(`${API_BASE_URL}/api/v1/dashboard/usage-logs`, {
@@ -218,6 +220,7 @@ export default function Dashboard({ onNavigate, onLogout }: DashboardProps) {
             headers: {
               "X-API-Key": apiKey,
             },
+            credentials: "include",
             signal: controller.signal,
           }),
         ])

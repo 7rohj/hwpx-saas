@@ -99,6 +99,7 @@ export default function AdminPage({ onNavigate, onLogout }: AdminPageProps) {
             headers: {
               "X-Admin-Token": adminToken,
             },
+            credentials: "include",
             signal: controller.signal,
           }),
           fetch(`${API_BASE_URL}/api/v1/admin/login-logs`, {
@@ -106,6 +107,7 @@ export default function AdminPage({ onNavigate, onLogout }: AdminPageProps) {
             headers: {
               "X-Admin-Token": adminToken,
             },
+            credentials: "include",
             signal: controller.signal,
           }),
           fetch(`${API_BASE_URL}/api/v1/admin/api-keys`, {
@@ -113,6 +115,7 @@ export default function AdminPage({ onNavigate, onLogout }: AdminPageProps) {
             headers: {
               "X-Admin-Token": adminToken,
             },
+            credentials: "include",
             signal: controller.signal,
           }),
         ])

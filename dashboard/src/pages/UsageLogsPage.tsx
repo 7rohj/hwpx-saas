@@ -79,6 +79,7 @@ export default function UsageLogsPage({ onNavigate, onLogout }: UsageLogsPagePro
           headers: {
             "X-API-Key": apiKey,
           },
+          credentials: "include",
           signal: controller.signal,
         })
 
@@ -113,6 +114,7 @@ export default function UsageLogsPage({ onNavigate, onLogout }: UsageLogsPagePro
         headers: {
           "X-API-Key": apiKey,
         },
+        credentials: "include",
       })
 
       if (!response.ok) {

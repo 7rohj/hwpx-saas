@@ -76,6 +76,7 @@ export default function Signup({ onSignupSuccess, onGoLogin }: SignupProps) {
         headers: {
           "Content-Type": "application/json",
         },
+        credentials: "include",
         body: JSON.stringify({
           email,
         }),
@@ -115,6 +116,7 @@ export default function Signup({ onSignupSuccess, onGoLogin }: SignupProps) {
         headers: {
           "Content-Type": "application/json",
         },
+        credentials: "include",
         body: JSON.stringify({
           email,
           code: verificationCode.trim(),
@@ -168,6 +170,7 @@ export default function Signup({ onSignupSuccess, onGoLogin }: SignupProps) {
         headers: {
           "Content-Type": "application/json",
         },
+        credentials: "include",
         body: JSON.stringify({
           email,
           password,
