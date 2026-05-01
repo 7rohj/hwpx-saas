@@ -26,8 +26,6 @@ public class R2StorageService {
     }
 
     public String uploadHwpx(byte[] fileBytes, String objectKey) {
-        //System.out.println("[R2] bucketName = [" + safeBucketName + "]");
-        //System.out.println("[R2] objectKey = [" + safeObjectKey + "]");
 
         PutObjectRequest request = PutObjectRequest.builder()
                 .bucket(bucketName)
@@ -51,6 +49,11 @@ public class R2StorageService {
 
         ResponseBytes<GetObjectResponse> response = s3Client.getObjectAsBytes(request);
         return response.asByteArray();
+    }
+
+    // 🔥 여기 추가하면 끝
+    public byte[] download(String objectKey) {
+        return downloadFile(objectKey);
     }
 
     public boolean exists(String objectKey) {

@@ -942,27 +942,35 @@ export default function ComposeStudioPage({
   }
 
   async function triggerDownload(downloadUrl: string, fileName?: string) {
-    const apiKey = localStorage.getItem("apiKey") ?? ""
+    try {
+      const fullUrl = `${API_BASE_URL}${downloadUrl}`
+      console.log("download fullUrl =", fullUrl)
 
-    const res = await fetch(`${API_BASE_URL}${downloadUrl}`, {
-      headers: apiKey ? { "X-API-Key": apiKey } : {},
-    })
+      const res = await fetch(fullUrl, {
+        method: "GET",
+      })
 
-    if (!res.ok) {
-      throw new Error("파일 다운로드에 실패했습니다.")
+      if (!res.ok) {
+        const errorText = await res.text()
+        console.error("download error:", errorText)
+        throw new Error("파일 다운로드에 실패했습니다.")
+      }
+
+      const blob = await res.blob()
+      const objectUrl = URL.createObjectURL(blob)
+
+      const link = document.createElement("a")
+      link.href = objectUrl
+      link.download = fileName || "output.hwpx"
+      document.body.appendChild(link)
+      link.click()
+      link.remove()
+
+      URL.revokeObjectURL(objectUrl)
+    } catch (err) {
+      console.error(err)
+      alert(err instanceof Error ? err.message : "파일 다운로드에 실패했습니다.")
     }
-
-    const blob = await res.blob()
-    const objectUrl = URL.createObjectURL(blob)
-
-    const link = document.createElement("a")
-    link.href = objectUrl
-    link.download = fileName || "output.hwpx"
-    document.body.appendChild(link)
-    link.click()
-    link.remove()
-
-    URL.revokeObjectURL(objectUrl)
   }
 
   return (
@@ -1654,6 +1662,7 @@ export default function ComposeStudioPage({
                     {applyResult?.downloadUrl ? (
                       <div className="mt-4">
                         <button
+                          type="button"
                           onClick={() =>
                             triggerDownload(
                               applyResult.downloadUrl,

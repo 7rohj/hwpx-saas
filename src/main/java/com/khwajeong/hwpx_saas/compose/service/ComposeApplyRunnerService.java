@@ -21,6 +21,7 @@ public class ComposeApplyRunnerService {
     private final ComposeTableStyleApplyService composeTableStyleApplyService;
     private final IconClassifier iconClassifier;
     private final CreditService creditService;
+    private final ComposeOutputStorageService composeOutputStorageService;
 
     public ComposeApplyRunnerService(
             ComposeSelectionService composeSelectionService,
@@ -31,7 +32,8 @@ public class ComposeApplyRunnerService {
             HwpxTableExtractor hwpxTableExtractor,
             ComposeTableStyleApplyService composeTableStyleApplyService,
             IconClassifier iconClassifier,
-            CreditService creditService
+            CreditService creditService,
+            ComposeOutputStorageService composeOutputStorageService
     ) {
         this.composeSelectionService = composeSelectionService;
         this.composeService = composeService;
@@ -42,6 +44,7 @@ public class ComposeApplyRunnerService {
         this.composeTableStyleApplyService = composeTableStyleApplyService;
         this.iconClassifier = iconClassifier;
         this.creditService = creditService;
+        this.composeOutputStorageService = composeOutputStorageService;
     }
 
     public ComposeRunApplyResponse run(ComposeRunApplyRequest request) {
@@ -122,9 +125,16 @@ public class ComposeApplyRunnerService {
             );
             finalResponse.setMatchedParagraphIds(dedupPreserveOrder(allMatchedParagraphIds));
             finalResponse.setStyledParagraphs(dedupParagraphsPreserveOrder(allStyledParagraphs));
-            finalResponse.setOutputPath(workingSourcePath.toString());
-            finalResponse.setFileId(fileId);
-            finalResponse.setDownloadUrl("/api/v1/compose/files/" + fileId);
+            ComposeOutputStorageService.StoredComposeFile stored =
+                    composeOutputStorageService.uploadOutput(
+                            workingSourcePath,
+                            "anonymous",
+                            request.getSessionId()
+                    );
+
+            finalResponse.setOutputPath(stored.objectKey());
+            finalResponse.setFileId(stored.fileId());
+            finalResponse.setDownloadUrl(stored.downloadUrl());
 
             return finalResponse;
 
@@ -251,9 +261,16 @@ public class ComposeApplyRunnerService {
             finalResponse.setSourceSelectionSummary("source applied targets = " + appliedTargets);
             finalResponse.setMatchedParagraphIds(List.of());
             finalResponse.setStyledParagraphs(List.of());
-            finalResponse.setOutputPath(workingSourcePath.toString());
-            finalResponse.setFileId(workingSourcePath.getFileName().toString());
-            finalResponse.setDownloadUrl("/api/v1/compose/files/" + workingSourcePath.getFileName());
+            ComposeOutputStorageService.StoredComposeFile stored =
+                    composeOutputStorageService.uploadOutput(
+                            workingSourcePath,
+                            userEmail,
+                            request.getSessionId()
+                    );
+
+            finalResponse.setOutputPath(stored.objectKey());
+            finalResponse.setFileId(stored.fileId());
+            finalResponse.setDownloadUrl(stored.downloadUrl());
 
             return finalResponse;
 
