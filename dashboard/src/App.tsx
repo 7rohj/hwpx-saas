@@ -75,10 +75,21 @@ export default function App() {
     setCurrentPage("landing")
   }
 
-  function handleLogout() {
+  async function handleLogout() {
+    try {
+      await fetch(`${import.meta.env.VITE_API_BASE_URL ?? "http://localhost:8080"}/api/v1/auth/logout`, {
+        method: "POST",
+        credentials: "include",
+      })
+    } catch (err) {
+      console.error(err)
+    }
+
     localStorage.removeItem("userEmail")
     localStorage.removeItem("apiKey")
     localStorage.removeItem("loginType")
+    localStorage.removeItem("lastLoginAt")
+
     setIsLoggedIn(false)
     setAuthView("login")
     setCurrentPage("landing")

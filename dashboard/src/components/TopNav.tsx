@@ -1,3 +1,4 @@
+import { useState } from "react"
 import type { PageType } from "../App"
 
 type TopNavProps = {
@@ -13,14 +14,13 @@ export default function TopNav({
   onLogout,
   isLoggedIn = false,
 }: TopNavProps) {
+
+  // 🔥 hover 상태
+  const [hoveredMenu, setHoveredMenu] = useState<string | null>(null)
+
   const menu = [
     ["홈화면", "landing"],
     ["스튜디오", "composeStudio"],
-    // ["AI 생성 이미지 편집", "korean-image-editor"],
-    // ["대시보드", "dashboard"],
-    // ["My", "apikeys"],
-    // ["사용량 로그", "usage"],
-    // ["요금제", "pricing"],
   ] as const
 
   return (
@@ -41,18 +41,40 @@ export default function TopNav({
         <nav className="hidden items-center gap-2 md:flex">
           {menu.map(([label, page]) => {
             const active = currentPage === page
+
             return (
-              <button
+              <div
                 key={page}
-                onClick={() => onNavigate(page)}
-                className={`rounded-full px-4 py-2 text-sm transition ${
-                  active
-                    ? "bg-slate-900 text-white"
-                    : "text-slate-600 hover:bg-slate-100"
-                }`}
+                className="relative"
+                onMouseEnter={() => setHoveredMenu(page)}
+                onMouseLeave={() => setHoveredMenu(null)}
               >
-                {label}
-              </button>
+                <button
+                  onClick={() => {
+                    // 🔥 비로그인 시 스튜디오 막기
+                    if (!isLoggedIn && page === "composeStudio") {
+                      return
+                    }
+                    onNavigate(page)
+                  }}
+                  className={`rounded-full px-4 py-2 text-sm transition ${
+                    active
+                      ? "bg-slate-900 text-white"
+                      : "text-slate-600 hover:bg-slate-100"
+                  }`}
+                >
+                  {label}
+                </button>
+
+                {/* 🔥 말풍선 */}
+                {!isLoggedIn &&
+                  page === "composeStudio" &&
+                  hoveredMenu === page && (
+                    <div className="absolute left-1/2 top-full z-50 mt-2 -translate-x-1/2 whitespace-nowrap rounded-md bg-black px-3 py-1 text-xs text-white shadow-lg">
+                      로그인이 필요한 서비스입니다
+                    </div>
+                  )}
+              </div>
             )
           })}
         </nav>

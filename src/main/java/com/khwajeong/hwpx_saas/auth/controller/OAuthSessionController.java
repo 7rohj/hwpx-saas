@@ -7,8 +7,11 @@ import com.khwajeong.hwpx_saas.db.UserRepository;
 import com.khwajeong.hwpx_saas.security.OAuth2LoginSuccessHandler;
 import jakarta.servlet.http.Cookie;
 import jakarta.servlet.http.HttpServletRequest;
+import jakarta.servlet.http.HttpServletResponse;
 import org.springframework.web.bind.annotation.*;
-
+import org.springframework.http.HttpHeaders;
+import org.springframework.http.ResponseCookie;
+import java.time.Duration;
 import java.util.Map;
 
 @RestController
@@ -24,6 +27,22 @@ public class OAuthSessionController {
     ) {
         this.apiKeyRepository = apiKeyRepository;
         this.userRepository = userRepository;
+    }
+
+    @PostMapping("/logout")
+    public Map<String, Object> logout(HttpServletResponse response) {
+        ResponseCookie deleteCookie = ResponseCookie
+                .from(OAuth2LoginSuccessHandler.API_KEY_COOKIE_NAME, "")
+                .httpOnly(true)
+                .secure(false)
+                .path("/")
+                .maxAge(Duration.ZERO)
+                .sameSite("Lax")
+                .build();
+
+        response.addHeader(HttpHeaders.SET_COOKIE, deleteCookie.toString());
+
+        return Map.of("ok", true);
     }
 
     @GetMapping("/me")

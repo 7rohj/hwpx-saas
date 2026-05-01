@@ -18,10 +18,8 @@ export default function OAuthSuccessPage({
       const params = new URLSearchParams(window.location.search)
       const error = params.get("error")
 
-      window.history.replaceState({}, "", "/oauth-success")
-
       if (error) {
-        alert(`소셜 로그인 실패: ${error}`)
+        window.history.replaceState({}, "", "/")
         onNavigate("landing")
         return
       }
@@ -35,7 +33,7 @@ export default function OAuthSuccessPage({
         const data = await res.json()
 
         if (!res.ok || !data.ok || !data.email) {
-          alert("소셜 로그인은 성공했지만 세션 정보를 가져오지 못했습니다.")
+          window.history.replaceState({}, "", "/")
           onNavigate("landing")
           return
         }
@@ -43,10 +41,17 @@ export default function OAuthSuccessPage({
         localStorage.setItem("userEmail", data.email)
         localStorage.setItem("loginType", "oauth")
 
+        if (data.lastLoginAt) {
+          localStorage.setItem("lastLoginAt", data.lastLoginAt)
+        }
+
+        // 핵심: OAuth 처리 끝나면 주소를 랜딩으로 바꿈
+        window.history.replaceState({}, "", "/")
+
         onLoginSuccess()
       } catch (err) {
         console.error(err)
-        alert("소셜 로그인 처리 중 오류가 발생했습니다.")
+        window.history.replaceState({}, "", "/")
         onNavigate("landing")
       }
     }
