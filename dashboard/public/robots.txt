@@ -1,0 +1,4 @@
+User-agent: *
+Allow: /
+
+Sitemap: https://autohwpx.com/sitemap.xml
