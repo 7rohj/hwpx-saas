@@ -2,6 +2,8 @@ package com.khwajeong.hwpx_saas.security;
 
 import com.khwajeong.hwpx_saas.db.ApiKeyEntity;
 import com.khwajeong.hwpx_saas.db.ApiKeyRepository;
+import com.khwajeong.hwpx_saas.db.LoginLogEntity;
+import com.khwajeong.hwpx_saas.db.LoginLogRepository;
 import com.khwajeong.hwpx_saas.db.UserEntity;
 import com.khwajeong.hwpx_saas.db.UserRepository;
 import com.khwajeong.hwpx_saas.service.ApiKeyGenerator;
@@ -12,12 +14,14 @@ import org.springframework.http.HttpHeaders;
 import org.springframework.http.ResponseCookie;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.crypto.password.PasswordEncoder;
+import org.springframework.security.oauth2.client.authentication.OAuth2AuthenticationToken;
 import org.springframework.security.oauth2.core.user.OAuth2User;
 import org.springframework.security.web.authentication.AuthenticationSuccessHandler;
 import org.springframework.stereotype.Component;
 
 import java.io.IOException;
 import java.time.Duration;
+import java.time.OffsetDateTime;
 import java.util.Map;
 import java.util.UUID;
 
@@ -30,6 +34,7 @@ public class OAuth2LoginSuccessHandler implements AuthenticationSuccessHandler {
     private final ApiKeyRepository apiKeyRepository;
     private final ApiKeyGenerator apiKeyGenerator;
     private final PasswordEncoder passwordEncoder;
+    private final LoginLogRepository loginLogRepository;
 
     private static final String FRONTEND_URL = "https://autohwpx.com";
 
@@ -37,12 +42,14 @@ public class OAuth2LoginSuccessHandler implements AuthenticationSuccessHandler {
             UserRepository userRepository,
             ApiKeyRepository apiKeyRepository,
             ApiKeyGenerator apiKeyGenerator,
-            PasswordEncoder passwordEncoder
+            PasswordEncoder passwordEncoder,
+            LoginLogRepository loginLogRepository
     ) {
         this.userRepository = userRepository;
         this.apiKeyRepository = apiKeyRepository;
         this.apiKeyGenerator = apiKeyGenerator;
         this.passwordEncoder = passwordEncoder;
+        this.loginLogRepository = loginLogRepository;
     }
 
     @Override
@@ -54,6 +61,7 @@ public class OAuth2LoginSuccessHandler implements AuthenticationSuccessHandler {
 
         OAuth2User oauthUser = (OAuth2User) authentication.getPrincipal();
 
+        String provider = extractProvider(authentication);
         String email = extractEmail(oauthUser);
 
         if (email == null || email.isBlank()) {
@@ -68,6 +76,7 @@ public class OAuth2LoginSuccessHandler implements AuthenticationSuccessHandler {
         if (user == null) {
             user = new UserEntity();
             user.setEmail(email);
+            user.setProvider(provider);
             user.setPasswordHash(passwordEncoder.encode("OAUTH_LOGIN_" + UUID.randomUUID()));
             user = userRepository.save(user);
         }
@@ -86,15 +95,45 @@ public class OAuth2LoginSuccessHandler implements AuthenticationSuccessHandler {
 
         ResponseCookie cookie = ResponseCookie.from(API_KEY_COOKIE_NAME, apiKey.getApiKey())
                 .httpOnly(true)
-                .secure(true) // 🔥 반드시 true
+                .secure(true)
                 .path("/")
                 .maxAge(Duration.ofDays(7))
-                .sameSite("None") // 🔥 cross-domain 대응
+                .sameSite("None")
                 .build();
 
         response.addHeader(HttpHeaders.SET_COOKIE, cookie.toString());
 
+        saveLoginLog(user, provider);
+
         response.sendRedirect(FRONTEND_URL + "/oauth-success");
+    }
+
+    private String extractProvider(Authentication authentication) {
+        if (authentication instanceof OAuth2AuthenticationToken token) {
+            return token.getAuthorizedClientRegistrationId(); // google / kakao / naver
+        }
+
+        return "oauth";
+    }
+
+    private void saveLoginLog(UserEntity user, String provider) {
+        try {
+            OffsetDateTime now = OffsetDateTime.now();
+
+            LoginLogEntity log = new LoginLogEntity();
+            log.setUserId(user.getId());
+            log.setEmail(user.getEmail());
+            log.setSuccess(true);
+            log.setLoginAt(now);
+            log.setMessage("OAUTH_LOGIN_" + provider.toUpperCase());
+
+            loginLogRepository.save(log);
+
+            user.setLastLoginAt(now);
+            userRepository.save(user);
+        } catch (Exception e) {
+            e.printStackTrace();
+        }
     }
 
     @SuppressWarnings("unchecked")

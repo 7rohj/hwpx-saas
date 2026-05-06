@@ -28,7 +28,10 @@ public class UserEntity {
 
     @Column(nullable = false, length = 30)
     private String status = "ACTIVE"; // ACTIVE / BLOCKED / DELETED
-    
+
+    @Column(nullable = false, length = 30)
+    private String provider = "local"; // local / google / kakao / naver
+
     private OffsetDateTime lastLoginAt;
 
     @PrePersist
@@ -44,7 +47,26 @@ public class UserEntity {
         }
         if (status == null || status.isBlank()) {
             status = "ACTIVE";
-        }        
+        }
+        if (provider == null || provider.isBlank()) {
+            provider = "local";
+        }
+    }
+
+    @PreUpdate
+    public void preUpdate() {
+        if (role == null || role.isBlank()) {
+            role = "USER";
+        }
+        if (grade == null || grade.isBlank()) {
+            grade = "STARTER";
+        }
+        if (status == null || status.isBlank()) {
+            status = "ACTIVE";
+        }
+        if (provider == null || provider.isBlank()) {
+            provider = "local";
+        }
     }
 
     public Long getId() {
@@ -59,6 +81,10 @@ public class UserEntity {
         return passwordHash;
     }
 
+    public OffsetDateTime getCreatedAt() {
+        return createdAt;
+    }
+
     public String getRole() {
         return role;
     }
@@ -71,8 +97,8 @@ public class UserEntity {
         return status;
     }
 
-    public OffsetDateTime getCreatedAt() {
-        return createdAt;
+    public String getProvider() {
+        return provider;
     }
 
     public OffsetDateTime getLastLoginAt() {
@@ -101,6 +127,10 @@ public class UserEntity {
 
     public void setStatus(String status) {
         this.status = status;
+    }
+
+    public void setProvider(String provider) {
+        this.provider = provider;
     }
 
     public void setLastLoginAt(OffsetDateTime lastLoginAt) {

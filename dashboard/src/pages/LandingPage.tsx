@@ -302,6 +302,10 @@ export default function LandingPage({
         </section>
       </main>
 
+      <footer className="text-center text-sm text-gray-500 py-6">
+        © 2026 AutoHWPX. All rights reserved.
+      </footer>
+
       <button
         type="button"
         onClick={handleShowDemoPopupAgain}

@@ -25,10 +25,17 @@ public class LoginLogEntity {
     @Column(length = 100)
     private String message;
 
+    @Column(nullable = false, length = 30)
+    private String provider = "local";
+
     @PrePersist
     public void prePersist() {
         if (loginAt == null) {
             loginAt = OffsetDateTime.now();
+        }
+
+        if (provider == null || provider.isBlank()) {
+            provider = "local";
         }
     }
 
@@ -56,6 +63,10 @@ public class LoginLogEntity {
         return message;
     }
 
+    public String getProvider() {
+        return provider;
+    }
+
     public void setUserId(Long userId) {
         this.userId = userId;
     }
@@ -74,5 +85,9 @@ public class LoginLogEntity {
 
     public void setMessage(String message) {
         this.message = message;
+    }
+
+    public void setProvider(String provider) {
+        this.provider = provider;
     }
 }
