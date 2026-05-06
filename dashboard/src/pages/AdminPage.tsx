@@ -220,7 +220,8 @@ export default function AdminPage({ onNavigate, onLogout }: AdminPageProps) {
       })
 
       if (!response.ok) {
-        throw new Error("DB 백업 다운로드에 실패했습니다.")
+        const text = await response.text()
+        throw new Error(`DB 백업 다운로드 실패 (${response.status}): ${text}`)
       }
 
       const blob = await response.blob()
