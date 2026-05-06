@@ -10,11 +10,11 @@ import com.khwajeong.hwpx_saas.db.UserEntity;
 import com.khwajeong.hwpx_saas.db.UserRepository;
 import com.khwajeong.hwpx_saas.service.ApiKeyGenerator;
 import com.khwajeong.hwpx_saas.service.EmailVerificationService;
+import com.khwajeong.hwpx_saas.service.GoogleSheetLogService;
+import jakarta.servlet.http.HttpServletRequest;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.web.bind.annotation.*;
-
-import jakarta.servlet.http.HttpServletRequest;
 
 import java.time.OffsetDateTime;
 import java.util.LinkedHashMap;
@@ -39,6 +39,7 @@ public class AuthController {
     private final PasswordEncoder passwordEncoder;
     private final ApiKeyGenerator apiKeyGenerator;
     private final EmailVerificationService emailVerificationService;
+    private final GoogleSheetLogService googleSheetLogService;
 
     public AuthController(
             UserRepository userRepository,
@@ -46,7 +47,8 @@ public class AuthController {
             LoginLogRepository loginLogRepository,
             PasswordEncoder passwordEncoder,
             ApiKeyGenerator apiKeyGenerator,
-            EmailVerificationService emailVerificationService
+            EmailVerificationService emailVerificationService,
+            GoogleSheetLogService googleSheetLogService
     ) {
         this.userRepository = userRepository;
         this.apiKeyRepository = apiKeyRepository;
@@ -54,6 +56,7 @@ public class AuthController {
         this.passwordEncoder = passwordEncoder;
         this.apiKeyGenerator = apiKeyGenerator;
         this.emailVerificationService = emailVerificationService;
+        this.googleSheetLogService = googleSheetLogService;
     }
 
     @PostMapping("/email-code/send")
@@ -144,6 +147,7 @@ public class AuthController {
 
         UserEntity user = new UserEntity();
         user.setEmail(email);
+        user.setProvider("local");
         user.setPasswordHash(passwordEncoder.encode(req.password));
         user.setRole("USER");
         user.setGrade("STARTER");
@@ -155,6 +159,15 @@ public class AuthController {
         apiKey.setApiKey(apiKeyGenerator.generate());
         apiKey.setStatus("ACTIVE");
         apiKeyRepository.save(apiKey);
+
+        googleSheetLogService.send(
+                "SIGNUP",
+                user.getEmail(),
+                "local",
+                true,
+                "SIGNUP_SUCCESS",
+                user.getId()
+        );
 
         Map<String, Object> res = new LinkedHashMap<>();
         res.put("ok", true);
@@ -175,29 +188,44 @@ public class AuthController {
 
         UserEntity user = userRepository.findByEmail(email).orElse(null);
         if (user == null) {
-            loginLogRepository.save(createLog(null, email, false, "USER_NOT_FOUND"));
+            loginLogRepository.save(createLog(null, email, false, "USER_NOT_FOUND", "local"));
+            googleSheetLogService.send("LOGIN", email, "local", false, "USER_NOT_FOUND", null);
             return ResponseEntity.status(401).body(error("invalid email or password"));
         }
 
         if (!passwordEncoder.matches(req.password, user.getPasswordHash())) {
-            loginLogRepository.save(createLog(user.getId(), user.getEmail(), false, "WRONG_PASSWORD"));
+            loginLogRepository.save(createLog(user.getId(), user.getEmail(), false, "WRONG_PASSWORD", "local"));
+            googleSheetLogService.send("LOGIN", user.getEmail(), "local", false, "WRONG_PASSWORD", user.getId());
             return ResponseEntity.status(401).body(error("invalid email or password"));
         }
 
         if ("BLOCKED".equalsIgnoreCase(user.getStatus())) {
-            loginLogRepository.save(createLog(user.getId(), user.getEmail(), false, "BLOCKED_USER"));
+            loginLogRepository.save(createLog(user.getId(), user.getEmail(), false, "BLOCKED_USER", "local"));
+            googleSheetLogService.send("LOGIN", user.getEmail(), "local", false, "BLOCKED_USER", user.getId());
             return ResponseEntity.status(403).body(error("blocked user"));
         }
 
         if ("DELETED".equalsIgnoreCase(user.getStatus())) {
-            loginLogRepository.save(createLog(user.getId(), user.getEmail(), false, "DELETED_USER"));
+            loginLogRepository.save(createLog(user.getId(), user.getEmail(), false, "DELETED_USER", "local"));
+            googleSheetLogService.send("LOGIN", user.getEmail(), "local", false, "DELETED_USER", user.getId());
             return ResponseEntity.status(403).body(error("deleted user"));
         }
 
-        user.setLastLoginAt(OffsetDateTime.now());
+        OffsetDateTime now = OffsetDateTime.now();
+        user.setProvider("local");
+        user.setLastLoginAt(now);
         userRepository.save(user);
 
-        loginLogRepository.save(createLog(user.getId(), user.getEmail(), true, "SUCCESS"));
+        loginLogRepository.save(createLog(user.getId(), user.getEmail(), true, "SUCCESS", "local"));
+
+        googleSheetLogService.send(
+                "LOGIN",
+                user.getEmail(),
+                "local",
+                true,
+                "LOGIN_SUCCESS",
+                user.getId()
+        );
 
         ApiKeyEntity apiKey = apiKeyRepository
                 .findFirstByUserIdAndStatusOrderByCreatedAtDesc(user.getId(), "ACTIVE")
@@ -231,11 +259,12 @@ public class AuthController {
         return null;
     }
 
-    private LoginLogEntity createLog(Long userId, String email, boolean success, String message) {
+    private LoginLogEntity createLog(Long userId, String email, boolean success, String message, String provider) {
         LoginLogEntity log = new LoginLogEntity();
         log.setUserId(userId);
         log.setEmail(email);
         log.setSuccess(success);
+        log.setProvider(provider);
         log.setMessage(message);
         return log;
     }

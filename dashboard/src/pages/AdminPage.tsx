@@ -200,6 +200,32 @@ export default function AdminPage({ onNavigate, onLogout }: AdminPageProps) {
     }
   }
 
+  async function handleDebugDbPath() {
+    const adminToken = localStorage.getItem("adminToken") ?? ""
+
+    if (!adminToken) {
+      alert("관리자 토큰이 없습니다.")
+      return
+    }
+
+    try {
+      const response = await fetch(`${API_BASE_URL}/api/v1/admin/debug/db-path`, {
+        method: "GET",
+        headers: {
+          "X-Admin-Token": adminToken,
+        },
+        credentials: "include",
+      })
+
+      const data = await response.json()
+
+      alert(JSON.stringify(data, null, 2))
+    } catch (err) {
+      console.error(err)
+      alert("DB 경로 확인 실패")
+    }
+  }
+
   async function handleDownloadDbBackup() {
     const adminToken = localStorage.getItem("adminToken") ?? ""
 
@@ -496,6 +522,13 @@ export default function AdminPage({ onNavigate, onLogout }: AdminPageProps) {
                 >
                   <Download className={`h-4 w-4 ${backupDownloading ? "animate-bounce" : ""}`} />
                   {backupDownloading ? "백업 다운로드 중..." : "DB 백업 다운로드"}
+                </button>
+
+                <button
+                  onClick={handleDebugDbPath}
+                  className="inline-flex items-center justify-center gap-2 rounded-2xl border border-[#d7e5ff] bg-white px-4 py-3 text-sm font-semibold text-[#1f69ef]"
+                >
+                  DB 경로 확인
                 </button>
 
                 <button

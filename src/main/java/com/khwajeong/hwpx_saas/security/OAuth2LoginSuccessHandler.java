@@ -7,6 +7,7 @@ import com.khwajeong.hwpx_saas.db.LoginLogRepository;
 import com.khwajeong.hwpx_saas.db.UserEntity;
 import com.khwajeong.hwpx_saas.db.UserRepository;
 import com.khwajeong.hwpx_saas.service.ApiKeyGenerator;
+import com.khwajeong.hwpx_saas.service.GoogleSheetLogService;
 import jakarta.servlet.ServletException;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
@@ -35,6 +36,7 @@ public class OAuth2LoginSuccessHandler implements AuthenticationSuccessHandler {
     private final ApiKeyGenerator apiKeyGenerator;
     private final PasswordEncoder passwordEncoder;
     private final LoginLogRepository loginLogRepository;
+    private final GoogleSheetLogService googleSheetLogService;
 
     private static final String FRONTEND_URL = "https://autohwpx.com";
 
@@ -43,13 +45,15 @@ public class OAuth2LoginSuccessHandler implements AuthenticationSuccessHandler {
             ApiKeyRepository apiKeyRepository,
             ApiKeyGenerator apiKeyGenerator,
             PasswordEncoder passwordEncoder,
-            LoginLogRepository loginLogRepository
+            LoginLogRepository loginLogRepository,
+            GoogleSheetLogService googleSheetLogService
     ) {
         this.userRepository = userRepository;
         this.apiKeyRepository = apiKeyRepository;
         this.apiKeyGenerator = apiKeyGenerator;
         this.passwordEncoder = passwordEncoder;
         this.loginLogRepository = loginLogRepository;
+        this.googleSheetLogService = googleSheetLogService;
     }
 
     @Override
@@ -69,7 +73,7 @@ public class OAuth2LoginSuccessHandler implements AuthenticationSuccessHandler {
             return;
         }
 
-        email = email.trim();
+        email = email.trim().toLowerCase();
 
         UserEntity user = userRepository.findByEmail(email).orElse(null);
 
@@ -78,6 +82,18 @@ public class OAuth2LoginSuccessHandler implements AuthenticationSuccessHandler {
             user.setEmail(email);
             user.setProvider(provider);
             user.setPasswordHash(passwordEncoder.encode("OAUTH_LOGIN_" + UUID.randomUUID()));
+            user = userRepository.save(user);
+
+            googleSheetLogService.send(
+                    "SIGNUP",
+                    user.getEmail(),
+                    provider,
+                    true,
+                    "OAUTH_SIGNUP_" + provider.toUpperCase(),
+                    user.getId()
+            );
+        } else {
+            user.setProvider(provider);
             user = userRepository.save(user);
         }
 
@@ -105,12 +121,21 @@ public class OAuth2LoginSuccessHandler implements AuthenticationSuccessHandler {
 
         saveLoginLog(user, provider);
 
+        googleSheetLogService.send(
+                "OAUTH_LOGIN",
+                user.getEmail(),
+                provider,
+                true,
+                "OAUTH_LOGIN_" + provider.toUpperCase(),
+                user.getId()
+        );
+
         response.sendRedirect(FRONTEND_URL + "/oauth-success");
     }
 
     private String extractProvider(Authentication authentication) {
         if (authentication instanceof OAuth2AuthenticationToken token) {
-            return token.getAuthorizedClientRegistrationId(); // google / kakao / naver
+            return token.getAuthorizedClientRegistrationId();
         }
 
         return "oauth";
@@ -124,6 +149,7 @@ public class OAuth2LoginSuccessHandler implements AuthenticationSuccessHandler {
             log.setUserId(user.getId());
             log.setEmail(user.getEmail());
             log.setSuccess(true);
+            log.setProvider(provider);
             log.setLoginAt(now);
             log.setMessage("OAUTH_LOGIN_" + provider.toUpperCase());
 
