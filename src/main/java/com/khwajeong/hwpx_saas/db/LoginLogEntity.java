@@ -22,18 +22,17 @@ public class LoginLogEntity {
     @Column(nullable = false)
     private OffsetDateTime loginAt;
 
+    @Column(nullable = false, length = 30)
+    private String provider = "local"; // local / google / kakao / naver
+
     @Column(length = 100)
     private String message;
-
-    @Column(nullable = false, length = 30)
-    private String provider = "local";
 
     @PrePersist
     public void prePersist() {
         if (loginAt == null) {
             loginAt = OffsetDateTime.now();
         }
-
         if (provider == null || provider.isBlank()) {
             provider = "local";
         }
@@ -59,12 +58,12 @@ public class LoginLogEntity {
         return loginAt;
     }
 
-    public String getMessage() {
-        return message;
-    }
-
     public String getProvider() {
         return provider;
+    }
+
+    public String getMessage() {
+        return message;
     }
 
     public void setUserId(Long userId) {
@@ -83,11 +82,11 @@ public class LoginLogEntity {
         this.loginAt = loginAt;
     }
 
-    public void setMessage(String message) {
-        this.message = message;
-    }
-
     public void setProvider(String provider) {
         this.provider = provider;
+    }
+
+    public void setMessage(String message) {
+        this.message = message;
     }
 }

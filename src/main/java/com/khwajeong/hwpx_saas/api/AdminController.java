@@ -7,11 +7,14 @@ import com.khwajeong.hwpx_saas.db.AdminSessionEntity;
 import com.khwajeong.hwpx_saas.db.AdminSessionRepository;
 import com.khwajeong.hwpx_saas.db.ApiKeyEntity;
 import com.khwajeong.hwpx_saas.db.ApiKeyRepository;
+import com.khwajeong.hwpx_saas.db.LoginLogEntity;
+import com.khwajeong.hwpx_saas.db.LoginLogRepository;
 import com.khwajeong.hwpx_saas.db.UserEntity;
 import com.khwajeong.hwpx_saas.db.UserRepository;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
+import java.util.Comparator;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
@@ -22,28 +25,39 @@ public class AdminController {
 
     private final UserRepository userRepository;
     private final AdminLoginLogRepository adminLoginLogRepository;
+    private final LoginLogRepository loginLogRepository;
     private final ApiKeyRepository apiKeyRepository;
     private final AdminSessionRepository adminSessionRepository;
 
     public AdminController(
             UserRepository userRepository,
             AdminLoginLogRepository adminLoginLogRepository,
+            LoginLogRepository loginLogRepository,
             ApiKeyRepository apiKeyRepository,
             AdminSessionRepository adminSessionRepository
     ) {
         this.userRepository = userRepository;
         this.adminLoginLogRepository = adminLoginLogRepository;
+        this.loginLogRepository = loginLogRepository;
         this.apiKeyRepository = apiKeyRepository;
         this.adminSessionRepository = adminSessionRepository;
     }
 
     @GetMapping("/users")
     public List<UserEntity> users() {
-        return userRepository.findAll();
+        return userRepository.findAll()
+                .stream()
+                .sorted(Comparator.comparing(UserEntity::getId).reversed())
+                .toList();
     }
 
     @GetMapping("/login-logs")
-    public List<AdminLoginLogEntity> loginLogs() {
+    public List<LoginLogEntity> loginLogs() {
+        return loginLogRepository.findTop100ByOrderByLoginAtDesc();
+    }
+
+    @GetMapping("/admin-login-logs")
+    public List<AdminLoginLogEntity> adminLoginLogs() {
         return adminLoginLogRepository.findAll();
     }
 
