@@ -82,6 +82,19 @@ public class AdminController {
     public List<AdminSessionEntity> adminSessions() {
         return adminSessionRepository.findAll();
     }
+    
+    @GetMapping("/debug/db-path")
+    public ResponseEntity<?> debugDbPath() {
+        Map<String, Object> res = new LinkedHashMap<>();
+        Path path = Path.of(dbPath);
+
+        res.put("dbPath", dbPath);
+        res.put("exists", Files.exists(path));
+        res.put("absolutePath", path.toAbsolutePath().toString());
+        res.put("parentExists", path.getParent() != null && Files.exists(path.getParent()));
+
+        return ResponseEntity.ok(res);
+    }
 
     @GetMapping("/backup/db")
     public ResponseEntity<?> backupDb() {
