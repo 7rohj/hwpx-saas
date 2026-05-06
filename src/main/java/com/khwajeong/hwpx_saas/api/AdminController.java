@@ -11,9 +11,18 @@ import com.khwajeong.hwpx_saas.db.LoginLogEntity;
 import com.khwajeong.hwpx_saas.db.LoginLogRepository;
 import com.khwajeong.hwpx_saas.db.UserEntity;
 import com.khwajeong.hwpx_saas.db.UserRepository;
+import org.springframework.beans.factory.annotation.Value;
+import org.springframework.core.io.FileSystemResource;
+import org.springframework.core.io.Resource;
+import org.springframework.http.HttpHeaders;
+import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.time.OffsetDateTime;
+import java.time.format.DateTimeFormatter;
 import java.util.Comparator;
 import java.util.LinkedHashMap;
 import java.util.List;
@@ -28,6 +37,9 @@ public class AdminController {
     private final LoginLogRepository loginLogRepository;
     private final ApiKeyRepository apiKeyRepository;
     private final AdminSessionRepository adminSessionRepository;
+
+    @Value("${app.db.path:/var/data/hwpx.db}")
+    private String dbPath;
 
     public AdminController(
             UserRepository userRepository,
@@ -69,6 +81,35 @@ public class AdminController {
     @GetMapping("/admin-sessions")
     public List<AdminSessionEntity> adminSessions() {
         return adminSessionRepository.findAll();
+    }
+
+    @GetMapping("/backup/db")
+    public ResponseEntity<?> backupDb() {
+        try {
+            Path path = Path.of(dbPath);
+
+            if (!Files.exists(path)) {
+                return ResponseEntity.status(404).body(error("db file not found: " + dbPath));
+            }
+
+            Resource resource = new FileSystemResource(path);
+
+            String timestamp = OffsetDateTime.now()
+                    .format(DateTimeFormatter.ofPattern("yyyyMMdd-HHmmss"));
+
+            String filename = "hwpx-backup-" + timestamp + ".db";
+
+            return ResponseEntity.ok()
+                    .contentType(MediaType.APPLICATION_OCTET_STREAM)
+                    .header(
+                            HttpHeaders.CONTENT_DISPOSITION,
+                            "attachment; filename=\"" + filename + "\""
+                    )
+                    .body(resource);
+        } catch (Exception e) {
+            e.printStackTrace();
+            return ResponseEntity.status(500).body(error("db backup failed"));
+        }
     }
 
     @PatchMapping("/users/{userId}/grade")

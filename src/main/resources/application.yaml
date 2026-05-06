@@ -1,6 +1,9 @@
 app:
   api-key: "hwpx_saas_local_key"
 
+  db:
+    path: ${HWPX_DB_PATH:/var/data/hwpx.db}
+
   r2:
     account-id: ${R2_ACCOUNT_ID}
     bucket-name: ${R2_BUCKET_NAME}
@@ -12,7 +15,7 @@ app:
 
 spring:
   datasource:
-    url: jdbc:sqlite:hwpx.db
+    url: jdbc:sqlite:${app.db.path}
     driver-class-name: org.sqlite.JDBC
 
   jpa:
