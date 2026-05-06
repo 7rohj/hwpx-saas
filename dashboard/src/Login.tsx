@@ -137,6 +137,14 @@ export default function Login({
             <p className="mt-2 text-sm text-slate-500">
               이메일, 비밀번호 또는 Google 계정으로 로그인해 주세요.
             </p>
+
+            <div className="mt-4 rounded-2xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm leading-6 text-amber-800">
+              <p className="font-semibold">로그인 관련 안내</p>
+              <p className="mt-1">
+                최근 로그인 시스템 설정 변경 과정에서 일부 기존 가입 계정 정보가 누락되었습니다.
+                이용에 불편을 드려 죄송합니다. 로그인이 되지 않는 경우 번거로우시겠지만 다시 회원가입을 진행해 주세요.
+              </p>
+            </div>
           </div>
 
           <div className="relative mb-5">

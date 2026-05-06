@@ -8,6 +8,7 @@ import {
   Activity,
   RefreshCw,
   Search,
+  Download,
 } from "lucide-react"
 
 type AdminPageProps = {
@@ -90,6 +91,7 @@ export default function AdminPage({ onNavigate, onLogout }: AdminPageProps) {
   const [refreshing, setRefreshing] = useState(false)
   const [error, setError] = useState("")
   const [keyword, setKeyword] = useState("")
+  const [backupDownloading, setBackupDownloading] = useState(false)
 
   useEffect(() => {
     const adminToken = localStorage.getItem("adminToken") ?? ""
@@ -197,6 +199,52 @@ export default function AdminPage({ onNavigate, onLogout }: AdminPageProps) {
       setRefreshing(false)
     }
   }
+
+  async function handleDownloadDbBackup() {
+    const adminToken = localStorage.getItem("adminToken") ?? ""
+
+    if (!adminToken) {
+      alert("관리자 토큰이 없습니다.")
+      return
+    }
+
+    try {
+      setBackupDownloading(true)
+
+      const response = await fetch(`${API_BASE_URL}/api/v1/admin/backup/db`, {
+        method: "GET",
+        headers: {
+          "X-Admin-Token": adminToken,
+        },
+        credentials: "include",
+      })
+
+      if (!response.ok) {
+        throw new Error("DB 백업 다운로드에 실패했습니다.")
+      }
+
+      const blob = await response.blob()
+
+      const contentDisposition = response.headers.get("Content-Disposition")
+      const filenameMatch = contentDisposition?.match(/filename="?([^"]+)"?/)
+      const filename = filenameMatch?.[1] ?? `hwpx-backup-${Date.now()}.db`
+
+      const url = window.URL.createObjectURL(blob)
+      const a = document.createElement("a")
+      a.href = url
+      a.download = filename
+      document.body.appendChild(a)
+      a.click()
+      a.remove()
+      window.URL.revokeObjectURL(url)
+    } catch (err) {
+      console.error(err)
+      alert(err instanceof Error ? err.message : "DB 백업 다운로드 중 오류가 발생했습니다.")
+    } finally {
+      setBackupDownloading(false)
+    }
+  }
+
 
   async function handleChangeGrade(userId: number, grade: string) {
     const adminToken = localStorage.getItem("adminToken") ?? ""
@@ -439,6 +487,15 @@ export default function AdminPage({ onNavigate, onLogout }: AdminPageProps) {
                     className="w-full bg-transparent outline-none placeholder:text-[#9aa7bf] sm:w-64"
                   />
                 </div>
+
+                <button
+                  onClick={handleDownloadDbBackup}
+                  disabled={backupDownloading}
+                  className="inline-flex items-center justify-center gap-2 rounded-2xl border border-[#d7e5ff] bg-white px-4 py-3 text-sm font-semibold text-[#1f69ef] hover:bg-[#f5f9ff] disabled:cursor-not-allowed disabled:opacity-50"
+                >
+                  <Download className={`h-4 w-4 ${backupDownloading ? "animate-bounce" : ""}`} />
+                  {backupDownloading ? "백업 다운로드 중..." : "DB 백업 다운로드"}
+                </button>
 
                 <button
                   onClick={reloadAdminData}
