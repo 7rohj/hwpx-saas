@@ -1,9 +1,6 @@
 app:
   api-key: "hwpx_saas_local_key"
 
-  db:
-    path: ${HWPX_DB_PATH:/var/data/hwpx.db}
-
   google-sheet:
     webhook-url: ${GOOGLE_SHEET_WEBHOOK_URL:}
 
@@ -17,16 +14,6 @@ app:
     upload-dir: uploads/compose
 
 spring:
-  datasource:
-    url: jdbc:sqlite:${app.db.path}
-    driver-class-name: org.sqlite.JDBC
-
-  jpa:
-    database-platform: org.hibernate.community.dialect.SQLiteDialect
-    hibernate:
-      ddl-auto: update
-    show-sql: true
-
   mail:
     host: smtp.gmail.com
     port: 587

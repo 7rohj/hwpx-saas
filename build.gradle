@@ -28,7 +28,6 @@ dependencies {
 	implementation 'org.springframework.boot:spring-boot-starter-data-jpa'
 	implementation 'org.springframework.security:spring-security-crypto'
 
-	implementation 'org.hibernate.orm:hibernate-community-dialects:6.4.4.Final'
 	implementation 'org.springdoc:springdoc-openapi-starter-webmvc-ui:2.8.6'
 	
 	implementation "io.github.mumberrymountain:hwpxtemplater:0.1.0-local"
@@ -46,8 +45,6 @@ dependencies {
 	implementation 'org.springframework.boot:spring-boot-starter-security'
 	implementation 'org.springframework.boot:spring-boot-starter-oauth2-client'
 	implementation 'org.springframework.boot:spring-boot-starter-mail'
-
-	runtimeOnly 'org.xerial:sqlite-jdbc:3.46.0.0'
 
 	testImplementation 'org.springframework.boot:spring-boot-starter-test'
 	testRuntimeOnly 'org.junit.platform:junit-platform-launcher'
