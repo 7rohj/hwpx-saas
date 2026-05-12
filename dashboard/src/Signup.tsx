@@ -210,13 +210,6 @@ export default function Signup({ onSignupSuccess, onGoLogin }: SignupProps) {
               이메일 인증 후 계정을 만들 수 있습니다.
             </p>
 
-            <div className="mt-4 rounded-2xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm leading-6 text-amber-800">
-              <p className="font-semibold">기존 가입자 안내</p>
-              <p className="mt-1">
-                최근 로그인 시스템 설정 변경 과정에서 일부 기존 가입 계정 정보가 누락되었습니다.
-                이용에 불편을 드려 죄송합니다. 기존 계정으로 로그인이 되지 않는 경우 재가입을 부탁드립니다.
-              </p>
-            </div>
           </div>
 
           <form onSubmit={handleSignup} className="space-y-4">

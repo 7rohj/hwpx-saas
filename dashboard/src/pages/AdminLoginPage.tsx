@@ -121,15 +121,6 @@ export default function AdminLoginPage({
             ) : null}
 
             <button
-              type="submit"
-              disabled={loading}
-              className="flex w-full items-center justify-center gap-2 rounded-2xl bg-[#1f69ef] px-4 py-3 text-sm font-semibold text-white transition hover:bg-[#1859ca] disabled:cursor-not-allowed disabled:opacity-60"
-            >
-              <Shield className="h-4 w-4" />
-              {loading ? "관리자 로그인 중..." : "관리자 로그인"}
-            </button>
-
-            <button
               type="button"
               onClick={onBackToLogin}
               className="w-full rounded-2xl border border-[#d7e5ff] px-4 py-3 text-sm font-medium text-slate-700 hover:bg-[#f5f9ff]"
