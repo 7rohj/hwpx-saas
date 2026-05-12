@@ -14,11 +14,14 @@ import java.io.FileInputStream;
 import java.util.Arrays;
 import java.util.List;
 
+import java.io.ByteArrayInputStream;
+import java.nio.charset.StandardCharsets;
+
 @Service
 public class GoogleSheetsService {
 
-    @Value("${google.sheets.credentials-path}")
-    private String credentialsPath;
+    @Value("${google.sheets.credentials-json}")
+    private String credentialsJson;
 
     @Value("${google.sheets.spreadsheet-id}")
     private String spreadsheetId;
@@ -27,7 +30,9 @@ public class GoogleSheetsService {
 
         GoogleCredentials credentials =
                 GoogleCredentials.fromStream(
-                                new FileInputStream(credentialsPath)
+                                new ByteArrayInputStream(
+                                        credentialsJson.getBytes(StandardCharsets.UTF_8)
+                                )
                         )
                         .createScoped(List.of(SheetsScopes.SPREADSHEETS));
 
