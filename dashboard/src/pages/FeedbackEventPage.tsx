@@ -29,7 +29,7 @@ type FeedbackItem = {
 }
 
 const API_BASE_URL =
-  import.meta.env.VITE_API_BASE_URL ?? "https://api.autohwpx.com"
+  import.meta.env.VITE_API_BASE_URL ?? "http://localhost:8080"
 
 const MAX_CONTENT_LENGTH = 500
 
@@ -237,14 +237,14 @@ export default function FeedbackEventPage({
                 </div>
 
                 <h1 className="text-4xl font-black tracking-tight sm:text-5xl">
-                  한마디 남기고
+                  응원 한줄 남기고
                   <br />
                   커피 받아가세요 ☕
                 </h1>
 
                 <p className="mt-5 max-w-xl text-base leading-7 text-slate-500">
-                  AutoHWPX를 사용하며 불편했던 점, 추가되었으면 하는 기능,
-                  응원의 한마디를 남겨주세요. 좋은 의견은 실제 서비스 개선에
+                  AutoHWPX를 사용하고 불편했던 점, 추가되었으면 하는 기능,
+                  응원의 한마디를 남겨주세요. 좋은 의견은 실제 서비스에
                   반영하고, 랜덤 추첨으로 스타벅스 기프티콘을 보내드립니다.
                 </p>
 
@@ -253,7 +253,7 @@ export default function FeedbackEventPage({
                     <MessageCircle className="mb-3 h-6 w-6 text-[#1f69ef]" />
                     <p className="text-sm font-bold">의견 작성</p>
                     <p className="mt-1 text-xs text-slate-500">
-                      1분이면 충분해요
+                      1분도 안걸려요
                     </p>
                   </div>
 
@@ -266,7 +266,7 @@ export default function FeedbackEventPage({
                   <div className="bg-slate-50 p-5">
                     <Coffee className="mb-3 h-6 w-6 text-[#1f69ef]" />
                     <p className="text-sm font-bold">스벅 기프티콘</p>
-                    <p className="mt-1 text-xs text-slate-500">감사 선물</p>
+                    <p className="mt-1 text-xs text-slate-500">여름엔 시원한 아아</p>
                   </div>
                 </div>
               </div>
@@ -275,10 +275,29 @@ export default function FeedbackEventPage({
                 onSubmit={handleSubmit}
                 className="flex flex-col justify-center bg-[#0f172a] p-8 text-white sm:p-10"
               >
-                <h2 className="text-2xl font-bold">의견 남기기</h2>
-                <p className="mt-2 text-sm text-slate-300">
-                  최대 500자 · 작성자당 최대 3개
-                </p>
+                <div className="flex items-center gap-3">
+
+                    <h2 className="text-2xl font-bold">
+                      의견 남기기
+                    </h2>
+
+                    <div className="inline-flex items-center rounded-full bg-yellow-300/15 px-3 py-1 text-[11px] font-semibold text-yellow-200">
+                      (~5/31)
+                    </div>
+
+                </div>
+
+                <div className="mt-2 space-y-2">
+
+                    <p className="text-sm text-slate-300">
+                      최대 500자 · 작성자당 최대 3개
+                    </p>
+
+                    <p className="text-xs leading-5 text-slate-400">
+                      이벤트 추첨 및 서비스 운영 목적으로 이메일이 사용될 수 있습니다.
+                    </p>
+
+                </div>
 
                 <textarea
                   value={content}

@@ -182,6 +182,7 @@ export default function Login({
           <div className="relative mb-5">
             {lastLoginMethod === "naver" && <RecentBadge />}
 
+            {/*
             <button
               type="button"
               onClick={handleNaverLogin}
@@ -191,6 +192,7 @@ export default function Login({
 
               네이버로 로그인
             </button>
+            */}
           </div>
 
           <div className="mb-5 flex items-center gap-3">
