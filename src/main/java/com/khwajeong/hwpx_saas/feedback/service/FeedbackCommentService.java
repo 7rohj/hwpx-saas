@@ -3,6 +3,7 @@ package com.khwajeong.hwpx_saas.feedback.service;
 import com.khwajeong.hwpx_saas.feedback.dto.FeedbackCommentRequest;
 import com.khwajeong.hwpx_saas.feedback.entity.FeedbackCommentEntity;
 import com.khwajeong.hwpx_saas.feedback.repository.FeedbackCommentRepository;
+import com.khwajeong.hwpx_saas.google.service.GoogleSheetsService;
 import org.springframework.stereotype.Service;
 
 import java.time.OffsetDateTime;
@@ -12,11 +13,14 @@ import java.util.List;
 public class FeedbackCommentService {
 
     private final FeedbackCommentRepository repository;
+    private final GoogleSheetsService googleSheetsService;
 
     public FeedbackCommentService(
-            FeedbackCommentRepository repository
+            FeedbackCommentRepository repository,
+            GoogleSheetsService googleSheetsService
     ) {
         this.repository = repository;
+        this.googleSheetsService = googleSheetsService;
     }
 
     public FeedbackCommentEntity create(
@@ -50,7 +54,22 @@ public class FeedbackCommentService {
         entity.setContent(content);
         entity.setCreatedAt(OffsetDateTime.now());
 
-        return repository.save(entity);
+        FeedbackCommentEntity saved =
+                repository.save(entity);
+
+        googleSheetsService.appendFeedbackRow(
+                "CREATE",
+                saved.getId(),
+                saved.getUserEmail(),
+                saved.getMaskedName(),
+                saved.getContent(),
+                saved.getCreatedAt().toString(),
+                saved.getUpdatedAt() == null
+                        ? ""
+                        : saved.getUpdatedAt().toString()
+        );
+
+        return saved;
     }
 
     public List<FeedbackCommentEntity> getLatest() {
@@ -75,7 +94,22 @@ public class FeedbackCommentService {
         entity.setContent(req.getContent().trim());
         entity.setUpdatedAt(OffsetDateTime.now());
 
-        return repository.save(entity);
+        FeedbackCommentEntity saved =
+                repository.save(entity);
+
+        googleSheetsService.appendFeedbackRow(
+                "UPDATE",
+                saved.getId(),
+                saved.getUserEmail(),
+                saved.getMaskedName(),
+                saved.getContent(),
+                saved.getCreatedAt().toString(),
+                saved.getUpdatedAt() == null
+                        ? ""
+                        : saved.getUpdatedAt().toString()
+        );
+
+        return saved;
     }
 
     public void delete(Long id, String userEmail) {
@@ -88,6 +122,18 @@ public class FeedbackCommentService {
         if (!entity.getUserEmail().equals(userEmail)) {
             throw new IllegalArgumentException("본인 댓글만 삭제 가능합니다.");
         }
+
+        googleSheetsService.appendFeedbackRow(
+                "DELETE",
+                entity.getId(),
+                entity.getUserEmail(),
+                entity.getMaskedName(),
+                entity.getContent(),
+                entity.getCreatedAt().toString(),
+                entity.getUpdatedAt() == null
+                        ? ""
+                        : entity.getUpdatedAt().toString()
+        );
 
         repository.delete(entity);
     }

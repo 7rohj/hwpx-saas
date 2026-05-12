@@ -13,6 +13,11 @@ app:
   compose:
     upload-dir: uploads/compose
 
+google:
+  sheets:
+    credentials-path: ${GOOGLE_SHEETS_CREDENTIALS_PATH:}
+    spreadsheet-id: ${GOOGLE_SHEETS_FEEDBACK_SPREADSHEET_ID:}
+
 spring:
   mail:
     host: smtp.gmail.com

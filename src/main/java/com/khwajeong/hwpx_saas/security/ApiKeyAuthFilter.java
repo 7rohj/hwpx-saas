@@ -47,6 +47,7 @@ public class ApiKeyAuthFilter extends OncePerRequestFilter {
 
     if (path.startsWith("/api/v1/auth")) return true;
     if (path.startsWith("/api/v1/admin")) return true;
+    if (path.startsWith("/api/v1/feedback/comments")) return true;
     if (path.startsWith("/api/v1/template")) return true;
     if (path.startsWith("/api/v1/generate")) return true;
     if (path.startsWith("/api/v1/dashboard")) return true;
