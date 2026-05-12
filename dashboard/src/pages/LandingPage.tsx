@@ -256,6 +256,22 @@ export default function LandingPage({
             transform: translateY(-16px) rotate(6deg);
           }
         }
+
+        @keyframes rainbowGlow {
+          0% {
+            background-position: 0% 50%;
+            filter: brightness(1);
+          }
+          50% {
+            background-position: 100% 50%;
+            filter: brightness(1.12);
+          }
+          100% {
+            background-position: 0% 50%;
+            filter: brightness(1);
+          }
+        }
+          
       `}</style>
 
       <TopNav
@@ -264,6 +280,15 @@ export default function LandingPage({
         onLogout={onLogout}
         isLoggedIn={isLoggedIn}
       />
+
+      <div className="relative z-20 flex w-full items-center justify-center border-b border-[#ffd9ec] bg-white px-4 py-3 text-center text-sm font-semibold">
+        <span
+          onClick={() => onNavigate("feedback")}
+          className="cursor-pointer bg-[linear-gradient(90deg,#ff4fa3,#ffd600,#2a71fe,#ff4fa3)] bg-[length:300%_300%] bg-clip-text text-transparent transition hover:scale-[1.01] hover:brightness-110 animate-[rainbowGlow_4s_linear_infinite]"
+        >
+          📢 서비스 개선 의견이나 불편했던 점 남겨주시면 랜덤 추첨을 통해 스벅 기프티콘 보내드리고 있어요 ☕
+        </span>
+      </div>
 
       <main className="relative">
         <section className="relative overflow-hidden">

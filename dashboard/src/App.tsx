@@ -13,6 +13,7 @@ import AdminLoginPage from "./pages/AdminLoginPage"
 import AdminPage from "./pages/AdminPage"
 import KoreanImageEditorPage from "./pages/KoreanImageEditorPage"
 import OAuthSuccessPage from "./pages/OAuthSuccessPage"
+import FeedbackEventPage from "./pages/FeedbackEventPage"
 
 type AuthView = "login" | "signup"
 
@@ -31,6 +32,7 @@ export type PageType =
   | "admin"
   | "korean-image-editor"
   | "oauth-success"
+  | "feedback"
 
 export default function App() {
   const [isLoggedIn, setIsLoggedIn] = useState(false)
@@ -179,6 +181,16 @@ export default function App() {
       <ComposeStudioPage
         onNavigate={setCurrentPage}
         onLogout={handleLogout}
+      />
+    )
+  }
+  
+  if (currentPage === "feedback") {
+    return (
+      <FeedbackEventPage
+        onNavigate={setCurrentPage}
+        onLogout={handleLogout}
+        isLoggedIn={isLoggedIn}
       />
     )
   }
