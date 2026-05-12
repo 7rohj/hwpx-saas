@@ -1,9 +1,6 @@
 app:
   api-key: "hwpx_saas_local_key"
 
-  google-sheet:
-    webhook-url: ${GOOGLE_SHEET_WEBHOOK_URL:}
-
   r2:
     account-id: ${R2_ACCOUNT_ID:}
     bucket-name: ${R2_BUCKET_NAME:}
