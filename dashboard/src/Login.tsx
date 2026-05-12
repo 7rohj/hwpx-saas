@@ -4,7 +4,6 @@ import { KeyRound, Mail, Lock } from "lucide-react"
 type LoginProps = {
   onLoginSuccess: () => void
   onGoSignup: () => void
-  onGoAdminLogin?: () => void
 }
 
 const API_BASE_URL = import.meta.env.VITE_API_BASE_URL ?? "https://api.autohwpx.com"
@@ -54,7 +53,6 @@ function mapLoginErrorMessage(message?: string) {
 export default function Login({
   onLoginSuccess,
   onGoSignup,
-  onGoAdminLogin,
 }: LoginProps) {
   const [email, setEmail] = useState("")
   const [password, setPassword] = useState("")
