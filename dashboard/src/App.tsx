@@ -138,7 +138,6 @@ export default function App() {
         <Login
           onLoginSuccess={handleLoginSuccess}
           onGoSignup={() => setAuthView("signup")}
-          onGoAdminLogin={() => setCurrentPage("admin-login")}
         />
       )
     }
