@@ -232,6 +232,7 @@ export default function KoreanImageEditorPage({
         headers: {
           "X-API-Key": apiKey,
         },
+        credentials: "include",
         body: formData,
       })
 

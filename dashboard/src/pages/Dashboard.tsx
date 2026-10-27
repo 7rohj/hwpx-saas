@@ -385,6 +385,7 @@ export default function Dashboard({ onNavigate, onLogout }: DashboardProps) {
         headers: {
           "X-API-Key": apiKey,
         },
+        credentials: "include",
       })
 
       if (!response.ok) {
@@ -454,6 +455,7 @@ export default function Dashboard({ onNavigate, onLogout }: DashboardProps) {
         headers: {
           "X-API-Key": apiKey,
         },
+        credentials: "include",
         body: formData,
       })
 
@@ -515,6 +517,7 @@ export default function Dashboard({ onNavigate, onLogout }: DashboardProps) {
             "Content-Type": "application/json",
             "X-API-Key": apiKey,
           },
+          credentials: "include",
           body: JSON.stringify(parsedBody),
         })
 
@@ -608,6 +611,7 @@ export default function Dashboard({ onNavigate, onLogout }: DashboardProps) {
           "Content-Type": "application/json",
           "X-API-Key": apiKey,
         },
+        credentials: "include",
         body: JSON.stringify({
           templateId: selectedTemplateId,
           outputFilename: "output.hwpx",
@@ -659,6 +663,7 @@ export default function Dashboard({ onNavigate, onLogout }: DashboardProps) {
         headers: {
           "X-API-Key": apiKey,
         },
+        credentials: "include",
       })
 
       const data = await response.json()
@@ -683,6 +688,7 @@ export default function Dashboard({ onNavigate, onLogout }: DashboardProps) {
         headers: {
           "X-API-Key": apiKey,
         },
+        credentials: "include",
       })
 
       if (!response.ok) {

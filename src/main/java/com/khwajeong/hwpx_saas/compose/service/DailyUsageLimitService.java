@@ -38,7 +38,7 @@ public class DailyUsageLimitService {
                 });
 
         if (usage.getCount() >= dailyLimit) {
-            throw new IllegalStateException("데모 버전에서는 하루 5회까지만 실행할 수 있습니다.");
+            throw new IllegalStateException("하루 최대 " + dailyLimit + "회까지 실행할 수 있습니다.");
         }
 
         usage.setCount(usage.getCount() + 1);
