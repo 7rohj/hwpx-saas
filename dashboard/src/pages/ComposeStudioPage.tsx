@@ -2,7 +2,7 @@ import type { PageType } from "../App"
 import type { OverlayBox } from "../components/ComposePageOverlay"
 import TopNav from "../components/TopNav"
 import ComposePageParagraphLayer from "../components/ComposePageParagraphLayer"
-import { useEffect, useMemo, useState } from "react"
+import { useEffect, useMemo, useRef, useState } from "react"
 import {
   FileUp,
   Layers3,
@@ -131,6 +131,21 @@ type PageBlockItem =
       fontInfo: string
       table: TableItem
     }
+
+type VisualEndpoint = {
+  id: string
+  kind: "paragraph" | "table"
+  page: number
+  text: string
+}
+
+type VisualMapping = {
+  label: string
+  template: VisualEndpoint
+  source: VisualEndpoint
+}
+
+type ConnectorLine = { label: string; x1: number; y1: number; x2: number; y2: number }
 
 type SavedSelectionHistoryItem = {
   id: string
@@ -332,6 +347,19 @@ export default function ComposeStudioPage({
   >([])
 
   const [highlightSourceTab, setHighlightSourceTab] = useState(false)
+  // Visual mapping: click a template block, then click a source block.
+  const [templateMappingPage, setTemplateMappingPage] = useState(1)
+  const [sourceMappingPage, setSourceMappingPage] = useState(1)
+  const [pendingTemplate, setPendingTemplate] = useState<VisualEndpoint | null>(null)
+  const [visualMappings, setVisualMappings] = useState<VisualMapping[]>([])
+  const [mappingBusy, setMappingBusy] = useState(false)
+  const [mappingError, setMappingError] = useState("")
+  const [connectorLines, setConnectorLines] = useState<ConnectorLine[]>([])
+  const [pendingConnector, setPendingConnector] = useState<ConnectorLine | null>(null)
+  const mappingContainerRef = useRef<HTMLDivElement | null>(null)
+  const templateMappingRef = useRef<HTMLDivElement | null>(null)
+  const sourceMappingRef = useRef<HTMLDivElement | null>(null)
+
 
   const [creditToast, setCreditToast] = useState<{
     show: boolean
@@ -341,6 +369,137 @@ export default function ComposeStudioPage({
     show: false,
     message: "",
   })
+
+  const templateMappingCount = useMemo(() => fakePageCount(templateParagraphs, templateTables), [templateParagraphs, templateTables])
+  const sourceMappingCount = useMemo(() => fakePageCount(sourceParagraphs, sourceTables), [sourceParagraphs, sourceTables])
+  const visibleTemplateMappingParagraphs = useMemo(() => templateParagraphs.filter(p => p.page == null || p.page === templateMappingPage), [templateParagraphs, templateMappingPage])
+  const visibleTemplateMappingTables = useMemo(() => templateTables.filter(t => t.page == null || t.page === templateMappingPage), [templateTables, templateMappingPage])
+  const visibleSourceMappingParagraphs = useMemo(() => sourceParagraphs.filter(p => p.page == null || p.page === sourceMappingPage), [sourceParagraphs, sourceMappingPage])
+  const visibleSourceMappingTables = useMemo(() => sourceTables.filter(t => t.page == null || t.page === sourceMappingPage), [sourceTables, sourceMappingPage])
+
+  function getMappingEndpoint(side: "template" | "source", kind: "paragraph" | "table", id: string): VisualEndpoint | null {
+    const page = side === "template" ? templateMappingPage : sourceMappingPage
+    if (kind === "paragraph") {
+      const item = (side === "template" ? templateParagraphs : sourceParagraphs).find(p => p.paragraphId === id)
+      return item ? { id, kind, page, text: item.text || "(빈 문단)" } : null
+    }
+    const item = (side === "template" ? templateTables : sourceTables).find(t => t.tableId === id)
+    return item ? { id, kind, page, text: item.cellTexts?.[0]?.join(" | ") || "(빈 표)" } : null
+  }
+
+  async function postVisualSelection(side: "template" | "source", endpoint: VisualEndpoint, label: string) {
+    const res = await fetch(`${API_BASE_URL}/api/v1/compose/selections`, {
+      method: "POST",
+      credentials: "include",
+      headers: { "Content-Type": "application/json", "X-API-Key": localStorage.getItem("apiKey") ?? "" },
+      body: JSON.stringify({
+        sessionId, side, page: endpoint.page, label, blockType: endpoint.kind,
+        ...(endpoint.kind === "paragraph" ? { paragraphId: endpoint.id } : { tableId: endpoint.id }),
+      }),
+    })
+    if (!res.ok) throw new Error(`${side === "template" ? "템플릿" : "원본"} 매핑 저장 실패 (${res.status})`)
+  }
+
+  // The current backend /apply-all recognizes fixed role labels only.
+  // Reuse a label when the same template block is connected to more source blocks.
+  function resolveMappingLabel(template: VisualEndpoint): string | null {
+    const previous = visualMappings.find(m => m.template.kind === template.kind && m.template.id === template.id)
+    if (previous) return previous.label
+    const used = new Set(savedSelectionHistory.map(item => item.label))
+    if (template.kind === "table") {
+      const table = templateTables.find(t => t.tableId === template.id)
+      const preferred = table?.tableKind === "oneline_box" ? "oneline_box" : "table"
+      return used.has(preferred) ? null : preferred
+    }
+    return ["heading1", "heading2", "heading3", "body", "caption"].find(label => !used.has(label)) ?? null
+  }
+
+  async function handleMappingClick(side: "template" | "source", kind: "paragraph" | "table", id: string) {
+    if (!sessionId || mappingBusy) return
+    const endpoint = getMappingEndpoint(side, kind, id)
+    if (!endpoint) return
+    setMappingError("")
+    if (side === "template") { setPendingTemplate(endpoint); return }
+    if (!pendingTemplate) { setMappingError("왼쪽 템플릿에서 서식을 먼저 선택해주세요."); return }
+    if (pendingTemplate.kind !== endpoint.kind) {
+      setMappingError("문단은 문단끼리, 표는 표끼리 연결해주세요.")
+      return
+    }
+    if (visualMappings.some(m => m.source.kind === endpoint.kind && m.source.id === endpoint.id)) {
+      setMappingError("이미 연결된 원본문서 영역입니다.")
+      return
+    }
+    const label = resolveMappingLabel(pendingTemplate)
+    if (!label) {
+      setMappingError("현재 백엔드의 서식 역할 슬롯을 모두 사용했어요. 같은 템플릿 영역을 여러 원본 영역에 연결할 수 있지만, 새로운 서식 종류를 더 추가하려면 백엔드 변경이 필요합니다.")
+      return
+    }
+    const existingTemplate = visualMappings.some(m => m.label === label)
+    setMappingBusy(true)
+    try {
+      if (!existingTemplate) await postVisualSelection("template", pendingTemplate, label)
+      await postVisualSelection("source", endpoint, label)
+      setVisualMappings(prev => [...prev, { label, template: pendingTemplate, source: endpoint }])
+      const savedAt = new Date().toISOString()
+      setSavedSelectionHistory(prev => [
+        ...(!existingTemplate ? [{ id: `${label}_template`, sessionId, side: "template" as const, page: pendingTemplate.page, label,
+          blockType: pendingTemplate.kind, ...(pendingTemplate.kind === "paragraph" ? { paragraphId: pendingTemplate.id } : { tableId: pendingTemplate.id }),
+          displayText: pendingTemplate.text, savedAt }] : []),
+        { id: `${label}_${endpoint.id}_source`, sessionId, side: "source" as const, page: endpoint.page, label,
+          blockType: endpoint.kind, ...(endpoint.kind === "paragraph" ? { paragraphId: endpoint.id } : { tableId: endpoint.id }),
+          displayText: endpoint.text, savedAt },
+        ...prev,
+      ])
+      setPendingTemplate(null)
+      setSavedMessage(`${label} 서식 연결이 자동 저장되었습니다.`)
+    } catch (err) {
+      // This backend does not provide a selection DELETE endpoint. If one POST succeeded,
+      // require a fresh preview session rather than pretending to roll it back.
+      setMappingError(`${err instanceof Error ? err.message : "매핑 저장 실패"}. 일부 선택이 서버에 저장되었을 수 있습니다. 파일 불러오기를 다시 눌러 새 세션으로 시작해주세요.`)
+    } finally { setMappingBusy(false) }
+  }
+
+  // Connect the real preview rectangles, not hardcoded pixel coordinates.
+  function updateConnectorLines() {
+    const container = mappingContainerRef.current
+    if (!container) return
+    const bounds = container.getBoundingClientRect()
+    const findBlock = (root: HTMLDivElement | null, ep: VisualEndpoint) => {
+      if (!root) return null
+      return Array.from(root.querySelectorAll<HTMLElement>("[data-compose-id]")).find(
+        el => el.dataset.composeId === ep.id && el.dataset.composeKind === ep.kind
+      ) ?? null
+    }
+    const lines: ConnectorLine[] = []
+    for (const mapping of visualMappings) {
+      if (mapping.template.page !== templateMappingPage || mapping.source.page !== sourceMappingPage) continue
+      const a = findBlock(templateMappingRef.current, mapping.template)
+      const b = findBlock(sourceMappingRef.current, mapping.source)
+      if (!a || !b) continue
+      const ar = a.getBoundingClientRect(), br = b.getBoundingClientRect()
+      lines.push({ label: mapping.label, x1: ar.right - bounds.left, y1: ar.top + ar.height/2 - bounds.top,
+        x2: br.left - bounds.left, y2: br.top + br.height/2 - bounds.top })
+    }
+    setConnectorLines(lines)
+    if (pendingTemplate && pendingTemplate.page === templateMappingPage) {
+      const selected = findBlock(templateMappingRef.current, pendingTemplate)
+      const target = sourceMappingRef.current
+      if (selected && target) {
+        const a = selected.getBoundingClientRect(), b = target.getBoundingClientRect()
+        setPendingConnector({ label: "pending", x1: a.right - bounds.left, y1: a.top + a.height / 2 - bounds.top,
+          x2: b.left - bounds.left, y2: a.top + a.height / 2 - bounds.top })
+      } else { setPendingConnector(null) }
+    } else { setPendingConnector(null) }
+  }
+
+  useEffect(() => {
+    updateConnectorLines()
+    const listener = () => updateConnectorLines()
+    window.addEventListener("resize", listener)
+    const observer = new ResizeObserver(listener)
+    if (mappingContainerRef.current) observer.observe(mappingContainerRef.current)
+    return () => { window.removeEventListener("resize", listener); observer.disconnect() }
+  }, [visualMappings, pendingTemplate, templateMappingPage, sourceMappingPage, sessionId])
 
   const currentParagraphs = activeSide === "template" ? templateParagraphs : sourceParagraphs
   const currentTables = activeSide === "template" ? templateTables : sourceTables
@@ -492,6 +651,23 @@ export default function ComposeStudioPage({
     }
   }, [templateRole, sourceRole, activeSide, selectedBoxId])
 
+  // 파일 선택은 미리보기 로딩과 별개입니다. 서버 반영은 "파일 불러오기" 클릭 시 시작합니다.
+  function handleSelectDocumentFile(kind: "template" | "source", file: File) {
+    if (!file.name.toLowerCase().endsWith(".hwpx")) {
+      alert(".hwpx 확장자 파일만 업로드할 수 있습니다.")
+      return
+    }
+
+    if (kind === "template") {
+      setTemplateFile(file)
+    } else {
+      setSourceFile(file)
+    }
+    setSessionId("")
+    resetPreviewState()
+    alert("파일 불러오기 버튼을 클릭해주세요.")
+  }
+
   async function loadSampleFile(url: string, filename: string, type: string) {
     const res = await fetch(url)
     if (!res.ok) {
@@ -510,14 +686,14 @@ export default function ComposeStudioPage({
           "sample-template.hwpx",
           "application/octet-stream"
         )
-        setTemplateFile(file)
+        handleSelectDocumentFile("template", file)
       } else {
         const file = await loadSampleFile(
           "/samples/sample-source.hwpx",
           "sample-source.hwpx",
           "application/octet-stream"
         )
-        setSourceFile(file)
+        handleSelectDocumentFile("source", file)
       }
     } catch (err) {
       console.error(err)
@@ -549,11 +725,20 @@ export default function ComposeStudioPage({
     setSavedMessage("")
     setError("")
     setHistorySearch("")
+    setPendingTemplate(null)
+    setVisualMappings([])
+    setMappingError("")
+    setTemplateMappingPage(1)
+    setSourceMappingPage(1)
   }
 
   function handleRemoveSavedHistoryItem(itemId: string) {
     const target = savedSelectionHistory.find((item) => item.id === itemId)
     if (!target) return
+    if (visualMappings.some(m => m.label === target.label)) {
+      alert("시각적 연결은 서버에 저장되어 있어 개별 삭제할 수 없습니다. 연결을 다시 지정하려면 '파일 불러오기'를 눌러 새 세션을 시작해주세요.")
+      return
+    }
 
     setSavedSelectionHistory((prev) => prev.filter((item) => item.id !== itemId))
 
@@ -639,6 +824,10 @@ export default function ComposeStudioPage({
   }
 
   function handleClearPreviewBoxes() {
+    if (visualMappings.length > 0) {
+      alert("연결된 서식은 서버에 저장되어 있습니다. 연결을 초기화하려면 '파일 불러오기'를 다시 눌러 새 세션을 시작해주세요.")
+      return
+    }
     setTemplateBoxes([])
     setSourceBoxes([])
     setSelectedBoxId(null)
@@ -722,6 +911,7 @@ export default function ComposeStudioPage({
       setTemplateBoxes([])
       setSourceBoxes([])
       setSelectedBoxId(null)
+      alert("파일을 정상적으로 불러왔습니다.")
     } catch (err) {
       console.error(err)
       setError(err instanceof Error ? err.message : "업로드 중 오류가 발생했습니다.")
@@ -931,8 +1121,8 @@ export default function ComposeStudioPage({
             ? data
             : data?.message || data?.error || "apply 실패"
 
-        if (message.includes("데모 버전에서는 하루 5회까지만 실행할 수 있습니다")) {
-          throw new Error("데모 버전에서는 하루 5회까지만 실행할 수 있습니다.")
+        if (message.includes("하루 최대 20회까지 실행할 수 있습니다")) {
+          throw new Error("하루 최대 20회까지 실행할 수 있습니다.")
         }
 
         throw new Error(message)
@@ -1218,16 +1408,28 @@ export default function ComposeStudioPage({
 
               <section className="mb-6 grid gap-4 lg:grid-cols-2">
                 {/* 템플릿 */}
-                <div className="border border-[#e0e0e0] bg-white p-6">
+                <div className={`border border-[#e0e0e0] bg-white p-6 ${templateFile && !sessionId ? "autohwpx-upload-pending" : ""}`}>
                   <div className="mb-3 flex items-center gap-2 text-sm font-semibold text-[#0f62fe]">
                     <Layers3 className="h-4 w-4" />
                     템플릿 파일
                   </div>
 
-                  {/* 🔥 업로드 제거 + 안내 */}
-                  <div className="flex h-[56px] items-center justify-center rounded-none border border-dashed border-[#c6c6c6] bg-[#f4f4f4] text-sm text-[#525252]">
-                    데모 버전에서는 샘플 파일만 사용 가능합니다
-                  </div>
+                  {/* 사용자 문서 업로드: 기존 preview API와 파일 상태를 그대로 사용 */}
+                  <label className={`flex h-[56px] items-center justify-center gap-2 rounded-none border border-dashed border-[#c6c6c6] bg-[#f4f4f4] text-sm font-medium text-[#525252] ${uploading ? "cursor-not-allowed opacity-60" : "cursor-pointer hover:border-[#0f62fe] hover:bg-[#edf5ff] hover:text-[#0f62fe]"}`}>
+                    <FileUp className="h-4 w-4" />
+                    파일 업로드 <span className="text-xs text-[#6f6f6f]">(.hwpx 확장자 첨부가능)</span>
+                    <input
+                      type="file"
+                      accept=".hwpx"
+                      className="sr-only"
+                      disabled={uploading}
+                      onChange={(e) => {
+                        const file = e.currentTarget.files?.[0]
+                        if (file) handleSelectDocumentFile("template", file)
+                        e.currentTarget.value = ""
+                      }}
+                    />
+                  </label>
 
                   <div className="mt-2 flex items-center justify-between gap-3">
                     <p className="text-sm text-[#525252]">
@@ -1246,16 +1448,28 @@ export default function ComposeStudioPage({
                 </div>
 
                 {/* 원본문서 */}
-                <div className="border border-[#e0e0e0] bg-white p-6">
+                <div className={`border border-[#e0e0e0] bg-white p-6 ${sourceFile && !sessionId ? "autohwpx-upload-pending" : ""}`}>
                   <div className="mb-3 flex items-center gap-2 text-sm font-semibold text-[#0f62fe]">
                     <Layers3 className="h-4 w-4" />
                     원본문서 파일
                   </div>
 
-                  {/* 🔥 업로드 제거 + 안내 */}
-                  <div className="flex h-[56px] items-center justify-center rounded-none border border-dashed border-[#c6c6c6] bg-[#f4f4f4] text-sm text-[#525252]">
-                    데모 버전에서는 샘플 파일만 사용 가능합니다
-                  </div>
+                  {/* 사용자 문서 업로드: 기존 preview API와 파일 상태를 그대로 사용 */}
+                  <label className={`flex h-[56px] items-center justify-center gap-2 rounded-none border border-dashed border-[#c6c6c6] bg-[#f4f4f4] text-sm font-medium text-[#525252] ${uploading ? "cursor-not-allowed opacity-60" : "cursor-pointer hover:border-[#0f62fe] hover:bg-[#edf5ff] hover:text-[#0f62fe]"}`}>
+                    <FileUp className="h-4 w-4" />
+                    파일 업로드 <span className="text-xs text-[#6f6f6f]">(.hwpx 확장자 첨부가능)</span>
+                    <input
+                      type="file"
+                      accept=".hwpx"
+                      className="sr-only"
+                      disabled={uploading}
+                      onChange={(e) => {
+                        const file = e.currentTarget.files?.[0]
+                        if (file) handleSelectDocumentFile("source", file)
+                        e.currentTarget.value = ""
+                      }}
+                    />
+                  </label>
 
                   <div className="mt-2 flex items-center justify-between gap-3">
                     <p className="text-sm text-[#525252]">
@@ -1274,6 +1488,110 @@ export default function ComposeStudioPage({
                 </div>
               </section>
 
+              {/* Visual style mapping: two documents visible at once. */}
+              <section className="mb-6 border border-[#e0e0e0] bg-white p-5">
+                <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
+                  <div>
+                    <h2 className="text-xl font-bold text-[#161616]">서식 연결하기</h2>
+                    <p className="mt-1 text-sm text-[#525252]">① 왼쪽 템플릿에서 서식 선택 → ② 오른쪽 원본문서에서 적용할 영역 선택. 연결과 선택 저장이 자동으로 완료됩니다.</p>
+                    <p className="mt-1 text-xs text-[#6f6f6f]">같은 템플릿 서식을 여러 원본 영역에 연결할 수 있습니다. 연결을 초기화하려면 파일 불러오기를 다시 눌러주세요.</p>
+                  </div>
+                  <div className="text-sm font-semibold text-[#0f62fe]">연결 {visualMappings.length}개</div>
+                </div>
+                {pendingTemplate ? (
+                  <div className="mb-3 flex items-center justify-between border border-blue-200 bg-blue-50 px-3 py-2 text-sm text-blue-700">
+                    <span>템플릿 선택 완료: {pendingTemplate.text.slice(0, 45)} — 이제 오른쪽 원본문서에서 연결할 부분을 클릭하세요.</span>
+                    <button type="button" onClick={() => setPendingTemplate(null)} className="font-semibold underline">선택 취소</button>
+                  </div>
+                ) : null}
+                {mappingError ? <p role="alert" className="mb-3 text-sm text-red-600">{mappingError}</p> : null}
+                {mappingBusy ? <p role="status" className="mb-3 text-sm text-blue-600">연결을 저장하는 중입니다...</p> : null}
+                <div ref={mappingContainerRef} className="relative">
+                  <div className="grid grid-cols-1 gap-8 lg:grid-cols-2">
+                    <div ref={templateMappingRef} className="min-w-0 border border-[#e0e0e0] bg-[#fafafa] p-3">
+                      <div className="mb-3 flex items-center justify-between gap-2">
+                        <span className="text-sm font-bold text-[#0f62fe]">템플릿 화면 · 서식 가져오기</span>
+                        <div className="flex items-center gap-2 text-xs">
+                          <button type="button" aria-label="템플릿 이전 페이지" disabled={templateMappingPage <= 1} onClick={() => setTemplateMappingPage(p => Math.max(1, p - 1))}><ChevronLeft size={16}/></button>
+                          <span>{templateMappingPage} / {templateMappingCount}</span>
+                          <button type="button" aria-label="템플릿 다음 페이지" disabled={templateMappingPage >= templateMappingCount} onClick={() => setTemplateMappingPage(p => Math.min(templateMappingCount, p + 1))}><ChevronRight size={16}/></button>
+                        </div>
+                      </div>
+                      <div className="autohwpx-mapping-preview" onScrollCapture={updateConnectorLines}>
+                        <ComposePageParagraphLayer
+                          paragraphs={visibleTemplateMappingParagraphs} tables={visibleTemplateMappingTables}
+                          selectedParagraphId={pendingTemplate?.kind === "paragraph" ? pendingTemplate.id : null}
+                          selectedTableId={pendingTemplate?.kind === "table" ? pendingTemplate.id : null}
+                          selectedBoxId={null} boxes={[]} isLoading={uploading}
+                          linkedParagraphIds={visualMappings.filter(m => m.template.page === templateMappingPage && m.template.kind === "paragraph").map(m => m.template.id)}
+                          linkedTableIds={visualMappings.filter(m => m.template.page === templateMappingPage && m.template.kind === "table").map(m => m.template.id)}
+                          onSelectParagraph={id => void handleMappingClick("template", "paragraph", id)}
+                          onSelectTable={id => void handleMappingClick("template", "table", id)}
+                          onSelectBox={() => undefined}
+                        />
+                      </div>
+                    </div>
+                    <div ref={sourceMappingRef} className="min-w-0 border border-[#e0e0e0] bg-[#fafafa] p-3">
+                      <div className="mb-3 flex items-center justify-between gap-2">
+                        <span className="text-sm font-bold text-[#0f62fe]">원본문서 화면 · 서식 적용하기</span>
+                        <div className="flex items-center gap-2 text-xs">
+                          <button type="button" aria-label="원본문서 이전 페이지" disabled={sourceMappingPage <= 1} onClick={() => setSourceMappingPage(p => Math.max(1, p - 1))}><ChevronLeft size={16}/></button>
+                          <span>{sourceMappingPage} / {sourceMappingCount}</span>
+                          <button type="button" aria-label="원본문서 다음 페이지" disabled={sourceMappingPage >= sourceMappingCount} onClick={() => setSourceMappingPage(p => Math.min(sourceMappingCount, p + 1))}><ChevronRight size={16}/></button>
+                        </div>
+                      </div>
+                      <div className="autohwpx-mapping-preview" onScrollCapture={updateConnectorLines}>
+                        <ComposePageParagraphLayer
+                          paragraphs={visibleSourceMappingParagraphs} tables={visibleSourceMappingTables}
+                          selectedParagraphId={null} selectedTableId={null} selectedBoxId={null}
+                          boxes={[]} isLoading={uploading}
+                          linkedParagraphIds={visualMappings.filter(m => m.source.page === sourceMappingPage && m.source.kind === "paragraph").map(m => m.source.id)}
+                          linkedTableIds={visualMappings.filter(m => m.source.page === sourceMappingPage && m.source.kind === "table").map(m => m.source.id)}
+                          onSelectParagraph={id => void handleMappingClick("source", "paragraph", id)}
+                          onSelectTable={id => void handleMappingClick("source", "table", id)}
+                          onSelectBox={() => undefined}
+                        />
+                      </div>
+                    </div>
+                  </div>
+                  {/* SVG uses real DOM rectangles; the layer never intercepts clicks. */}
+                  <svg aria-hidden="true" className="pointer-events-none absolute inset-0 hidden h-full w-full overflow-visible lg:block" xmlns="http://www.w3.org/2000/svg">
+                    {pendingConnector ? (
+                      <g>
+                        <path d={`M ${pendingConnector.x1} ${pendingConnector.y1} C ${pendingConnector.x1 + 28} ${pendingConnector.y1}, ${pendingConnector.x2 - 28} ${pendingConnector.y2}, ${pendingConnector.x2} ${pendingConnector.y2}`}
+                          stroke="#0f62fe" strokeWidth="2" strokeDasharray="6 5" fill="none" />
+                        <circle cx={pendingConnector.x1} cy={pendingConnector.y1} r="5" fill="#0f62fe" stroke="white" strokeWidth="2" />
+                      </g>
+                    ) : null}
+                    {connectorLines.map((line, index) => (
+                      <g key={line.label}>
+                        <path d={`M ${line.x1} ${line.y1} C ${line.x1 + 30} ${line.y1}, ${line.x2 - 30} ${line.y2}, ${line.x2} ${line.y2}`}
+                          fill="none" stroke={index % 2 ? "#e49b0f" : "#0f62fe"} strokeWidth="2.5" />
+                        <circle cx={line.x1} cy={line.y1} r="5" fill="#0f62fe" stroke="white" strokeWidth="2" />
+                        <circle cx={line.x2} cy={line.y2} r="5" fill="#0f62fe" stroke="white" strokeWidth="2" />
+                      </g>
+                    ))}
+                  </svg>
+                </div>
+                {visualMappings.length ? (
+                  <div className="mt-4 space-y-2">
+                    {visualMappings.map((mapping, index) => (
+                      <div key={mapping.label} className="flex items-center gap-2 border border-[#e0e0e0] bg-[#f8fbff] px-3 py-2 text-xs">
+                        <span className="font-bold text-[#0f62fe]">연결 {index + 1}</span>
+                        <span className="min-w-0 flex-1 truncate" title={mapping.template.text}>{mapping.template.text}</span>
+                        <span aria-hidden="true">→</span>
+                        <span className="min-w-0 flex-1 truncate" title={mapping.source.text}>{mapping.source.text}</span>
+                        <span className="shrink-0 text-emerald-700">저장됨</span>
+                      </div>
+                    ))}
+                  </div>
+                ) : null}
+              </section>
+
+              {/* Previous manual selection UI is retained as an optional advanced fallback. */}
+              <details className="mb-6 border border-[#e0e0e0] bg-white p-4">
+                <summary className="cursor-pointer text-sm font-semibold text-[#525252]">기존 방식으로 수동 선택하기 (고급)</summary>
+                <div className="mt-4">
               <section className="grid gap-6 lg:grid-cols-[1.5fr_0.95fr]">
                 <div className="border border-[#e0e0e0] bg-white p-6">
                   <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
@@ -1304,13 +1622,24 @@ export default function ComposeStudioPage({
                     </div>
 
                     <div className="flex items-center gap-2">
-                      <button
-                        type="button"
-                        onClick={handleClearPreviewBoxes}
-                        className="inline-flex items-center gap-2 rounded-none border border-red-100 bg-red-50 px-3 py-2 text-sm font-semibold text-red-500 transition hover:bg-red-100"
-                      >
-                        <RefreshCcw className="h-4 w-4" />
-                      </button>
+                      <div className="group relative inline-flex">
+                        <button
+                          type="button"
+                          onClick={handleClearPreviewBoxes}
+                          aria-label="지정된 내용 초기화"
+                          aria-describedby="clear-selection-tooltip"
+                          className="inline-flex items-center gap-2 rounded-none border border-red-100 bg-red-50 px-3 py-2 text-sm font-semibold text-red-500 transition hover:bg-red-100"
+                        >
+                          <RefreshCcw className="h-4 w-4" />
+                        </button>
+                        <span
+                          id="clear-selection-tooltip"
+                          role="tooltip"
+                          className="pointer-events-none absolute bottom-full left-1/2 z-30 mb-2 w-max max-w-[240px] -translate-x-1/2 rounded bg-[#262626] px-3 py-2 text-xs font-medium text-white opacity-0 shadow-md transition-opacity group-hover:opacity-100 group-focus-within:opacity-100"
+                        >
+                          지정된 내용을 초기화합니다
+                        </span>
+                      </div>
 
                       <button
                         onClick={() => setCurrentPage((prev) => Math.max(1, prev - 1))}
@@ -1656,6 +1985,9 @@ export default function ComposeStudioPage({
                   )}
                 </div>
               </section>
+
+                </div>
+              </details>
 
               {applyResult ? (
                 <section className="mt-6 rounded-none border border-[#e0e0e0] bg-white p-6">

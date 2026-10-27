@@ -1,0 +1,27 @@
+--- a/src/main/java/com/khwajeong/hwpx_saas/compose/service/ComposeApplyRunnerService.java
++++ b/src/main/java/com/khwajeong/hwpx_saas/compose/service/ComposeApplyRunnerService.java
+@@ -206,7 +206,9 @@
+                             Collectors.toList()
+                     ));
+ 
+-            List<String> applyOrder = List.of(
++            // Preserve legacy role order, then process user-defined visual mappings.
++            // Labels act as pairing keys; actual application is based on block type.
++            List<String> applyOrder = new ArrayList<>(List.of(
+                     "heading1",
+                     "heading2",
+                     "heading3",
+@@ -215,7 +217,12 @@
+                     "caption",
+                     "oneline_box",
+                     "table"
+-            );
++            ));
++            for (String label : templateMap.keySet()) {
++                if (sourceMap.containsKey(label) && !applyOrder.contains(label)) {
++                    applyOrder.add(label);
++                }
++            }
+ 
+             Path workingSourcePath = session.getSourcePath();
+             List<String> appliedLabels = new ArrayList<>();

@@ -25,3 +25,40 @@ html, body, #root {
 .custom-scroll::-webkit-scrollbar-thumb:hover {
   background-color: #94a3b8;
 }
+/* 파일 선택 후 "파일 불러오기"를 누르도록 업로드 카드를 강조 */
+@keyframes autohwpx-canary-border-blink {
+  0%, 100% { border-color: #d4a000; box-shadow: inset 0 0 0 2px #d4a000; }
+  50% { border-color: #fff3b0; box-shadow: inset 0 0 0 2px transparent; }
+}
+
+.autohwpx-upload-pending {
+  animation: autohwpx-canary-border-blink 1.15s ease-in-out infinite;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .autohwpx-upload-pending {
+    animation: none;
+    border-color: #d4a000;
+    box-shadow: inset 0 0 0 2px #d4a000;
+  }
+}
+
+/* Visual mapping: preserve full-page preview geometry and show connected targets. */
+.autohwpx-mapping-preview > div { height: 560px; border-radius: 6px; }
+.autohwpx-mapping-preview .autohwpx-linked-block {
+  outline: 2px solid #0f62fe;
+  outline-offset: 2px;
+  background-color: rgba(15,98,254,0.08) !important;
+}
+.autohwpx-mapping-preview .autohwpx-linked-block::after {
+  content: "";
+  position: absolute;
+  right: -7px;
+  top: calc(50% - 5px);
+  width: 10px;
+  height: 10px;
+  background: #0f62fe;
+  border: 2px solid white;
+  border-radius: 50%;
+  box-shadow: 0 0 0 1px #0f62fe;
+}

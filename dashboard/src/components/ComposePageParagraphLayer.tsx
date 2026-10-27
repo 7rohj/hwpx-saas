@@ -105,6 +105,8 @@ type ComposePageParagraphLayerProps = {
   onSelectParagraph: (paragraphId: string) => void
   onSelectTable: (tableId: string) => void
   onSelectBox: (boxId: string) => void
+  linkedParagraphIds?: string[]
+  linkedTableIds?: string[]
 }
 
 type RenderParagraphBlock = {
@@ -562,6 +564,8 @@ export default function ComposePageParagraphLayer({
   onSelectParagraph,
   onSelectTable,
   onSelectBox,
+  linkedParagraphIds = [],
+  linkedTableIds = [],
 }: ComposePageParagraphLayerProps) {
   const renderBlocks = useMemo<RenderBlock[]>(() => {
     const rawBlocks: RenderBlock[] = [
@@ -683,11 +687,13 @@ export default function ComposePageParagraphLayer({
             return (
               <button
                 key={t.tableId}
+                data-compose-id={t.tableId}
+                data-compose-kind="table"
                 type="button"
                 onClick={() => onSelectTable(t.tableId)}
                 className={`absolute text-left transition ${
                   selected ? "ring-2 ring-[#1f69ef]" : "hover:bg-slate-50/20"
-                }`}
+                } ${linkedTableIds.includes(t.tableId) ? "autohwpx-linked-block" : ""}`}
                 style={{
                   left,
                   top,
@@ -883,9 +889,11 @@ export default function ComposePageParagraphLayer({
           return (
             <button
               key={p.paragraphId}
+              data-compose-id={p.paragraphId}
+              data-compose-kind="paragraph"
               type="button"
               onClick={() => onSelectParagraph(p.paragraphId)}
-              className={`absolute rounded-md px-2 py-1 transition ${
+              className={`absolute rounded-md px-2 py-1 transition ${linkedParagraphIds.includes(p.paragraphId) ? "autohwpx-linked-block" : ""} ${
                 selected
                   ? "bg-[#e8f1ff] ring-1 ring-[#1f69ef]"
                   : "hover:bg-slate-50"

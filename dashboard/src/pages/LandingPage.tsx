@@ -1,7 +1,6 @@
 import { useEffect, useState } from "react"
 import type { PageType } from "../App"
 import TopNav from "../components/TopNav"
-import DemoPopup from "../components/DemoPopup"
 
 type LandingPageProps = {
   onNavigate: (page: PageType) => void
@@ -175,15 +174,6 @@ export default function LandingPage({
   const [currentWordIndex, setCurrentWordIndex] = useState(0)
   const [typedWord, setTypedWord] = useState("")
   const [isDeleting, setIsDeleting] = useState(false)
-  const [showPopup, setShowPopup] = useState(true)
-
-  useEffect(() => {
-    const hidden = localStorage.getItem("hideDemoPopup")
-    if (hidden === "true") {
-      setShowPopup(false)
-    }
-  }, [])
-
   useEffect(() => {
     const currentWord = ROTATING_WORDS[currentWordIndex]
     let timeoutId: number
@@ -209,11 +199,6 @@ export default function LandingPage({
 
     return () => window.clearTimeout(timeoutId)
   }, [typedWord, isDeleting, currentWordIndex])
-
-  function handleShowDemoPopupAgain() {
-    localStorage.removeItem("hideDemoPopup")
-    setShowPopup(true)
-  }
 
   return (
     <div className="relative min-h-screen overflow-hidden bg-white text-slate-900">
@@ -331,15 +316,6 @@ export default function LandingPage({
         © 2026 AutoHWPX. All rights reserved.
       </footer>
 
-      <button
-        type="button"
-        onClick={handleShowDemoPopupAgain}
-        className="fixed bottom-5 right-5 z-50 rounded-full border border-slate-200 bg-white px-4 py-2 text-xs font-medium text-slate-500 shadow-sm transition hover:text-slate-700 hover:shadow-md"
-      >
-        팝업 안내 다시 보기
-      </button>
-
-      {showPopup && <DemoPopup onClose={() => setShowPopup(false)} />}
     </div>
   )
 }
